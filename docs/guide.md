@@ -1,4 +1,4 @@
-# ONS Flask Auth Template (POCs only) Guide
+# Survey Assist SAYT UI (POCs only) Guide
 
 ## Overview
 
@@ -51,7 +51,7 @@ tbd
 
 ## Contributing
 
-Please refer to the project's [contribution guidelines](https://github.com/ONSdigital/ons-flask-auth-template/blob/main/CONTRIBUTING.md) for information on:
+Please refer to the project's [contribution guidelines](https://github.com/ONSdigital/survey-assist-sayt-ui/blob/main/CONTRIBUTING.md) for information on:
 - Code style
 - Testing requirements
 - Documentation standards

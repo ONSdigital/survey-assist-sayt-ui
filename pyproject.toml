@@ -1,5 +1,5 @@
 [project]
-name = "ons-flask-auth-template"
+name = "survey-assist-sayt-ui"
 version = "0.1.0"
 description = "Containerised Flask template using the ONS Design System and lightweight password authentication."
 authors = [
@@ -8,7 +8,7 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
 license = "MIT"
-packages = [{ include = "ons_flask_auth_template", from = "src" }]
+packages = [{ include = "survey_assist_sayt_ui", from = "src" }]
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -40,7 +40,7 @@ line-length = 100
 select = ["E", "F", "W", "I", "N", "B", "UP"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["ons_flask_auth_template"]
+known-first-party = ["survey_assist_sayt_ui"]
 force-sort-within-sections = true
 
 [tool.mypy]
@@ -55,7 +55,7 @@ addopts = "-ra"
 
 [tool.coverage.run]
 branch = true
-source = ["src/ons_flask_auth_template"]
+source = ["src/survey_assist_sayt_ui"]
 
 [tool.coverage.report]
 show_missing = true

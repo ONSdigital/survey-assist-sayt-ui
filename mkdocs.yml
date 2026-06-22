@@ -1,4 +1,4 @@
-site_name: ONS Flask Auth Template (POCs only)
+site_name: Survey Assist SAYT UI (POCs only)
 nav:
   - Home: index.md
   - Guide: guide.md

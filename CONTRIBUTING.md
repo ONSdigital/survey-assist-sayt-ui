@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for contributing to ONS Flask Auth Template.
+Thank you for contributing to Survey Assist SAYT UI.
 
 This document describes the recommended development workflow, coding standards, commit conventions, testing requirements, and pull request process.
 
@@ -20,8 +20,8 @@ Before contributing, ensure the following software is installed:
 ### Clone the Repository
 
 ```shell
-git clone https://github.com/ONSdigital/ons-flask-auth-template.git
-cd ons-flask-auth-template
+git clone https://github.com/ONSdigital/survey-assist-sayt-ui.git
+cd survey-assist-sayt-ui
 ```
 
 ### Install Dependencies

@@ -10,7 +10,7 @@ from typing import Any
 
 from google.cloud import storage
 
-from ons_flask_auth_template.config import Settings
+from survey_assist_sayt_ui.config import Settings
 
 from .password_utils import verify_password
 

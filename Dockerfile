@@ -46,4 +46,4 @@ RUN chown -R app:app /app
 USER app
 
 EXPOSE 8000
-CMD ["/bin/sh", "-c", "exec python -m gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 2 --threads 8 --timeout 60 --chdir /app/src 'ons_flask_auth_template.app:create_app()'"]
+CMD ["/bin/sh", "-c", "exec python -m gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 2 --threads 8 --timeout 60 --chdir /app/src 'survey_assist_sayt_ui.app:create_app()'"]

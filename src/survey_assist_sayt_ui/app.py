@@ -1,4 +1,4 @@
-"""Flask application factory for the ONS Flask auth template."""
+"""Flask application factory for the Survey Assist SAYT UI."""
 
 from __future__ import annotations
 

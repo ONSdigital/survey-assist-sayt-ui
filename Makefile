@@ -3,8 +3,8 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 PY ?= python
-PKG ?= ons_flask_auth_template
-IMAGE_NAME ?= ons-flask-auth-template
+PKG ?= survey_assist_sayt_ui
+IMAGE_NAME ?= survey-assist-sayt-ui
 
 .PHONY: help all clean install templates run run-docs all-tests test lint format \
 	check-python check-python-nofix \
@@ -48,19 +48,19 @@ all-tests: ## Run all tests with coverage and fail if coverage is below 70%
 check-python: ## Format and lint the python code (auto fix)
 	poetry run ruff check . --fix
 	poetry run ruff format .
-	poetry run mypy --follow-untyped-imports src/ons_flask_auth_template
+	poetry run mypy --follow-untyped-imports src/survey_assist_sayt_ui
 	poetry run pylint --verbose .
-	poetry run bandit -r src/ons_flask_auth_template
+	poetry run bandit -r src/survey_assist_sayt_ui
 
 check-python-nofix: ## Format and lint the python code (no fix)
 	poetry run ruff check .
 	poetry run ruff format --check .
-	poetry run mypy --follow-untyped-imports src/ons_flask_auth_template
+	poetry run mypy --follow-untyped-imports src/survey_assist_sayt_ui
 	poetry run pylint --verbose .
-	poetry run bandit -r src/ons_flask_auth_template
+	poetry run bandit -r src/survey_assist_sayt_ui
 
 docker-build:  ## Build the Docker image.
-	docker build -t ons-flask-auth-template .
+	docker build -t survey-assist-sayt-ui .
 
 docker-run:  ## Run the Docker container.
 	docker run \
@@ -68,10 +68,10 @@ docker-run:  ## Run the Docker container.
 		-p 8000:8000 \
 		-v $(PWD)/users.json:/app/users.json:ro \
 		--env-file .env \
-		ons-flask-auth-template
+		survey-assist-sayt-ui
 
 podman-build:  ## Build the Podman image.
-	podman build -t ons-flask-auth-template .
+	podman build -t survey-assist-sayt-ui .
 
 podman-run:  ## Run the Podman container.
 	podman run \
@@ -79,7 +79,7 @@ podman-run:  ## Run the Podman container.
 		-p 8000:8000 \
 		-v $(PWD)/users.json:/app/users.json:ro \
 		--env-file .env \
-		ons-flask-auth-template
+		survey-assist-sayt-ui
 
 provision-user:  ## Provision a new user in the local users.json file.
 	poetry run python scripts/provision_users.py

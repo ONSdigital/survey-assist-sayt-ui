@@ -7,6 +7,6 @@ __pycache__/
 htmlcov/
 .env
 users.json
-src/ons_flask_auth_template/templates/components/
-src/ons_flask_auth_template/templates/layout/
+src/survey_assist_sayt_ui/templates/components/
+src/survey_assist_sayt_ui/templates/layout/
 .DS_Store

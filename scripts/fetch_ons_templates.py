@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION_FILE = ROOT / ".design-system-version"
-TARGET_DIR = ROOT / "src" / "ons_flask_auth_template" / "templates"
+TARGET_DIR = ROOT / "src" / "survey_assist_sayt_ui" / "templates"
 GITHUB_API_BASE = "https://api.github.com/repos/ONSdigital/design-system/releases"
 
 

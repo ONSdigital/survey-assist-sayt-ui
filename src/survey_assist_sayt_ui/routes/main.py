@@ -5,7 +5,7 @@ from __future__ import annotations
 from flask import Blueprint, render_template, session
 from flask.typing import ResponseReturnValue
 
-from ons_flask_auth_template.auth.decorators import SESSION_USER_KEY, login_required
+from survey_assist_sayt_ui.auth.decorators import SESSION_USER_KEY, login_required
 
 main_blueprint = Blueprint("main", __name__)
 

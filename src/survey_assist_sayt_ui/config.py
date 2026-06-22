@@ -21,7 +21,7 @@ class Settings:
     """
 
     secret_key: str
-    service_name: str = "ONS Flask Auth Template"
+    service_name: str = "Survey Assist SAYT UI"
     auth_mode: str = "local"
     local_users_file: str = "users.json"
     gcp_auth_bucket_name: str | None = None
@@ -53,7 +53,7 @@ def load_settings() -> Settings:
     """
     return Settings(
         secret_key=os.getenv("FLASK_SECRET_KEY", "dev-only-change-me"),
-        service_name=os.getenv("SERVICE_NAME", "ONS Flask Auth Template"),
+        service_name=os.getenv("SERVICE_NAME", "Survey Assist SAYT UI"),
         auth_mode=os.getenv("AUTH_MODE", "local").strip().lower(),
         local_users_file=os.getenv("LOCAL_USERS_FILE", "users.json"),
         gcp_auth_bucket_name=os.getenv("GCP_AUTH_BUCKET_NAME"),
