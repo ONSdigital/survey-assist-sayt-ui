@@ -29,7 +29,7 @@ make all-tests   # Run all tests with coverage for the entire project
 ```
 
 The tests include coverage requirements:
-- Minimum 70% coverage for each module
+- Minimum 80% coverage for each module
 - Coverage reports showing missing lines
 
 ### Code Quality
