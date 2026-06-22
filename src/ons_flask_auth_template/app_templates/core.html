@@ -1,0 +1,206 @@
+{% extends "layout/_template.njk" %}
+
+{#
+    core.html
+
+    Shared ONS page shell for the Flask auth template.
+
+    Child templates should:
+      - extend this file
+      - set page_title, current_path, breadcrumbs, etc. where needed
+      - import only the ONS macros they directly use
+      - fill the pageContent block
+
+    Example child template:
+
+      {% extends "core.html" %}
+      {%- set page_title = "Sign in" -%}
+      {%- set current_path = url_for("auth.check_login") -%}
+
+      {% block pageContent %}
+          ...
+      {% endblock %}
+#}
+
+{# -------------------------------------------------------------------------
+   Shared service configuration
+   ------------------------------------------------------------------------- #}
+
+{% set service_name = service_name | default("ONS Flask Auth Template Prototype", true) %}
+{% set service_description = service_description | default("Prototype Flask authentication template using the ONS Design System", true) %}
+{% set service_email = service_email | default("survey.assist@ons.gov.uk", true) %}
+{% set service_url = service_url | default("/", true) %}
+
+{% set page_title_value = page_title | default(service_name, true) %}
+{% set current_path = current_path | default("/", true) %}
+{% set breadcrumbs = breadcrumbs | default([], true) %}
+
+{% set page_col_number = page_col_number | default("12", true) %}
+{% set sidebar_col_number = sidebar_col_number | default(12, true) %}
+{% set main_classes = main_classes | default("ons-u-mt-m", true) %}
+
+{% set show_cookies_banner = show_cookies_banner | default(true, true) %}
+{% set show_phase_banner = show_phase_banner | default(true, true) %}
+{% set phase_banner_text = phase_banner_text | default("This is a new service. To help us improve it, ", true) %}
+{% set feedback_subject = feedback_subject | default("Feedback for " ~ service_name, true) %}
+
+{# -------------------------------------------------------------------------
+   Navigation
+   ------------------------------------------------------------------------- #}
+
+{% set navigation_items = navigation_items | default([
+    {
+        "url": url_for("main.index"),
+        "title": "Home"
+    }
+], true) %}
+
+{% set navigation = {
+    "id": "main-navigation",
+    "itemsList": navigation_items,
+    "currentPath": current_path
+} %}
+
+{# -------------------------------------------------------------------------
+   Header
+   ------------------------------------------------------------------------- #}
+
+{% set header_config = header | default({
+    "title": service_name,
+    "orgLogoHref": "https://www.ons.gov.uk",
+    "titleLogoHref": service_url,
+    "mastheadLogo": {
+        "large": "<img class=\"logo\" src=\"https://cdn.ons.gov.uk/assets/images/ons-logo/v2/ons-logo.svg\" height=\"150\" width=\"250\" alt=\"Office for National Statistics logo\">"
+    },
+    "titleLogo": service_url,
+    "navigation": navigation
+}, true) %}
+
+{# -------------------------------------------------------------------------
+   Footer
+   ------------------------------------------------------------------------- #}
+
+{% set footer_config = footer | default({
+    "cols": [
+        {
+            "title": "About " ~ service_name,
+            "itemsList": [
+                {
+                    "text": "What is it?",
+                    "external": true,
+                    "url": "https://www.ons.gov.uk/surveys/informationforbusinesses/aboutonsbusinesssurveys"
+                },
+                {
+                    "text": "Expected upload file format",
+                    "external": true,
+                    "url": "https://www.ons.gov.uk/surveys/informationforbusinesses/respondentcharterforbusinesssurveys"
+                },
+                {
+                    "text": service_name ~ " Python package",
+                    "external": true,
+                    "url": "https://www.ons.gov.uk/surveys/informationforbusinesses/businesssurveys"
+                }
+            ]
+        }
+    ],
+    "legal": [
+        {
+            "itemsList": [
+                {
+                    "text": "Cookies",
+                    "url": url_for("main.cookies")
+                },
+                {
+                    "text": "Accessibility statement",
+                    "url": url_for("main.accessibility")
+                },
+                {
+                    "text": "Privacy and data protection",
+                    "url": url_for("main.privacy")
+                }
+            ]
+        }
+    ],
+    "oglLink": true
+}, true) %}
+
+{# -------------------------------------------------------------------------
+   ONS base page template config
+   ------------------------------------------------------------------------- #}
+
+{% set pageConfig = {
+    "meta": {
+        "canonicalUrl": canonical_url | default(service_url, true),
+        "description": meta_description | default(service_description, true)
+    },
+    "title": page_title_value,
+    "header": header_config,
+    "pageColNumber": page_col_number,
+    "sidebarColNumber": sidebar_col_number,
+    "mainClasses": main_classes,
+    "breadcrumbs": breadcrumbs,
+    "navigation": navigation,
+    "footer": footer_config
+} %}
+
+{# -------------------------------------------------------------------------
+   Optional page-specific head content
+   ------------------------------------------------------------------------- #}
+
+{% block head %}
+{% endblock %}
+
+{# -------------------------------------------------------------------------
+   Content rendered before the ONS header
+   ------------------------------------------------------------------------- #}
+
+{% block preHeader %}
+    {% if show_cookies_banner %}
+        {% from "components/cookies-banner/_macro.njk" import onsCookiesBanner %}
+        {{
+            onsCookiesBanner({
+                "serviceName": service_name
+            })
+        }}
+    {% endif %}
+
+    {% if show_phase_banner %}
+        {% from "components/phase-banner/_macro.njk" import onsPhaseBanner %}
+
+        {% set feedback_link %}
+            <a href="mailto:{{ service_email }}?subject={{ feedback_subject | urlencode }}">give feedback</a>
+        {% endset %}
+
+        {{
+            onsPhaseBanner({
+                "html": phase_banner_text ~ feedback_link
+            })
+        }}
+    {% endif %}
+{% endblock %}
+
+{# -------------------------------------------------------------------------
+   Shared ONS header
+   ------------------------------------------------------------------------- #}
+
+{% block header %}
+    {% from "components/header/_macro.njk" import onsHeader %}
+    {{ onsHeader(pageConfig.header) }}
+{% endblock %}
+
+{# -------------------------------------------------------------------------
+   Main page content
+   ------------------------------------------------------------------------- #}
+
+{% block pageContent %}
+    <div class="ons-page__container ons-container">
+        <div class="ons-grid">
+            <div class="ons-grid__col {{ main_col_class }}">
+                <main id="main-content" class="ons-page__main">
+                    {% block main %}
+                    {% endblock %}
+                </main>
+            </div>
+        </div>
+    </div>
+{% endblock %}

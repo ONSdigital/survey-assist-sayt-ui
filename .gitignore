@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.env
+users.json
+src/ons_flask_auth_template/templates/components/
+src/ons_flask_auth_template/templates/layout/
+.DS_Store

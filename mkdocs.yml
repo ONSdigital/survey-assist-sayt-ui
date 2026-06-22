@@ -1,0 +1,6 @@
+site_name: ONS Flask Auth Template (POCs only)
+nav:
+  - Home: index.md
+  - Guide: guide.md
+theme:
+  name: material

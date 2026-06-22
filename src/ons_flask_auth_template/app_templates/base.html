@@ -1,0 +1,17 @@
+{% extends "layout/_template.njk" %}
+
+{% set pageConfig = {
+  "title": page_title ~ " - " ~ settings.service_name,
+  "serviceName": settings.service_name,
+  "cdn": {
+    "url": "https://cdn.ons.gov.uk/sdc/design-system/"
+  }
+} %}
+
+{% block main %}
+<main id="main" class="ons-page__main ons-u-mt-l" role="main">
+  <div class="ons-container">
+    {% block content %}{% endblock %}
+  </div>
+</main>
+{% endblock %}
