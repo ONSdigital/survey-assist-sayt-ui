@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flask import Blueprint, render_template, session
+from flask import Blueprint, render_template, request, session
 from flask.typing import ResponseReturnValue
 
 from survey_assist_sayt_ui.auth.decorators import SESSION_USER_KEY, login_required
@@ -21,6 +21,42 @@ def index() -> ResponseReturnValue:
     return render_template(
         "index.html",
         page_title="Home",
+        authenticated_user=session.get(SESSION_USER_KEY),
+    )
+
+
+@main_blueprint.get("/standard-autosuggest")
+@login_required
+def standard_autosuggest() -> ResponseReturnValue:
+    """Render the protected autosuggest page.
+
+    Returns:
+        ResponseReturnValue: Autosuggest page template response.
+    """
+    return render_template(
+        "business_activity.html",
+        business_activity="",
+        business_activity_not_listed=False,
+        error_message=None,
+        page_title="Business activity",
+        authenticated_user=session.get(SESSION_USER_KEY),
+    )
+
+
+@main_blueprint.route("/save-response", methods=["POST"])
+@login_required
+def save_response() -> ResponseReturnValue:
+    """Saves the response to the selection.
+
+    Returns:
+        ResponseReturnValue: Redirect or error response.
+    """
+    selected = request.form.get("business_activity")
+
+    return render_template(
+        "confirmation.html",
+        page_title="Confirmation",
+        selected=selected,
         authenticated_user=session.get(SESSION_USER_KEY),
     )
 

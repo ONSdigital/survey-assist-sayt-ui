@@ -2,7 +2,7 @@
 
 {%- set page_title = settings.service_name -%}
 {%- set page_heading = settings.service_name -%}
-{%- set current_path = url_for("main.index") -%}
+{%- set current_path = url_for("main.save_response") -%}
 {%- set main_col_class = "ons-col-8@m" -%}
 
 {% from "components/panel/_macro.njk" import onsPanel %}
@@ -14,27 +14,21 @@
     <p>You are signed in as <strong>{{ authenticated_user }}</strong>.</p>
 
     <div class="ons-u-mb-m">
-        {{ onsPanel({
-            "variant": 'success',
-            "id": 'success-id',
-            "iconType": 'check',
-            "body": 'Logged in successfully.',
-        }) }}
-        <br>
-        {{
-            onsButton({
-                "text": "Try Standard AutoSuggest",
-                "url": url_for("main.standard_autosuggest"),
-            })
-        }}
-
+        {% call onsPanel({
+            "title": "Template ready",
+            "variant": "success"
+        }) %}
+            <p>
+                Your response <strong>"{{ selected }}"</strong> has been saved successfully.
+            </p>
+        {% endcall %}
     </div>
 
     {{
         onsButton({
             "text": "Sign out",
             "url": url_for("auth.logout"),
-            "variants": ['secondary', 'small']
+            "variants": "secondary"
         })
     }}
 {% endblock %}

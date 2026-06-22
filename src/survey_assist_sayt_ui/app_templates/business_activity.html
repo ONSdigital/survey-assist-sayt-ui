@@ -1,0 +1,78 @@
+{% extends "core.html" %}
+
+{% from "components/autosuggest/_macro.njk" import onsAutosuggest %}
+{% from "components/button/_macro.njk" import onsButton %}
+
+{% set page_title = "What is the main activity of the business or freelance work?" %}
+{% set main_col_class = "ons-col-8@m" %}
+
+{% set not_listed_option = {
+    "or": "Or",
+    "deselectMessage": "Selecting Not listed will clear the business activity",
+    "deselectGroupAdjective": "cleared",
+    "deselectExclusiveOptionAdjective": "deselected",
+    "exclusiveOptions": [
+        {
+            "id": "business-activity-not-listed",
+            "name": "business_activity_not_listed",
+            "value": "not-listed",
+            "checked": business_activity_not_listed | default(false),
+            "label": {
+                "text": "Not listed"
+            }
+        }
+    ]
+} %}
+
+{% if error_message %}
+    {% set business_activity_error = {
+        "id": "business-activity-error",
+        "text": error_message
+    } %}
+{% else %}
+    {% set business_activity_error = none %}
+{% endif %}
+
+{% block main %}
+<form method="post" action="{{ url_for('main.save_response') }}">
+    {{
+        onsAutosuggest({
+            "id": "business-activity",
+            "mutuallyExclusive": not_listed_option,
+            "input": {
+                "name": "business_activity",
+                "width": "30",
+                "accessiblePlaceholder": true,
+                "autocomplete": "off",
+                "legend": page_title,
+                "legendIsQuestionTitle": true,
+                "value": business_activity | default(""),
+                "error": business_activity_error,
+                "mutuallyExclusive": not_listed_option
+            },
+            "instructions": "Use up and down keys to navigate suggestions once you have typed 3 or more characters. Use the enter key to select a suggestion. Touch device users, explore by touch or with swipe gestures.",
+            "ariaYouHaveSelected": "You have selected",
+            "ariaMinChars": "Enter 3 or more characters for suggestions.",
+            "ariaOneResult": "There is one suggestion available.",
+            "ariaNResults": "There are {n} suggestions available.",
+            "ariaLimitedResults": "Results have been limited to 10 suggestions. Type more characters to improve your search.",
+            "moreResults": "Continue entering to improve suggestions",
+            "resultsTitle": "Suggested industries",
+            "resultsTitleId": "business-activity-suggestions",
+            "autosuggestData": url_for("static", filename="data/industries.json"),
+            "noResults": "No suggestions found. You can enter your own answer or select Not listed.",
+            "typeMore": "Continue entering to get suggestions",
+            "minChars": 3,
+            "resultsThreshold": 0.3,
+            "language": "en"
+        })
+    }}
+
+    {{
+        onsButton({
+            "text": "Save and continue",
+            "classes": "ons-u-mt-l"
+        })
+    }}
+</form>
+{% endblock %}
