@@ -8,6 +8,8 @@ from pathlib import Path
 from flask import Flask
 from jinja2 import ChainableUndefined, ChoiceLoader, FileSystemLoader
 
+from survey_assist_sayt_ui.services.business_activity import HttpBusinessActivitySearchClient
+
 from .auth.routes import auth_blueprint
 from .auth.service import AuthService, build_auth_store
 from .config import Settings, load_settings
@@ -47,6 +49,12 @@ def create_app(settings: Settings | None = None, auth_service: AuthService | Non
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=resolved_settings.session_cookie_secure,
+    )
+
+    app.extensions["business_activity_search_client"] = HttpBusinessActivitySearchClient(
+        endpoint_url=resolved_settings.sayt_api_url,
+        query_parameter="description",
+        timeout_seconds=5.0,
     )
 
     app.register_blueprint(auth_blueprint)

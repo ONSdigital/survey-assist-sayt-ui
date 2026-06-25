@@ -204,3 +204,12 @@
         </div>
     </div>
 {% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script>
+        console.log('core.html scripts block rendered')
+    </script>
+    {% block page_scripts %}
+    {% endblock %}
+{% endblock %}

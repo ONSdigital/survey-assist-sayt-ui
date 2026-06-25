@@ -38,6 +38,7 @@ def test_user_can_log_in_with_local_credentials(tmp_path: Path) -> None:
 
     app = create_app(
         Settings(
+            sayt_api_url="http://0.0.0.0:8080/v1/survey-assist/sic-lookup",
             secret_key="test-secret-key",  # pragma: allowlist secret
             local_users_file=str(users_file),
         )

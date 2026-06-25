@@ -40,6 +40,7 @@ def app_fixture() -> Flask:
     """
     settings = Settings(
         secret_key="test-secret-key",  # pragma: allowlist secret
+        sayt_api_url="http://0.0.0.0:8080/v1/survey-assist/sic-lookup",
         service_name="Survey Assist SAYT UI",
         auth_mode="local",
         session_cookie_secure=False,
