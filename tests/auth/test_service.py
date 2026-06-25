@@ -332,6 +332,7 @@ def test_build_auth_store_returns_local_store() -> None:
     """Test building a local authentication store."""
     settings = Settings(
         sayt_api_url="http://0.0.0.0:8080/v1/survey-assist/sic-lookup",
+        sa_email="sayt-ui@example.iam.gserviceaccount.com",
         secret_key="test-secret",  # pragma: allowlist secret
         auth_mode="local",
         local_users_file="test-users.json",
@@ -347,6 +348,7 @@ def test_build_auth_store_returns_gcs_store() -> None:
     """Test building a Google Cloud Storage authentication store."""
     settings = Settings(
         sayt_api_url="http://0.0.0.0:8080/v1/survey-assist/sic-lookup",
+        sa_email="sayt-ui@example.iam.gserviceaccount.com",
         secret_key="test-secret",  # pragma: allowlist secret
         auth_mode="gcs",
         gcp_auth_bucket_name="auth-bucket",
@@ -364,6 +366,7 @@ def test_build_auth_store_requires_gcs_bucket() -> None:
     """Test that GCS mode requires a configured bucket."""
     settings = Settings(
         sayt_api_url="http://0.0.0.0:8080/v1/survey-assist/sic-lookup",
+        sa_email="sayt-ui@example.iam.gserviceaccount.com",
         secret_key="test-secret",  # pragma: allowlist secret
         auth_mode="gcs",
         gcp_auth_bucket_name=None,
