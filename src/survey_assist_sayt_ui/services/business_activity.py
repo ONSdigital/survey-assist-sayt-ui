@@ -51,19 +51,36 @@ class HttpBusinessActivitySearchClient:
     def __init__(
         self,
         endpoint_url: str,
+        token: str,
         *,
         query_parameter: str = "q",
         timeout_seconds: float = 5.0,
+        client: httpx.Client | None = None,
     ) -> None:
         if not endpoint_url:
             raise ValueError("SAYT_API_URL must be configured")
 
+        if not token:
+            raise ValueError("SAYT API JWT must be configured")
+
         self._endpoint_url = endpoint_url
         self._query_parameter = query_parameter
-        self._client = httpx.Client(
-            timeout=httpx.Timeout(timeout_seconds),
-            headers={"Accept": "application/json"},
+        self._token = token
+        self._client = (
+            client
+            if client is not None
+            else httpx.Client(
+                timeout=httpx.Timeout(timeout_seconds),
+                headers={"Accept": "application/json"},
+            )
         )
+
+    def update_token(self, token: str) -> None:
+        """Update the bearer token used for subsequent API requests."""
+        if not token:
+            raise ValueError("SAYT API JWT must not be empty")
+
+        self._token = token
 
     def search(
         self,
@@ -78,6 +95,9 @@ class HttpBusinessActivitySearchClient:
                 params={
                     self._query_parameter: query,
                     "limit": limit,
+                },
+                headers={
+                    "Authorization": f"Bearer {self._token}",
                 },
             )
             response.raise_for_status()
