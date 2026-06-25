@@ -13,6 +13,7 @@ class Settings:  # pylint: disable=too-many-instance-attributes
     Attributes:
         secret_key: Secret key used for Flask session signing.
         sayt_api_url: URL of the search as yout type API endpoint.
+        sa_email: Service Account email for GCP authentication.
         service_name: Service display name.
         auth_mode: Authentication backend mode.
         local_users_file: Local JSON file path for users.
@@ -23,6 +24,7 @@ class Settings:  # pylint: disable=too-many-instance-attributes
 
     secret_key: str
     sayt_api_url: str
+    sa_email: str
     service_name: str = "Survey Assist SAYT UI"
     auth_mode: str = "local"
     local_users_file: str = "users.json"
@@ -56,6 +58,7 @@ def load_settings() -> Settings:
     return Settings(
         secret_key=os.getenv("FLASK_SECRET_KEY", "dev-only-change-me"),
         sayt_api_url=_required_env("SAYT_API_URL"),
+        sa_email=_required_env("SA_EMAIL"),
         service_name=os.getenv("SERVICE_NAME", "Survey Assist SAYT UI"),
         auth_mode=os.getenv("AUTH_MODE", "local").strip().lower(),
         local_users_file=os.getenv("LOCAL_USERS_FILE", "users.json"),
