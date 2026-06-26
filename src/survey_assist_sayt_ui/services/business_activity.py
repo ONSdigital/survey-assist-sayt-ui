@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from typing import Protocol
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 
 class BusinessActivityApiError(RuntimeError):
@@ -94,14 +97,34 @@ class HttpBusinessActivitySearchClient:
                 self._endpoint_url,
                 params={
                     self._query_parameter: query,
-                    "limit": limit,
+                    "similarity": "true",
                 },
                 headers={
                     "Authorization": f"Bearer {self._token}",
                 },
             )
+
+            logger.info(
+                "SAYT API response status=%s content_type=%s url=%s",
+                response.status_code,
+                response.headers.get("content-type"),
+                response.request.url,
+            )
+
             response.raise_for_status()
             payload = response.json()
+
+            logger.info(
+                "SAYT API payload type=%s keys=%s",
+                type(payload).__name__,
+                list(payload) if isinstance(payload, dict) else None,
+            )
+
+            logger.info(
+                "SAYT API response body=%s",
+                response.text[:1000],
+            )
+
         except httpx.TimeoutException as error:
             raise BusinessActivityApiTimeoutError(
                 "Business activity API request timed out"

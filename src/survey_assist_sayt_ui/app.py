@@ -26,7 +26,7 @@ TokenRefresher = Callable[[int, str, str, str], tuple[int, str]]
 dataclass(slots=True)
 
 
-class JwtTokenState:
+class JwtTokenState:  # pylint: disable=too-few-public-methods
     """Runtime state for the short-lived SAYT API JWT."""
 
     start_time: int = 0
@@ -60,6 +60,11 @@ def create_app(
     Returns:
         Flask: The configured Flask application instance.
     """
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    )
+
     resolved_settings = settings or load_settings()
     refresh_token = token_refresher or check_and_refresh_token
 

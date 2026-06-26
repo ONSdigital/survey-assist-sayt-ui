@@ -57,7 +57,7 @@ def static_token_refresher() -> TokenRefresher:
 
 @pytest.fixture(name="app")
 def app_fixture(
-    static_token_refresher: TokenRefresher,
+    static_token_refresher: TokenRefresher,  # pylint: disable=redefined-outer-name
 ) -> Flask:
     """Create a configured Flask application for tests.
 

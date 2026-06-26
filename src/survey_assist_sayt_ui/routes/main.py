@@ -93,6 +93,11 @@ def business_activity_suggestions() -> ResponseReturnValue:
     )
 
     try:
+        logger.warning(
+            "Searching for business activity suggestions",
+            extra={"query_length": len(query)},
+        )
+
         suggestions = client.search(
             query,
             limit=MAX_AUTOSUGGEST_RESULTS,

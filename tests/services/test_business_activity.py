@@ -1,3 +1,5 @@
+"""Test the business activity search service."""
+
 from __future__ import annotations
 
 import httpx
