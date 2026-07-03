@@ -1,0 +1,41 @@
+.business-activity-autosuggest-input {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.business-activity-loading {
+    align-items: center;
+    display: inline-flex;
+    gap: 0.5rem;
+}
+
+.business-activity-loading[hidden] {
+    display: none;
+}
+
+.business-activity-loading--inline {
+    margin-left: 0.5rem;
+    vertical-align: middle;
+}
+
+.business-activity-loading__spinner {
+    animation: business-activity-loading-spin 0.8s linear infinite;
+    border: 0.15rem solid currentColor;
+    border-radius: 50%;
+    border-right-color: transparent;
+    display: inline-block;
+    height: 1rem;
+    width: 1rem;
+}
+
+@keyframes business-activity-loading-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .business-activity-loading__spinner {
+        animation: none;
+    }
+}

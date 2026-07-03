@@ -35,7 +35,21 @@
 
 {% block page_scripts %}
   {{ super() }}
-  <script src="{{ url_for('static', filename='js/remote-autosuggest.bundle.js') }}"></script>
+  <link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/business-activity-autosuggest-loading.css') }}"
+  >
+  <script
+    src="{{ url_for('static', filename='js/business-activity-autosuggest-loading.js') }}"
+    data-suggestions-path="{{ url_for('main.business_activity_suggestions') }}"
+    data-loading-element-id="business-activity-api-loading"
+    data-autosuggest-element-id="business-activity-api"
+    defer
+  ></script>
+  <script
+    src="{{ url_for('static', filename='js/remote-autosuggest.bundle.js') }}"
+    defer
+  ></script>
 {% endblock %}
 
 
@@ -80,6 +94,18 @@
             }
         })
     }}
+
+    <div
+        id="business-activity-api-loading"
+        class="business-activity-loading ons-u-fs-s ons-u-mt-xs"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        hidden
+    >
+        <span class="business-activity-loading__spinner" aria-hidden="true"></span>
+        <span>Searching...</span>
+    </div>
 
     {{
         onsButton({

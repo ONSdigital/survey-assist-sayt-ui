@@ -37,6 +37,11 @@ install:  ## Install main and dev dependencies no root package
 templates:  ## Fetch ONS design system templates.
 	poetry run python scripts/fetch_ons_templates.py
 
+## Build the remote-autosuggest.bundle.js file.
+## Only required when changing the remote-autosuggest.js file.
+build-remote-autosuggest:
+	npm run build:js
+
 run:  ## Run the Flask application.
 	FLASK_APP=$(PKG).app:create_app poetry run flask --debug run
 
