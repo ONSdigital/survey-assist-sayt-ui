@@ -60,6 +60,23 @@ def create_app(
     Returns:
         Flask: The configured Flask application instance.
     """
+
+    def refresh_sayt_api_token_state(*, force: bool = False) -> tuple[bool, str]:
+        """Refresh the SAYT API token state when it is approaching expiry."""
+        previous_start_time = token_state.start_time
+
+        if force:
+            token_state.start_time = 0
+
+        token_state.start_time, token_state.token = refresh_token(
+            token_state.start_time,
+            token_state.token,
+            gateway_hostname,
+            resolved_settings.sa_email,
+        )
+
+        return token_state.start_time != previous_start_time, token_state.token
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
@@ -92,18 +109,14 @@ def create_app(
     gateway_hostname = _get_api_gateway_hostname(resolved_settings.sayt_api_url)
 
     token_state = JwtTokenState()
-    token_state.start_time, token_state.token = refresh_token(
-        token_state.start_time,
-        token_state.token,
-        gateway_hostname,
-        resolved_settings.sa_email,
-    )
+    _, initial_token = refresh_sayt_api_token_state(force=True)
 
     business_activity_client = HttpBusinessActivitySearchClient(
         endpoint_url=resolved_settings.sayt_api_url,
-        token=token_state.token,
+        token=initial_token,
         query_parameter="description",
         timeout_seconds=5.0,
+        token_refresher=lambda: refresh_sayt_api_token_state(force=True)[1],
     )
 
     app.extensions["business_activity_search_client"] = business_activity_client
@@ -125,19 +138,12 @@ def create_app(
     @app.before_request
     def refresh_sayt_api_token() -> None:
         """Refresh the SAYT API token when it is approaching expiry."""
-        previous_start_time = token_state.start_time
+        refreshed, token = refresh_sayt_api_token_state()
 
-        token_state.start_time, token_state.token = refresh_token(
-            token_state.start_time,
-            token_state.token,
-            gateway_hostname,
-            resolved_settings.sa_email,
-        )
-
-        if token_state.start_time == previous_start_time:
+        if not refreshed:
             return
 
-        business_activity_client.update_token(token_state.token)
+        business_activity_client.update_token(token)
 
         logger.info(
             "Refreshed SAYT API JWT for method=%s endpoint=%s",

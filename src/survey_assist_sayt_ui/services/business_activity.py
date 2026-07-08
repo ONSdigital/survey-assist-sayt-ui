@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from http import HTTPStatus
 import logging
 from typing import Protocol
 
@@ -51,7 +53,7 @@ class BusinessActivitySearchClient(Protocol):  # pylint: disable=too-few-public-
 class HttpBusinessActivitySearchClient:
     """HTTP implementation of the business activity search client."""
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         endpoint_url: str,
         token: str,
@@ -59,6 +61,7 @@ class HttpBusinessActivitySearchClient:
         query_parameter: str = "q",
         timeout_seconds: float = 5.0,
         client: httpx.Client | None = None,
+        token_refresher: Callable[[], str] | None = None,
     ) -> None:
         if not endpoint_url:
             raise ValueError("SAYT_API_URL must be configured")
@@ -69,6 +72,7 @@ class HttpBusinessActivitySearchClient:
         self._endpoint_url = endpoint_url
         self._query_parameter = query_parameter
         self._token = token
+        self._token_refresher = token_refresher
         self._client = (
             client
             if client is not None
@@ -85,6 +89,19 @@ class HttpBusinessActivitySearchClient:
 
         self._token = token
 
+    def _get_suggestions_response(self, query: str) -> httpx.Response:
+        """Get the raw HTTP response from the business activity API."""
+        return self._client.get(
+            self._endpoint_url,
+            params={
+                self._query_parameter: query,
+                "similarity": "true",
+            },
+            headers={
+                "Authorization": f"Bearer {self._token}",
+            },
+        )
+
     def search(
         self,
         query: str,
@@ -93,16 +110,16 @@ class HttpBusinessActivitySearchClient:
     ) -> list[BusinessActivitySuggestion]:
         """Search the configured API endpoint."""
         try:
-            response = self._client.get(
-                self._endpoint_url,
-                params={
-                    self._query_parameter: query,
-                    "similarity": "true",
-                },
-                headers={
-                    "Authorization": f"Bearer {self._token}",
-                },
-            )
+            response = self._get_suggestions_response(query)
+
+            # If the API returns a 401 Unauthorized, attempt to refresh the token and retry once.
+            if (
+                response.status_code == HTTPStatus.UNAUTHORIZED
+                and self._token_refresher is not None
+            ):
+                logger.info("SAYT API returned 401; refreshing JWT and retrying once")
+                self.update_token(self._token_refresher())
+                response = self._get_suggestions_response(query)
 
             logger.info(
                 "SAYT API response status=%s content_type=%s url=%s",
