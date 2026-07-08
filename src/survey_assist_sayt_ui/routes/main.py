@@ -2,10 +2,24 @@
 
 from __future__ import annotations
 
-from flask import Blueprint, render_template, request, session
+import logging
+from typing import cast
+
+from flask import Blueprint, current_app, jsonify, render_template, request, session
 from flask.typing import ResponseReturnValue
 
 from survey_assist_sayt_ui.auth.decorators import SESSION_USER_KEY, login_required
+from survey_assist_sayt_ui.services.business_activity import (
+    BusinessActivityApiError,
+    BusinessActivityApiTimeoutError,
+    BusinessActivitySearchClient,
+)
+
+MIN_AUTOSUGGEST_CHARACTERS = 3
+MAX_AUTOSUGGEST_QUERY_LENGTH = 200
+MAX_AUTOSUGGEST_RESULTS = 20
+
+logger = logging.getLogger(__name__)
 
 main_blueprint = Blueprint("main", __name__)
 
@@ -38,9 +52,70 @@ def standard_autosuggest() -> ResponseReturnValue:
         business_activity="",
         business_activity_not_listed=False,
         error_message=None,
-        page_title="Business activity",
+        page_title="Standard business activity",
         authenticated_user=session.get(SESSION_USER_KEY),
     )
+
+
+@main_blueprint.get("/api-autosuggest")
+@login_required
+def api_autosuggest() -> ResponseReturnValue:
+    """Render the protected API autosuggest page.
+
+    Returns:
+        ResponseReturnValue: Autosuggest page template response.
+    """
+    return render_template(
+        "business_activity_api.html",
+        business_activity="",
+        business_activity_not_listed=False,
+        error_message=None,
+        page_title="API business activity",
+        authenticated_user=session.get(SESSION_USER_KEY),
+    )
+
+
+@main_blueprint.get("/api/business-activity-suggestions")
+@login_required
+def business_activity_suggestions() -> ResponseReturnValue:
+    """Proxy business activity searches to the configured API."""
+    query = request.args.get("q", "", type=str).strip()
+
+    if len(query) < MIN_AUTOSUGGEST_CHARACTERS:
+        return jsonify([])
+
+    if len(query) > MAX_AUTOSUGGEST_QUERY_LENGTH:
+        return {"error": "Search query is too long"}, 400
+
+    client = cast(
+        BusinessActivitySearchClient,
+        current_app.extensions["business_activity_search_client"],
+    )
+
+    try:
+        logger.warning(
+            "Searching for business activity suggestions",
+            extra={"query_length": len(query)},
+        )
+
+        suggestions = client.search(
+            query,
+            limit=MAX_AUTOSUGGEST_RESULTS,
+        )
+    except BusinessActivityApiTimeoutError:
+        logger.warning(
+            "Business activity API request timed out",
+            extra={"query_length": len(query)},
+        )
+        return {"error": "Suggestion service timed out"}, 504
+    except BusinessActivityApiError:
+        logger.exception(
+            "Business activity API request failed",
+            extra={"query_length": len(query)},
+        )
+        return {"error": "Suggestion service unavailable"}, 502
+
+    return jsonify([suggestion.to_dict() for suggestion in suggestions])
 
 
 @main_blueprint.route("/save-response", methods=["POST"])

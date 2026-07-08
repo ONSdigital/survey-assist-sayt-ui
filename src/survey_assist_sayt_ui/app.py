@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 import logging
 from pathlib import Path
+from urllib.parse import urlparse
 
-from flask import Flask
+from flask import Flask, request
 from jinja2 import ChainableUndefined, ChoiceLoader, FileSystemLoader
+from survey_assist_utils.api_token.jwt_utils import check_and_refresh_token
+
+from survey_assist_sayt_ui.services.business_activity import HttpBusinessActivitySearchClient
 
 from .auth.routes import auth_blueprint
 from .auth.service import AuthService, build_auth_store
@@ -15,19 +21,69 @@ from .routes.main import main_blueprint
 
 logger = logging.getLogger(__name__)
 
+TokenRefresher = Callable[[int, str, str, str], tuple[int, str]]
 
-def create_app(settings: Settings | None = None, auth_service: AuthService | None = None) -> Flask:
+dataclass(slots=True)
+
+
+class JwtTokenState:  # pylint: disable=too-few-public-methods
+    """Runtime state for the short-lived SAYT API JWT."""
+
+    start_time: int = 0
+    token: str = ""
+
+
+def _get_api_gateway_hostname(api_url: str) -> str:
+    """Extract the API Gateway audience from the configured endpoint URL."""
+    hostname = urlparse(api_url).netloc.rstrip("/")
+
+    if not hostname:
+        raise ValueError("SAYT_API_URL must include a scheme and hostname")
+
+    return hostname
+
+
+def create_app(
+    settings: Settings | None = None,
+    auth_service: AuthService | None = None,
+    *,
+    token_refresher: TokenRefresher | None = None,
+) -> Flask:
     """Create and configure the Flask application.
 
     Args:
         settings: Optional runtime settings. When omitted, settings are loaded from
             environment variables.
         auth_service: Optional authentication service implementation.
+        token_refresher: Optional callable to refresh the SAYT API JWT.
 
     Returns:
         Flask: The configured Flask application instance.
     """
+
+    def refresh_sayt_api_token_state(*, force: bool = False) -> tuple[bool, str]:
+        """Refresh the SAYT API token state when it is approaching expiry."""
+        previous_start_time = token_state.start_time
+
+        if force:
+            token_state.start_time = 0
+
+        token_state.start_time, token_state.token = refresh_token(
+            token_state.start_time,
+            token_state.token,
+            gateway_hostname,
+            resolved_settings.sa_email,
+        )
+
+        return token_state.start_time != previous_start_time, token_state.token
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    )
+
     resolved_settings = settings or load_settings()
+    refresh_token = token_refresher or check_and_refresh_token
 
     app = Flask(__name__, template_folder="app_templates")
     app.jinja_env.undefined = ChainableUndefined
@@ -49,6 +105,22 @@ def create_app(settings: Settings | None = None, auth_service: AuthService | Non
         SESSION_COOKIE_SECURE=resolved_settings.session_cookie_secure,
     )
 
+    # Setup the business activity search client with a short-lived JWT token
+    gateway_hostname = _get_api_gateway_hostname(resolved_settings.sayt_api_url)
+
+    token_state = JwtTokenState()
+    _, initial_token = refresh_sayt_api_token_state(force=True)
+
+    business_activity_client = HttpBusinessActivitySearchClient(
+        endpoint_url=resolved_settings.sayt_api_url,
+        token=initial_token,
+        query_parameter="description",
+        timeout_seconds=5.0,
+        token_refresher=lambda: refresh_sayt_api_token_state(force=True)[1],
+    )
+
+    app.extensions["business_activity_search_client"] = business_activity_client
+
     app.register_blueprint(auth_blueprint)
     app.register_blueprint(main_blueprint)
 
@@ -60,6 +132,24 @@ def create_app(settings: Settings | None = None, auth_service: AuthService | Non
             dict[str, Settings]: Template context containing resolved settings.
         """
         return {"settings": resolved_settings}
+
+    # Before each request, check if the SAYT API JWT is approaching expiry
+    # and refresh it if necessary
+    @app.before_request
+    def refresh_sayt_api_token() -> None:
+        """Refresh the SAYT API token when it is approaching expiry."""
+        refreshed, token = refresh_sayt_api_token_state()
+
+        if not refreshed:
+            return
+
+        business_activity_client.update_token(token)
+
+        logger.info(
+            "Refreshed SAYT API JWT for method=%s endpoint=%s",
+            request.method,
+            request.endpoint,
+        )
 
     logger.info("Created Flask app with auth_mode=%s", resolved_settings.auth_mode)
     return app

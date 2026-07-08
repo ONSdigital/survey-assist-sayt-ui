@@ -5,6 +5,7 @@ SHELL := /bin/bash
 PY ?= python
 PKG ?= survey_assist_sayt_ui
 IMAGE_NAME ?= survey-assist-sayt-ui
+CRED_FILE ?= $(HOME)/gcp-project-creds-ui.json
 
 .PHONY: help all clean install templates run run-docs all-tests test lint format \
 	check-python check-python-nofix \
@@ -36,13 +37,18 @@ install:  ## Install main and dev dependencies no root package
 templates:  ## Fetch ONS design system templates.
 	poetry run python scripts/fetch_ons_templates.py
 
+## Build the remote-autosuggest.bundle.js file.
+## Only required when changing the remote-autosuggest.js file.
+build-remote-autosuggest:
+	npm run build:js
+
 run:  ## Run the Flask application.
 	FLASK_APP=$(PKG).app:create_app poetry run flask --debug run
 
 run-docs: ## Run the mkdocs
 	poetry run mkdocs serve
 
-all-tests: ## Run all tests with coverage and fail if coverage is below 80%
+all-tests: ## Run all tests with coverage and fail if coverage is below threshold
 	poetry run pytest --ignore=cicd --cov --cov-report=term-missing --cov-fail-under=80
 
 check-python: ## Format and lint the python code (auto fix)
@@ -67,6 +73,8 @@ docker-run:  ## Run the Docker container.
 		--rm \
 		-p 8000:8000 \
 		-v $(PWD)/users.json:/app/users.json:ro \
+		--mount type=bind,src=$(CRED_FILE),target=/run/secrets/gcp-key.json,readonly \
+		-e GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-key.json \
 		--env-file .env \
 		survey-assist-sayt-ui
 
@@ -78,6 +86,8 @@ podman-run:  ## Run the Podman container.
 		--rm \
 		-p 8000:8000 \
 		-v $(PWD)/users.json:/app/users.json:ro \
+		--mount type=bind,src=$(CRED_FILE),target=/run/secrets/gcp-key.json,readonly \
+		-e GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-key.json \
 		--env-file .env \
 		survey-assist-sayt-ui
 

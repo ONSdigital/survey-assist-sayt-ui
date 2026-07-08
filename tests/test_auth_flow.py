@@ -13,11 +13,15 @@ from survey_assist_sayt_ui.auth.decorators import SESSION_USER_KEY
 from survey_assist_sayt_ui.config import Settings
 
 
-def test_user_can_log_in_with_local_credentials(tmp_path: Path) -> None:
+def test_user_can_log_in_with_local_credentials(
+    tmp_path: Path,
+    static_token_refresher,
+) -> None:
     """Test the complete local authentication flow.
 
     Args:
         tmp_path: Temporary directory used for the users file.
+        static_token_refresher: Fixture providing a deterministic JWT for tests.
     """
     users_file = tmp_path / "users.json"
     users_file.write_text(
@@ -38,9 +42,12 @@ def test_user_can_log_in_with_local_credentials(tmp_path: Path) -> None:
 
     app = create_app(
         Settings(
+            sayt_api_url="http://0.0.0.0:8080/v1/survey-assist/sic-lookup",
+            sa_email="sayt-ui@example.iam.gserviceaccount.com",
             secret_key="test-secret-key",  # pragma: allowlist secret
             local_users_file=str(users_file),
-        )
+        ),
+        token_refresher=static_token_refresher,
     )
     app.config.update(TESTING=True)
 

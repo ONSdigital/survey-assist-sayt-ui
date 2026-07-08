@@ -7,11 +7,13 @@ import os
 
 
 @dataclass(frozen=True)
-class Settings:
+class Settings:  # pylint: disable=too-many-instance-attributes
     """Runtime settings loaded from environment variables.
 
     Attributes:
         secret_key: Secret key used for Flask session signing.
+        sayt_api_url: URL of the search as yout type API endpoint.
+        sa_email: Service Account email for GCP authentication.
         service_name: Service display name.
         auth_mode: Authentication backend mode.
         local_users_file: Local JSON file path for users.
@@ -21,6 +23,8 @@ class Settings:
     """
 
     secret_key: str
+    sayt_api_url: str
+    sa_email: str
     service_name: str = "Survey Assist SAYT UI"
     auth_mode: str = "local"
     local_users_file: str = "users.json"
@@ -53,6 +57,8 @@ def load_settings() -> Settings:
     """
     return Settings(
         secret_key=os.getenv("FLASK_SECRET_KEY", "dev-only-change-me"),
+        sayt_api_url=_required_env("SAYT_API_URL"),
+        sa_email=_required_env("SA_EMAIL"),
         service_name=os.getenv("SERVICE_NAME", "Survey Assist SAYT UI"),
         auth_mode=os.getenv("AUTH_MODE", "local").strip().lower(),
         local_users_file=os.getenv("LOCAL_USERS_FILE", "users.json"),
@@ -60,3 +66,12 @@ def load_settings() -> Settings:
         gcp_auth_blob_name=os.getenv("GCP_AUTH_BLOB_NAME", "users.json"),
         session_cookie_secure=_bool_from_env("SESSION_COOKIE_SECURE", False),
     )
+
+
+def _required_env(name: str) -> str:
+    value = os.getenv(name)
+
+    if not value:
+        raise ValueError(f"{name} must be configured")
+
+    return value
