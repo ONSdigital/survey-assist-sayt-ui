@@ -313,6 +313,37 @@
         "submit_button": {
           "text": "Save and continue"
         }
+      },
+      {
+        "page_id": "q2",
+        "page_type": "question",
+        "page_title": "Job Description",
+        "question_name": "job_description_question",
+        "question": {
+          "text": "Describe what you do in that job or business as a PLACEHOLDER_TEXT",
+          "placeholders": [
+            {
+              "placeholder": "PLACEHOLDER_TEXT",
+              "source_question_name": "job_title_question"
+            }
+          ],
+          "justification": {
+            "title": "Why we ask this question",
+            "content": "Placeholder text"
+          }
+        },
+        "answer": {
+          "type": "text",
+          "name": "job-description",
+          "required": true,
+          "multiline": true,
+          "rows": 8,
+          "character_limit": 500,
+          "placeholder": ""
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
       }
     ]
   }

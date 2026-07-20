@@ -135,6 +135,13 @@ class QuestionJustification(TypedDict):
     content: str
 
 
+class QuestionPlaceholder(TypedDict):
+    """Replacement value used within configurable question text."""
+
+    placeholder: str
+    source_question_name: str
+
+
 class QuestionContent(TypedDict):
     """Content displayed by the ONS question component."""
 
@@ -142,6 +149,7 @@ class QuestionContent(TypedDict):
     description: NotRequired[str]
     guidance: NotRequired[QuestionGuidance]
     justification: NotRequired[QuestionJustification]
+    placeholders: NotRequired[list[QuestionPlaceholder]]
 
 
 class SubmitButton(TypedDict):
@@ -168,3 +176,14 @@ class SurveyPages(TypedDict):
     enabled: bool
     start_page_id: str
     pages: list[QuestionPage]
+
+
+class SurveyResponse(TypedDict):
+    """Response stored for one survey question."""
+
+    question_name: str
+    response_name: str
+    value: str
+
+
+SurveyResponses = dict[str, SurveyResponse]

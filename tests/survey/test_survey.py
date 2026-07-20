@@ -116,9 +116,18 @@ def test_final_question_redirects_to_completion(
     """Test that the final question redirects to completion."""
     _authenticate(client)
 
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q1": {
+                "question_name": "job_title_question",
+                "response_name": "job-title",
+                "value": "Primary school teacher",
+            }
+        }
+
     response = client.post(
-        "/wireframe/questions/q1",
-        data={"job-title": "Primary school teacher"},
+        "/wireframe/questions/q2",
+        data={"job-description": ("I plan lessons and teach primary school pupils.")},
     )
 
     assert response.status_code == HTTPStatus.FOUND
@@ -144,3 +153,38 @@ def test_saved_response_is_repopulated_when_revisiting_page(
 
     assert response.status_code == HTTPStatus.OK
     assert "Primary school teacher" in response.get_data(as_text=True)
+
+
+def test_question_renders_saved_response_in_placeholder(
+    client: FlaskClient,
+) -> None:
+    """Test that saved answers appear in later question text."""
+    _authenticate(client)
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q1": {
+                "question_name": "job_title_question",
+                "response_name": "job-title",
+                "value": "Primary school teacher",
+            }
+        }
+
+    response = client.get("/wireframe/questions/q2")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "as a primary school teacher" in response_text
+    assert "PLACEHOLDER_TEXT" not in response_text
+
+
+def test_question_redirects_when_placeholder_response_is_missing(
+    client: FlaskClient,
+) -> None:
+    """Test that missing source answers redirect to their question."""
+    _authenticate(client)
+
+    response = client.get("/wireframe/questions/q2")
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/wireframe/questions/q1")

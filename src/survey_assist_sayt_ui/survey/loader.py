@@ -79,6 +79,9 @@ def _validate_survey_definition(payload: dict[str, object]) -> None:
     _require_non_empty_string(payload, "survey_title")
     _require_non_empty_string(payload, "wave_id")
 
+    survey_pages = _require_mapping(payload, "survey_pages")
+    _validate_survey_pages(survey_pages)
+
     survey_intro = _require_mapping(payload, "survey_intro")
     enabled = survey_intro.get("enabled")
 
@@ -103,9 +106,6 @@ def _validate_survey_definition(payload: dict[str, object]) -> None:
 
     section_ids = _validate_sections(sections)
     _validate_navigation(navigation, section_ids)
-
-    survey_pages = _require_mapping(payload, "survey_pages")
-    _validate_survey_pages(survey_pages)
 
 
 def _validate_sections(sections: list[object]) -> set[str]:
@@ -421,20 +421,85 @@ def _validate_survey_pages(survey_pages: dict[str, object]) -> None:
         if question_name in question_names:
             raise SurveyDefinitionInvalidError(f"Duplicate question name: {question_name!r}")
 
-        page_ids.add(page_id)
-        question_names.add(question_name)
-
         if page.get("page_type") != "question":
             raise SurveyDefinitionInvalidError(
                 f"Unsupported survey page type: {page.get('page_type')!r}"
             )
 
         _validate_question_page(page)
+        _validate_question_placeholders(
+            page,
+            preceding_question_names=question_names,
+        )
+
+        page_ids.add(page_id)
+        question_names.add(question_name)
 
     if start_page_id not in page_ids:
         raise SurveyDefinitionInvalidError(
             f"start_page_id does not match a survey page: {start_page_id!r}"
         )
+
+
+def _validate_question_placeholders(
+    page: dict[str, object],
+    preceding_question_names: set[str],
+) -> None:
+    """Validate placeholders configured for a question.
+
+    Args:
+        page: Question page containing configurable text.
+        preceding_question_names: Names of questions preceding this page.
+
+    Raises:
+        SurveyDefinitionInvalidError: If placeholder configuration is invalid.
+    """
+    question = _require_mapping(page, "question")
+    question_text = _require_non_empty_string(
+        question,
+        "text",
+    )
+    placeholder_values = question.get("placeholders")
+
+    if placeholder_values is None:
+        return
+
+    if not isinstance(placeholder_values, list):
+        raise SurveyDefinitionInvalidError("question.placeholders must be an array")
+
+    placeholders: set[str] = set()
+
+    for index, placeholder_value in enumerate(placeholder_values):
+        placeholder_definition = _require_object_value(
+            placeholder_value,
+            f"Question placeholder {index}",
+        )
+
+        placeholder = _require_non_empty_string(
+            placeholder_definition,
+            "placeholder",
+        )
+        source_question_name = _require_non_empty_string(
+            placeholder_definition,
+            "source_question_name",
+        )
+
+        if placeholder in placeholders:
+            raise SurveyDefinitionInvalidError(f"Duplicate question placeholder: {placeholder!r}")
+
+        if placeholder not in question_text:
+            raise SurveyDefinitionInvalidError(
+                f"Question placeholder {placeholder!r} does not " "appear in question.text"
+            )
+
+        if source_question_name not in preceding_question_names:
+            raise SurveyDefinitionInvalidError(
+                f"Placeholder source question "
+                f"{source_question_name!r} must reference an "
+                "earlier question_name"
+            )
+
+        placeholders.add(placeholder)
 
 
 def _validate_question_page(page: dict[str, object]) -> None:

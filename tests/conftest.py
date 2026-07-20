@@ -9,7 +9,7 @@ import pytest
 from survey_assist_sayt_ui.app import create_app
 from survey_assist_sayt_ui.auth.service import AuthService, AuthStore
 from survey_assist_sayt_ui.config import Settings
-from survey_assist_sayt_ui.survey.models import SurveyDefinition
+from survey_assist_sayt_ui.survey.models import QuestionPage, SurveyDefinition
 
 TokenRefresher = Callable[[int, str, str, str], tuple[int, str]]
 
@@ -142,7 +142,71 @@ def survey_definition_fixture() -> SurveyDefinition:
                         "text": "Save and continue",
                     },
                 },
+                {
+                    "page_id": "q2",
+                    "page_type": "question",
+                    "page_title": "Job Description",
+                    "question_name": "job_description_question",
+                    "question": {
+                        "text": (
+                            "Describe what you do in that job or business as a " "PLACEHOLDER_TEXT"
+                        ),
+                        "placeholders": [
+                            {
+                                "placeholder": "PLACEHOLDER_TEXT",
+                                "source_question_name": "job_title_question",
+                            }
+                        ],
+                    },
+                    "answer": {
+                        "type": "text",
+                        "name": "job-description",
+                        "required": True,
+                        "multiline": True,
+                        "rows": 8,
+                        "character_limit": 500,
+                    },
+                    "submit_button": {
+                        "text": "Save and continue",
+                    },
+                },
             ],
+        },
+    }
+
+
+@pytest.fixture(name="question_page")
+def question_page_fixture() -> QuestionPage:
+    """Provide a question page containing a response placeholder.
+
+    Returns:
+        QuestionPage: Job-description question referencing the job-title
+            response.
+    """
+    return {
+        "page_id": "q2",
+        "page_type": "question",
+        "page_title": "Job Description",
+        "question_name": "job_description_question",
+        "question": {
+            "text": ("Describe what you do in that job or business as a " "PLACEHOLDER_TEXT"),
+            "placeholders": [
+                {
+                    "placeholder": "PLACEHOLDER_TEXT",
+                    "source_question_name": "job_title_question",
+                }
+            ],
+        },
+        "answer": {
+            "type": "text",
+            "name": "job-description",
+            "required": True,
+            "multiline": True,
+            "rows": 8,
+            "character_limit": 500,
+        },
+        "submit_button": {
+            "text": "Save and continue",
         },
     }
 

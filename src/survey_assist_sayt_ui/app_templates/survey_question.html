@@ -15,7 +15,7 @@
         action="{{ url_for('survey.save_response', page_id=page.page_id) }}"
     >
         {% set question_options = {
-            "title": page.question.text,
+            "title": question_text,
             "description": page.question.description | default(""),
             "classes": "ons-u-mt-no",
             "legendIsQuestionTitle": true

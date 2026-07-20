@@ -70,6 +70,29 @@ def test_load_survey_definition_rejects_unknown_navigation_section(
                 }
               ]
             }
+          },
+          "survey_pages": {
+            "enabled": true,
+            "start_page_id": "q0",
+            "pages": [
+              {
+                "page_id": "q0",
+                "page_type": "question",
+                "page_title": "Test question",
+                "question_name": "test_question",
+                "question": {
+                  "text": "Test question text"
+                },
+                "answer": {
+                  "type": "text",
+                  "name": "test-answer",
+                  "required": true
+                },
+                "submit_button": {
+                  "text": "Save and continue"
+                }
+              }
+            ]
           }
         }
         """,
@@ -224,5 +247,31 @@ def test_load_survey_definition_rejects_invalid_text_character_limit(
     with pytest.raises(
         SurveyDefinitionInvalidError,
         match="answer.character_limit must be a positive integer",
+    ):
+        load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_rejects_unknown_placeholder_source(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+) -> None:
+    """Test that placeholders must reference an earlier question."""
+    question = survey_definition["survey_pages"]["pages"][1]["question"]
+    question["text"] = "Your answer was PLACEHOLDER_TEXT"
+    question["placeholders"] = [
+        {
+            "placeholder": "PLACEHOLDER_TEXT",
+            "source_question_name": "missing_question",
+        }
+    ]
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="must reference an earlier question_name",
     ):
         load_survey_definition(survey_path)
