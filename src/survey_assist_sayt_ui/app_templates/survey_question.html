@@ -1,0 +1,116 @@
+{% extends "core.html" %}
+
+{% from "components/button/_macro.njk" import onsButton %}
+{% from "components/input/_macro.njk" import onsInput %}
+{% from "components/question/_macro.njk" import onsQuestion %}
+{% from "components/radios/_macro.njk" import onsRadios %}
+{% from "components/textarea/_macro.njk" import onsTextarea %}
+
+{% set page_title = page.page_title %}
+{% set main_col_class = "ons-col-8@m" %}
+
+{% block main %}
+    <form
+        method="post"
+        action="{{ url_for('survey.save_response', page_id=page.page_id) }}"
+    >
+        {% set question_options = {
+            "title": page.question.text,
+            "description": page.question.description | default(""),
+            "classes": "ons-u-mt-no",
+            "legendIsQuestionTitle": true
+        } %}
+
+        {% if page.question.guidance %}
+            {% set _ = question_options.update({
+                "guidance": {
+                    "content": page.question.guidance.content
+                }
+            }) %}
+        {% endif %}
+
+        {% if page.question.justification %}
+            {% set _ = question_options.update({
+                "justification": page.question.justification
+            }) %}
+        {% endif %}
+
+        {% if error_message %}
+            {% set _ = question_options.update({
+                "error": {
+                    "text": error_message
+                }
+            }) %}
+        {% endif %}
+
+        {% call onsQuestion(question_options) %}
+            {% if page.answer.type == "radio" %}
+                {% set radio_options = [] %}
+
+                {% for option in page.answer.options %}
+                    {% set radio_option = {
+                        "id": option.id,
+                        "label": {"text": option.label},
+                        "value": option.value,
+                        "checked": saved_value == option.value
+                    } %}
+
+                    {% if page.answer.required and loop.first %}
+                        {% set _ = radio_option.update({
+                            "attributes": {"required": true}
+                        }) %}
+                    {% endif %}
+
+                    {% set _ = radio_options.append(radio_option) %}
+                {% endfor %}
+
+                {{
+                    onsRadios({
+                        "name": page.answer.name,
+                        "dontWrap": true,
+                        "radios": radio_options
+                    })
+                }}
+
+            {% elif page.answer.multiline %}
+                {{
+                    onsTextarea({
+                        "id": page.answer.name,
+                        "name": page.answer.name,
+                        "rows": page.answer.rows | default(5),
+                        "value": saved_value,
+                        "attributes": {
+                            "required": page.answer.required,
+                            "placeholder": page.answer.placeholder | default("")
+                        },
+                        "charCheckLimit": {
+                            "limit": page.answer.character_limit
+                        }
+                    })
+                }}
+
+            {% else %}
+                {{
+                    onsInput({
+                        "id": page.answer.name,
+                        "name": page.answer.name,
+                        "type": "text",
+                        "value": saved_value,
+                        "attributes": {
+                            "required": page.answer.required,
+                            "placeholder": page.answer.placeholder | default("")
+                        }
+                    })
+                }}
+            {% endif %}
+        {% endcall %}
+
+        {{
+            onsButton({
+                "id": "save-values-button",
+                "variants": ["loader"],
+                "text": page.submit_button.text
+            })
+        }}
+    </form>
+{% endblock %}

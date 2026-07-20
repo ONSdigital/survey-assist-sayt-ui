@@ -85,9 +85,8 @@ def test_wireframe_renders_configured_intro(
     response_text = response.get_data(as_text=True)
 
     assert response.status_code == HTTPStatus.OK
-    assert "Shape Tomorrow Prototype" in response_text
+    assert "Test survey" in response_text
     assert "Begin study" in response_text
-    assert 'href="#data-protection"' in response_text
 
 
 def test_wireframe_returns_not_found_when_intro_is_disabled(

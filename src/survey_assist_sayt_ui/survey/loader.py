@@ -104,6 +104,9 @@ def _validate_survey_definition(payload: dict[str, object]) -> None:
     section_ids = _validate_sections(sections)
     _validate_navigation(navigation, section_ids)
 
+    survey_pages = _require_mapping(payload, "survey_pages")
+    _validate_survey_pages(survey_pages)
+
 
 def _validate_sections(sections: list[object]) -> set[str]:
     """Validate survey introduction sections.
@@ -178,8 +181,7 @@ def _validate_block(
         return
 
     if block_type == "button":
-        _require_non_empty_string(block, "text")
-        _validate_link(_require_non_empty_string(block, "link"))
+        _validate_button_block(block)
         return
 
     variant = _require_non_empty_string(block, "variant")
@@ -370,3 +372,234 @@ def _validate_inline_content(items: list[object]) -> None:
             raise SurveyDefinitionInvalidError(
                 f"new_window must be a boolean for inline content item {index}"
             )
+
+
+def _validate_survey_pages(survey_pages: dict[str, object]) -> None:
+    """Validate the ordered survey page definitions.
+
+    Args:
+        survey_pages: Configured survey page collection.
+
+    Raises:
+        SurveyDefinitionInvalidError: If the page configuration is invalid.
+    """
+    enabled = survey_pages.get("enabled")
+
+    if not isinstance(enabled, bool):
+        raise SurveyDefinitionInvalidError("survey_pages.enabled must be a boolean")
+
+    if not enabled:
+        return
+
+    start_page_id = _require_non_empty_string(
+        survey_pages,
+        "start_page_id",
+    )
+    pages = _require_list(survey_pages, "pages")
+
+    if not pages:
+        raise SurveyDefinitionInvalidError("survey_pages.pages must not be empty")
+
+    page_ids: set[str] = set()
+    question_names: set[str] = set()
+
+    for page_index, page_value in enumerate(pages):
+        page = _require_object_value(
+            page_value,
+            f"survey page {page_index}",
+        )
+
+        page_id = _require_non_empty_string(page, "page_id")
+        question_name = _require_non_empty_string(
+            page,
+            "question_name",
+        )
+
+        if page_id in page_ids:
+            raise SurveyDefinitionInvalidError(f"Duplicate survey page id: {page_id!r}")
+
+        if question_name in question_names:
+            raise SurveyDefinitionInvalidError(f"Duplicate question name: {question_name!r}")
+
+        page_ids.add(page_id)
+        question_names.add(question_name)
+
+        if page.get("page_type") != "question":
+            raise SurveyDefinitionInvalidError(
+                f"Unsupported survey page type: {page.get('page_type')!r}"
+            )
+
+        _validate_question_page(page)
+
+    if start_page_id not in page_ids:
+        raise SurveyDefinitionInvalidError(
+            f"start_page_id does not match a survey page: {start_page_id!r}"
+        )
+
+
+def _validate_question_page(page: dict[str, object]) -> None:
+    """Validate a question page.
+
+    Args:
+        page: Configured question page.
+
+    Raises:
+        SurveyDefinitionInvalidError: If question content is invalid.
+    """
+    _require_non_empty_string(page, "page_title")
+
+    question = _require_mapping(page, "question")
+    _require_non_empty_string(question, "text")
+
+    answer = _require_mapping(page, "answer")
+    answer_type = answer.get("type")
+
+    _require_non_empty_string(answer, "name")
+
+    if not isinstance(answer.get("required"), bool):
+        raise SurveyDefinitionInvalidError("answer.required must be a boolean")
+
+    if answer_type == "radio":
+        _validate_radio_answer(answer)
+        return
+
+    if answer_type == "text":
+        _validate_text_answer(answer)
+        return
+
+    raise SurveyDefinitionInvalidError(f"Unsupported answer type: {answer_type!r}")
+
+
+def _require_object_value(
+    value: object,
+    description: str,
+) -> dict[str, object]:
+    """Return a value that must be a JSON object.
+
+    Args:
+        value: Parsed JSON value.
+        description: Description used in validation errors.
+
+    Returns:
+        dict[str, object]: Validated JSON object.
+
+    Raises:
+        SurveyDefinitionInvalidError: If the value is not an object.
+    """
+    if not isinstance(value, dict):
+        raise SurveyDefinitionInvalidError(f"{description} must be an object")
+
+    return cast(dict[str, object], value)
+
+
+def _validate_radio_answer(answer: dict[str, object]) -> None:
+    """Validate a radio answer definition.
+
+    Args:
+        answer: Configured radio answer.
+
+    Raises:
+        SurveyDefinitionInvalidError: If the radio options are invalid.
+    """
+    options = _require_list(answer, "options")
+
+    if not options:
+        raise SurveyDefinitionInvalidError("Radio answers must define at least one option")
+
+    option_ids: set[str] = set()
+    option_values: set[str] = set()
+
+    for option_index, option_value in enumerate(options):
+        option = _require_object_value(
+            option_value,
+            f"Radio option {option_index}",
+        )
+
+        option_id = _require_non_empty_string(option, "id")
+        _require_non_empty_string(option, "label")
+        response_value = _require_non_empty_string(option, "value")
+
+        if option_id in option_ids:
+            raise SurveyDefinitionInvalidError(f"Duplicate radio option id: {option_id!r}")
+
+        if response_value in option_values:
+            raise SurveyDefinitionInvalidError(f"Duplicate radio option value: {response_value!r}")
+
+        option_ids.add(option_id)
+        option_values.add(response_value)
+
+
+def _validate_text_answer(answer: dict[str, object]) -> None:
+    """Validate a text answer definition.
+
+    Args:
+        answer: Configured text answer.
+
+    Raises:
+        SurveyDefinitionInvalidError: If the text configuration is invalid.
+    """
+    multiline = answer.get("multiline")
+
+    if multiline is not None and not isinstance(multiline, bool):
+        raise SurveyDefinitionInvalidError("answer.multiline must be a boolean")
+
+    placeholder = answer.get("placeholder")
+
+    if placeholder is not None and not isinstance(placeholder, str):
+        raise SurveyDefinitionInvalidError("answer.placeholder must be a string")
+
+    rows = answer.get("rows")
+
+    if rows is not None:
+        if not isinstance(rows, int) or isinstance(rows, bool) or rows < 1:
+            raise SurveyDefinitionInvalidError("answer.rows must be a positive integer")
+
+        if multiline is not True:
+            raise SurveyDefinitionInvalidError(
+                "answer.rows may only be used when answer.multiline is true"
+            )
+
+    character_limit = answer.get("character_limit")
+
+    if character_limit is not None and (
+        not isinstance(character_limit, int)
+        or isinstance(character_limit, bool)
+        or character_limit < 1
+    ):
+        raise SurveyDefinitionInvalidError("answer.character_limit must be a positive integer")
+
+
+def _validate_button_block(block: dict[str, object]) -> None:
+    """Validate an introduction button block.
+
+    A button must define either a URL link or a target survey page, but not
+    both.
+
+    Args:
+        block: Configured button block.
+
+    Raises:
+        SurveyDefinitionInvalidError: If the button target is invalid.
+    """
+    _require_non_empty_string(block, "text")
+
+    has_link = "link" in block
+    has_target_page_id = "target_page_id" in block
+
+    if has_link == has_target_page_id:
+        raise SurveyDefinitionInvalidError(
+            "Button blocks must define either link or target_page_id"
+        )
+
+    if has_link:
+        link = _require_non_empty_string(block, "link")
+        _validate_link(link)
+        return
+
+    target_page_id = _require_non_empty_string(
+        block,
+        "target_page_id",
+    )
+
+    if not SECTION_ID_PATTERN.fullmatch(target_page_id):
+        raise SurveyDefinitionInvalidError(f"Invalid target page id: {target_page_id!r}")

@@ -1,0 +1,20 @@
+{% extends "core.html" %}
+
+{% from "components/panel/_macro.njk" import onsPanel %}
+
+{% set page_title = "Survey complete" %}
+{% set page_heading = "Survey complete" %}
+{% set main_col_class = "ons-col-8@m" %}
+
+{% block main %}
+    <h1>{{ page_heading }}</h1>
+
+    {{
+        onsPanel({
+            "variant": "success",
+            "id": "survey-complete-panel",
+            "title": "You have reached the end of the survey",
+            "body": "Thank you for taking part."
+        })
+    }}
+{% endblock %}

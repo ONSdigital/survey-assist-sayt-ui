@@ -57,7 +57,7 @@
             {
               "type": "button",
               "text": "Start now",
-              "link": "/wireframe",
+              "target_page_id": "q0",
               "variants": [
                 "loader"
               ]
@@ -239,5 +239,81 @@
         }
       ]
     }
+  },
+  "survey_pages": {
+    "enabled": true,
+    "start_page_id": "q0",
+    "pages": [
+      {
+        "page_id": "q0",
+        "page_type": "question",
+        "page_title": "Age Range",
+        "question_name": "age_range_question",
+        "question": {
+          "text": "Select your age range from the options below"
+        },
+        "answer": {
+          "type": "radio",
+          "name": "age-range",
+          "required": true,
+          "options": [
+            {
+              "id": "age-range-16-24",
+              "label": "16-24",
+              "value": "16-24"
+            },
+            {
+              "id": "age-range-25-34",
+              "label": "25-34",
+              "value": "25-34"
+            },
+            {
+              "id": "age-range-35-49",
+              "label": "35-49",
+              "value": "35-49"
+            },
+            {
+              "id": "age-range-50-64",
+              "label": "50-64",
+              "value": "50-64"
+            },
+            {
+              "id": "age-range-65",
+              "label": "65 plus",
+              "value": "65-plus"
+            }
+          ]
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "q1",
+        "page_type": "question",
+        "page_title": "Job Title",
+        "question_name": "job_title_question",
+        "question": {
+          "text": "What is the exact job title for your main job or business?",
+          "description": "For example, office cleaner, district nurse or primary school teacher",
+          "justification": {
+            "title": "Why we ask this question",
+            "content": "Placeholder text"
+          }
+        },
+        "answer": {
+          "type": "text",
+          "name": "job-title",
+          "required": true,
+          "multiline": true,
+          "rows": 5,
+          "character_limit": 150,
+          "placeholder": ""
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      }
+    ]
   }
 }

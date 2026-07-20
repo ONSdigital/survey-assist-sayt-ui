@@ -9,6 +9,7 @@ import pytest
 from survey_assist_sayt_ui.app import create_app
 from survey_assist_sayt_ui.auth.service import AuthService, AuthStore
 from survey_assist_sayt_ui.config import Settings
+from survey_assist_sayt_ui.survey.models import SurveyDefinition
 
 TokenRefresher = Callable[[int, str, str, str], tuple[int, str]]
 
@@ -55,11 +56,107 @@ def static_token_refresher() -> TokenRefresher:
     return _static_token_refresher
 
 
+@pytest.fixture(name="survey_definition")
+def survey_definition_fixture() -> SurveyDefinition:
+    """Provide a valid two-question survey definition.
+
+    Returns:
+        SurveyDefinition: Survey containing one radio and one text question.
+    """
+    return {
+        "schema_version": 1,
+        "survey_title": "Test survey",
+        "wave_id": "test-wave",
+        "survey_intro": {
+            "enabled": True,
+            "intro": {
+                "navigation": {
+                    "header": "In this section",
+                    "aria_label": "Sections in this page",
+                    "entries": [
+                        {
+                            "link": "#begin-study",
+                            "text": "Begin study",
+                        }
+                    ],
+                },
+                "sections": [
+                    {
+                        "id": "begin-study",
+                        "heading": "Begin study",
+                        "blocks": [],
+                    }
+                ],
+            },
+        },
+        "survey_pages": {
+            "enabled": True,
+            "start_page_id": "q0",
+            "pages": [
+                {
+                    "page_id": "q0",
+                    "page_type": "question",
+                    "page_title": "Age Range",
+                    "question_name": "age_range_question",
+                    "question": {
+                        "text": "Select your age range from the options below",
+                    },
+                    "answer": {
+                        "type": "radio",
+                        "name": "age-range",
+                        "required": True,
+                        "options": [
+                            {
+                                "id": "age-range-16-24",
+                                "label": "16-24",
+                                "value": "16-24",
+                            },
+                            {
+                                "id": "age-range-25-34",
+                                "label": "25-34",
+                                "value": "25-34",
+                            },
+                        ],
+                    },
+                    "submit_button": {
+                        "text": "Save and continue",
+                    },
+                },
+                {
+                    "page_id": "q1",
+                    "page_type": "question",
+                    "page_title": "Job Title",
+                    "question_name": "job_title_question",
+                    "question": {
+                        "text": ("What is the exact job title for your main " "job or business?"),
+                    },
+                    "answer": {
+                        "type": "text",
+                        "name": "job-title",
+                        "required": True,
+                        "multiline": True,
+                        "rows": 5,
+                        "character_limit": 150,
+                    },
+                    "submit_button": {
+                        "text": "Save and continue",
+                    },
+                },
+            ],
+        },
+    }
+
+
 @pytest.fixture(name="app")
 def app_fixture(
     static_token_refresher: TokenRefresher,  # pylint: disable=redefined-outer-name
+    survey_definition: SurveyDefinition,
 ) -> Flask:
     """Create a configured Flask application for tests.
+
+    Args:
+        static_token_refresher: Deterministic JWT token refresher.
+        survey_definition: Survey definition used by route tests.
 
     Returns:
         Flask: Test application instance.
@@ -76,6 +173,7 @@ def app_fixture(
     application = create_app(
         settings=settings,
         auth_service=AuthService(StaticAuthStore()),
+        survey_definition=survey_definition,
         token_refresher=static_token_refresher,
     )
     application.config.update(TESTING=True)

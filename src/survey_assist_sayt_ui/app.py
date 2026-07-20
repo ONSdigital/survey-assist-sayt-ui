@@ -23,6 +23,7 @@ from .auth.routes import auth_blueprint
 from .auth.service import AuthService, build_auth_store
 from .config import Settings, load_settings
 from .routes.main import main_blueprint
+from .routes.survey import survey_blueprint
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +150,7 @@ def create_app(  # pylint: disable=too-many-locals
 
     app.register_blueprint(auth_blueprint)
     app.register_blueprint(main_blueprint)
+    app.register_blueprint(survey_blueprint)
 
     @app.context_processor
     def inject_settings() -> dict[str, Settings]:

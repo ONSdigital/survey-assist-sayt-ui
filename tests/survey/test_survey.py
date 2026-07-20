@@ -1,0 +1,146 @@
+"""Tests for configurable survey routes."""
+
+from http import HTTPStatus
+from typing import cast
+
+from flask.testing import FlaskClient
+
+from survey_assist_sayt_ui.auth.decorators import SESSION_USER_KEY
+from survey_assist_sayt_ui.routes.survey import SURVEY_RESPONSES_KEY
+
+
+def _authenticate(client: FlaskClient) -> None:
+    """Authenticate the Flask test client.
+
+    Args:
+        client: Flask test client to authenticate.
+    """
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+
+
+def test_first_question_renders(client: FlaskClient) -> None:
+    """Test that the first configured question renders."""
+    _authenticate(client)
+
+    response = client.get("/wireframe/questions/q0")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Select your age range from the options below" in response_text
+    assert "16-24" in response_text
+    assert "25-34" in response_text
+
+
+def test_invalid_question_page_returns_not_found(
+    client: FlaskClient,
+) -> None:
+    """Test that an unknown question page returns not found."""
+    _authenticate(client)
+
+    response = client.get("/wireframe/questions/missing")
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_required_response_returns_bad_request(
+    client: FlaskClient,
+) -> None:
+    """Test that an empty required response is rejected."""
+    _authenticate(client)
+
+    response = client.post(
+        "/wireframe/questions/q0",
+        data={},
+    )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_radio_value_outside_configured_options_returns_bad_request(
+    client: FlaskClient,
+) -> None:
+    """Test that an unconfigured radio value is rejected."""
+    _authenticate(client)
+
+    response = client.post(
+        "/wireframe/questions/q0",
+        data={"age-range": "not-configured"},
+    )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_response_is_saved_in_session(
+    client: FlaskClient,
+) -> None:
+    """Test that a valid response is stored in the session."""
+    _authenticate(client)
+
+    client.post(
+        "/wireframe/questions/q0",
+        data={"age-range": "25-34"},
+    )
+
+    with client.session_transaction() as flask_session:
+        responses = cast(
+            dict[str, dict[str, str]],
+            flask_session[SURVEY_RESPONSES_KEY],
+        )
+
+    assert responses["q0"] == {
+        "question_name": "age_range_question",
+        "response_name": "age-range",
+        "value": "25-34",
+    }
+
+
+def test_first_question_redirects_to_second_question(
+    client: FlaskClient,
+) -> None:
+    """Test that the first question redirects to the next question."""
+    _authenticate(client)
+
+    response = client.post(
+        "/wireframe/questions/q0",
+        data={"age-range": "16-24"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/wireframe/questions/q1")
+
+
+def test_final_question_redirects_to_completion(
+    client: FlaskClient,
+) -> None:
+    """Test that the final question redirects to completion."""
+    _authenticate(client)
+
+    response = client.post(
+        "/wireframe/questions/q1",
+        data={"job-title": "Primary school teacher"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/wireframe/complete")
+
+
+def test_saved_response_is_repopulated_when_revisiting_page(
+    client: FlaskClient,
+) -> None:
+    """Test that a previously saved response is rendered again."""
+    _authenticate(client)
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q1": {
+                "question_name": "job_title_question",
+                "response_name": "job-title",
+                "value": "Primary school teacher",
+            }
+        }
+
+    response = client.get("/wireframe/questions/q1")
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Primary school teacher" in response.get_data(as_text=True)

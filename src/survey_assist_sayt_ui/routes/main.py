@@ -16,6 +16,7 @@ from survey_assist_sayt_ui.services.business_activity import (
     BusinessActivitySearchClient,
 )
 from survey_assist_sayt_ui.survey.models import SurveyDefinition
+from survey_assist_sayt_ui.survey.session import clear_survey_session_data
 
 MIN_AUTOSUGGEST_CHARACTERS = 3
 MAX_AUTOSUGGEST_QUERY_LENGTH = 200
@@ -47,6 +48,14 @@ def index() -> ResponseReturnValue:
     Returns:
         ResponseReturnValue: Home page template response.
     """
+    removed_keys = clear_survey_session_data()
+
+    if removed_keys:
+        logger.info(
+            "Cleared survey session data keys=%s",
+            sorted(removed_keys),
+        )
+
     survey_definition = _get_survey_definition()
 
     return render_template(

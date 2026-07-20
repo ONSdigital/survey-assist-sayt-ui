@@ -26,7 +26,8 @@ class ButtonBlock(TypedDict):
 
     type: Literal["button"]
     text: str
-    link: str
+    link: NotRequired[str]
+    target_page_id: NotRequired[str]
     variants: NotRequired[list[str]]
 
 
@@ -86,3 +87,84 @@ class SurveyDefinition(TypedDict):
     survey_title: str
     wave_id: str
     survey_intro: SurveyIntro
+    survey_pages: SurveyPages
+
+
+class RadioOption(TypedDict):
+    """Option displayed by an ONS radio component."""
+
+    id: str
+    label: str
+    value: str
+
+
+class RadioAnswer(TypedDict):
+    """Radio answer configuration."""
+
+    type: Literal["radio"]
+    name: str
+    required: bool
+    options: list[RadioOption]
+
+
+class TextAnswer(TypedDict):
+    """Text answer configuration."""
+
+    type: Literal["text"]
+    name: str
+    required: bool
+    multiline: NotRequired[bool]
+    rows: NotRequired[int]
+    character_limit: NotRequired[int]
+    placeholder: NotRequired[str]
+
+
+QuestionAnswer = RadioAnswer | TextAnswer
+
+
+class QuestionGuidance(TypedDict):
+    """Optional question guidance."""
+
+    content: str
+
+
+class QuestionJustification(TypedDict):
+    """Optional explanation of why a question is asked."""
+
+    title: str
+    content: str
+
+
+class QuestionContent(TypedDict):
+    """Content displayed by the ONS question component."""
+
+    text: str
+    description: NotRequired[str]
+    guidance: NotRequired[QuestionGuidance]
+    justification: NotRequired[QuestionJustification]
+
+
+class SubmitButton(TypedDict):
+    """Question submit button configuration."""
+
+    text: str
+
+
+class QuestionPage(TypedDict):
+    """A configurable survey question page."""
+
+    page_id: str
+    page_type: Literal["question"]
+    page_title: str
+    question_name: str
+    question: QuestionContent
+    answer: QuestionAnswer
+    submit_button: SubmitButton
+
+
+class SurveyPages(TypedDict):
+    """Ordered pages making up the survey journey."""
+
+    enabled: bool
+    start_page_id: str
+    pages: list[QuestionPage]
