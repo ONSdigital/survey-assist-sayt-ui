@@ -93,11 +93,6 @@ def business_activity_suggestions() -> ResponseReturnValue:
     )
 
     try:
-        logger.warning(
-            "Searching for business activity suggestions",
-            extra={"query_length": len(query)},
-        )
-
         suggestions = client.search(
             query,
             limit=MAX_AUTOSUGGEST_RESULTS,
@@ -132,6 +127,17 @@ def save_response() -> ResponseReturnValue:
         "confirmation.html",
         page_title="Confirmation",
         selected=selected,
+        authenticated_user=session.get(SESSION_USER_KEY),
+    )
+
+
+@main_blueprint.get("/wireframe")
+@login_required
+def wireframe() -> ResponseReturnValue:
+    """Render the wireframe page."""
+    return render_template(
+        "survey_intro.html",
+        page_title="Survey Intro",
         authenticated_user=session.get(SESSION_USER_KEY),
     )
 
