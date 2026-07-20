@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+from pathlib import Path
+
+DEFAULT_SURVEY_DEFINITION_FILE = (
+    Path(__file__).resolve().parent / "survey_definitions" / "example_survey.json"
+)
 
 
 @dataclass(frozen=True)
@@ -15,6 +20,7 @@ class Settings:  # pylint: disable=too-many-instance-attributes
         sayt_api_url: URL of the search as yout type API endpoint.
         sa_email: Service Account email for GCP authentication.
         service_name: Service display name.
+        survey_definition_file: Path to the JSON survey definition.
         auth_mode: Authentication backend mode.
         local_users_file: Local JSON file path for users.
         gcp_auth_bucket_name: Optional GCS bucket name for users JSON.
@@ -26,6 +32,7 @@ class Settings:  # pylint: disable=too-many-instance-attributes
     sayt_api_url: str
     sa_email: str
     service_name: str = "Survey Assist SAYT UI"
+    survey_definition_file: str = str(DEFAULT_SURVEY_DEFINITION_FILE)
     auth_mode: str = "local"
     local_users_file: str = "users.json"
     gcp_auth_bucket_name: str | None = None
@@ -60,6 +67,9 @@ def load_settings() -> Settings:
         sayt_api_url=_required_env("SAYT_API_URL"),
         sa_email=_required_env("SA_EMAIL"),
         service_name=os.getenv("SERVICE_NAME", "Survey Assist SAYT UI"),
+        survey_definition_file=os.getenv(
+            "SURVEY_DEFINITION_FILE", str(DEFAULT_SURVEY_DEFINITION_FILE)
+        ),
         auth_mode=os.getenv("AUTH_MODE", "local").strip().lower(),
         local_users_file=os.getenv("LOCAL_USERS_FILE", "users.json"),
         gcp_auth_bucket_name=os.getenv("GCP_AUTH_BUCKET_NAME"),

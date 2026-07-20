@@ -35,14 +35,16 @@
                 "url": url_for("main.api_autosuggest"),
             })
         }}
-        <br>
-        <br>
-        {{
-            onsButton({
-                "text": "Wireframe",
-                "url": url_for("main.wireframe"),
-            })
-        }}
+        {% if wireframe_enabled %}
+            <br>
+            <br>
+            {{
+                onsButton({
+                    "text": "Wireframe",
+                    "url": url_for("main.wireframe"),
+                })
+            }}
+        {% endif %}
 
     </div>
 

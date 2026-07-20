@@ -1,0 +1,243 @@
+{
+  "schema_version": 1,
+  "survey_title": "Shape Tomorrow Prototype",
+  "wave_id": "20-07-2026-14D",
+  "survey_intro": {
+    "enabled": true,
+    "intro": {
+      "navigation": {
+        "header": "In this section",
+        "aria_label": "Sections in this page",
+        "entries": [
+          {
+            "link": "#begin-study",
+            "text": "Begin study"
+          },
+          {
+            "link": "#about-research",
+            "text": "About this research"
+          },
+          {
+            "link": "#data-protection",
+            "text": "How we protect your data"
+          },
+          {
+            "link": "#automated-questions",
+            "text": "Use of automated follow-up questions"
+          },
+          {
+            "link": "#contact",
+            "text": "Contact us"
+          }
+        ]
+      },
+      "sections": [
+        {
+          "id": "begin-study",
+          "heading": "1. Begin study",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Thank you for taking part. The information you give us is protected by law and treated as confidential."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "To begin the study, select “Start now”."
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "text": "Start now",
+              "link": "/wireframe",
+              "variants": [
+                "loader"
+              ]
+            },
+            {
+              "type": "panel",
+              "variant": "info",
+              "heading": "Use of automated follow-up questions",
+              "paragraphs": [
+                [
+                  {
+                    "type": "text",
+                    "text": "This study uses an Artificial Intelligence (AI) tool to generate automated follow-up questions."
+                  }
+                ],
+                [
+                  {
+                    "type": "text",
+                    "text": "Sometimes these automated follow-up questions may be confusing or ask for personal details. If that happens, type ‘n/a’ or ‘inappropriate’ into the text box. This helps us improve the tool."
+                  }
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "id": "about-research",
+          "heading": "2. About this research",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "The purpose of this research is to test survey questions. The findings will be used to help shape the design of government surveys. We are grateful for your time."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Your participation in this research is voluntary, and you may withdraw at any time, without reason."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "data-protection",
+          "heading": "3. How we protect your data",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "UK legislation allows us to collect and process your data to produce statistics for the public good. Your information will be treated as confidential as directed by the Code of Practice for Statistics. It will only be held for as long as it is being used for producing statistics and will not identify you. Study information may be provided to approved organisations or researchers for statistical purposes only."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "For more information, see "
+                },
+                {
+                  "type": "link",
+                  "text": "data protection",
+                  "link": "https://www.ons.gov.uk/aboutus/transparencyandgovernance/dataprotection",
+                  "new_window": true
+                },
+                {
+                  "type": "text",
+                  "text": " and "
+                },
+                {
+                  "type": "link",
+                  "text": "data protection and studies about people, families and households",
+                  "link": "https://www.ons.gov.uk/surveys/informationforhouseholdsandindividuals/householdandindividualsurveys/findingyourstudy/mystudy/confidentialityanddataprotection",
+                  "new_window": true
+                },
+                {
+                  "type": "text",
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "automated-questions",
+          "heading": "4. Use of automated follow-up questions",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "This study uses an artificial intelligence (AI) tool to create automated follow-up questions. These are labelled and there may be a delay between questions."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Automated follow-up questions are only asked if we need extra information. By answering, you help make our statistics more accurate."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sometimes these automated follow-up questions may be confusing or ask for personal details. If that happens, type ‘n/a’ or ‘inappropriate’ into the text box. This helps us improve the tool."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "The automated follow-up questions are created by Google Gemini. This is an AI tool which uses a large language model. Your data is not stored by Google Gemini, and it is not used to train Google’s AI models. It is only used to create the automated follow-up questions. The ONS will receive all data and remain in control of all information you give."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "contact",
+          "heading": "5. Contact us",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "For any queries please email: "
+                },
+                {
+                  "type": "link",
+                  "text": "support@example-research.org",
+                  "link": "mailto:support@example-research.org",
+                  "new_window": false
+                },
+                {
+                  "type": "text",
+                  "text": "."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "When you are ready to take part, please return to "
+                },
+                {
+                  "type": "link",
+                  "text": "begin study",
+                  "link": "#begin-study",
+                  "new_window": false
+                },
+                {
+                  "type": "text",
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

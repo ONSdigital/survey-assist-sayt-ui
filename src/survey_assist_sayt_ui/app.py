@@ -13,6 +13,11 @@ from jinja2 import ChainableUndefined, ChoiceLoader, FileSystemLoader
 from survey_assist_utils.api_token.jwt_utils import check_and_refresh_token
 
 from survey_assist_sayt_ui.services.business_activity import HttpBusinessActivitySearchClient
+from survey_assist_sayt_ui.survey.loader import (
+    SurveyDefinitionError,
+    load_survey_definition,
+)
+from survey_assist_sayt_ui.survey.models import SurveyDefinition
 
 from .auth.routes import auth_blueprint
 from .auth.service import AuthService, build_auth_store
@@ -43,9 +48,10 @@ def _get_api_gateway_hostname(api_url: str) -> str:
     return hostname
 
 
-def create_app(
+def create_app(  # pylint: disable=too-many-locals
     settings: Settings | None = None,
     auth_service: AuthService | None = None,
+    survey_definition: SurveyDefinition | None = None,
     *,
     token_refresher: TokenRefresher | None = None,
 ) -> Flask:
@@ -55,6 +61,8 @@ def create_app(
         settings: Optional runtime settings. When omitted, settings are loaded from
             environment variables.
         auth_service: Optional authentication service implementation.
+        survey_definition: Optional preloaded survey definition, primarily for
+            testing.
         token_refresher: Optional callable to refresh the SAYT API JWT.
 
     Returns:
@@ -83,6 +91,22 @@ def create_app(
     )
 
     resolved_settings = settings or load_settings()
+
+    resolved_survey_definition = survey_definition
+
+    if resolved_survey_definition is None:
+        survey_path = Path(resolved_settings.survey_definition_file)
+
+        try:
+            resolved_survey_definition = load_survey_definition(survey_path)
+            logger.info("Loaded survey definition from %s", survey_path)
+        except SurveyDefinitionError as exc:
+            logger.exception(
+                "Failed to load survey definition from %s",
+                survey_path,
+            )
+            raise RuntimeError(f"Unable to start with survey definition {survey_path}") from exc
+
     refresh_token = token_refresher or check_and_refresh_token
 
     app = Flask(__name__, template_folder="app_templates")
@@ -104,6 +128,8 @@ def create_app(
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=resolved_settings.session_cookie_secure,
     )
+
+    app.extensions["survey_definition"] = resolved_survey_definition
 
     # Setup the business activity search client with a short-lived JWT token
     gateway_hostname = _get_api_gateway_hostname(resolved_settings.sayt_api_url)
