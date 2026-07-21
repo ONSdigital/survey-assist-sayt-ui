@@ -1,0 +1,134 @@
+{% extends "core.html" %}
+
+{% from "components/autosuggest/_macro.njk" import onsAutosuggest %}
+{% from "components/button/_macro.njk" import onsButton %}
+
+{% set page_title = page.page_title %}
+{% set main_col_class = "ons-col-8@m" %}
+{% set autosuggest_id = page.page_id ~ "-api-autosuggest" %}
+{% set loading_id = autosuggest_id ~ "-loading" %}
+
+{% if error_message %}
+    {% set autosuggest_error = {
+        "id": autosuggest_id ~ "-error",
+        "text": error_message
+    } %}
+{% else %}
+    {% set autosuggest_error = none %}
+{% endif %}
+
+{% block page_scripts %}
+    {{ super() }}
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for(
+            'static',
+            filename='css/business-activity-autosuggest-loading.css'
+        ) }}"
+    >
+
+    <script
+        src="{{ url_for(
+            'static',
+            filename='js/business-activity-autosuggest-loading.js'
+        ) }}"
+        data-suggestions-path="{{ url_for(
+            'main.business_activity_suggestions'
+        ) }}"
+        data-loading-element-id="{{ loading_id }}"
+        data-autosuggest-element-id="{{ autosuggest_id }}"
+        defer
+    ></script>
+
+    <script
+        src="{{ url_for(
+            'static',
+            filename='js/remote-autosuggest.bundle.js'
+        ) }}"
+        defer
+    ></script>
+{% endblock %}
+
+{% block main %}
+<form
+    method="post"
+    action="{{ url_for(
+        'survey.save_response',
+        page_id=page.page_id
+    ) }}"
+>
+    {{
+        onsAutosuggest({
+            "id": autosuggest_id,
+            "input": {
+                "name": page.answer.name,
+                "width": "30",
+                "autocomplete": "off",
+                "label": {
+                    "text": question_text,
+                    "id": autosuggest_id ~ "-label",
+                    "classes": "ons-u-fs-xl"
+                },
+                "value": saved_value,
+                "error": autosuggest_error,
+                "attributes": {
+                    "required": page.answer.required,
+                    "placeholder": (
+                        page.answer.placeholder
+                        | default("")
+                    )
+                }
+            },
+            "instructions": "Use up and down keys to navigate suggestions once you have typed 3 or more characters. Use the enter key to select a suggestion. Touch device users, explore by touch or with swipe gestures.",
+            "ariaYouHaveSelected": "You have selected",
+            "ariaMinChars": "Enter 3 or more characters for suggestions.",
+            "ariaOneResult": "There is one suggestion available.",
+            "ariaNResults": "There are {n} suggestions available.",
+            "ariaLimitedResults": "Results have been limited. Type more characters to improve your search.",
+            "moreResults": "Continue entering to improve suggestions",
+            "resultsTitle": "Suggested industries",
+            "resultsTitleId": autosuggest_id ~ "-suggestions",
+            "noResults": "No suggestions found. You can enter your own answer.",
+            "typeMore": "Continue entering to get suggestions",
+            "minChars": 3,
+            "resultsThreshold": 0.3,
+            "language": "en",
+            "externalInitialiser": true,
+            "apiSource": {
+                "url": url_for(
+                    'main.business_activity_suggestions'
+                ),
+                "queryParam": "q",
+                "minChars": 3,
+                "additionalChars": 1,
+                "maxWaitMs": 3000
+            }
+        })
+    }}
+
+    <div
+        id="{{ loading_id }}"
+        class="business-activity-loading ons-u-fs-s ons-u-mt-xs"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        hidden
+    >
+        <span
+            class="business-activity-loading__spinner"
+            aria-hidden="true"
+        ></span>
+        <span>Searching...</span>
+    </div>
+
+    {{
+        onsButton({
+            "id": "save-values-button",
+            "variants": ["loader"],
+            "text": page.submit_button.text,
+            "classes": "ons-u-mt-l"
+        })
+    }}
+</form>
+{% endblock %}

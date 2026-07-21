@@ -532,6 +532,10 @@ def _validate_question_page(page: dict[str, object]) -> None:
         _validate_text_answer(answer)
         return
 
+    if answer_type == "api_autosuggest":
+        _validate_api_autosuggest_answer(answer)
+        return
+
     raise SurveyDefinitionInvalidError(f"Unsupported answer type: {answer_type!r}")
 
 
@@ -632,6 +636,27 @@ def _validate_text_answer(answer: dict[str, object]) -> None:
         or character_limit < 1
     ):
         raise SurveyDefinitionInvalidError("answer.character_limit must be a positive integer")
+
+
+def _validate_api_autosuggest_answer(
+    answer: dict[str, object],
+) -> None:
+    """Validate an API-backed autosuggest answer.
+
+    Args:
+        answer: Configured autosuggest answer.
+
+    Raises:
+        SurveyDefinitionInvalidError: If optional autosuggest configuration
+            is invalid.
+    """
+    placeholder = answer.get("placeholder")
+
+    if placeholder is not None and not isinstance(
+        placeholder,
+        str,
+    ):
+        raise SurveyDefinitionInvalidError("answer.placeholder must be a string")
 
 
 def _validate_button_block(block: dict[str, object]) -> None:

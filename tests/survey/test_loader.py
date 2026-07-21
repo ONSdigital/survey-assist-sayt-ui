@@ -11,7 +11,7 @@ from survey_assist_sayt_ui.survey.loader import (
     SurveyDefinitionNotFoundError,
     load_survey_definition,
 )
-from survey_assist_sayt_ui.survey.models import SurveyDefinition
+from survey_assist_sayt_ui.survey.models import QuestionPage, SurveyDefinition
 
 
 def test_load_survey_definition_raises_when_file_is_missing(
@@ -275,3 +275,21 @@ def test_load_survey_definition_rejects_unknown_placeholder_source(
         match="must reference an earlier question_name",
     ):
         load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_accepts_api_autosuggest(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test that an API autosuggest question is valid."""
+    survey_definition["survey_pages"]["pages"].append(api_autosuggest_page)
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    loaded_definition = load_survey_definition(survey_path)
+
+    assert loaded_definition["survey_pages"]["pages"][-1]["answer"]["type"] == "api_autosuggest"

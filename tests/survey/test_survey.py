@@ -3,10 +3,12 @@
 from http import HTTPStatus
 from typing import cast
 
+from flask import Flask
 from flask.testing import FlaskClient
 
 from survey_assist_sayt_ui.auth.decorators import SESSION_USER_KEY
 from survey_assist_sayt_ui.routes.survey import SURVEY_RESPONSES_KEY
+from survey_assist_sayt_ui.survey.models import QuestionPage, SurveyDefinition
 
 
 def _authenticate(client: FlaskClient) -> None:
@@ -188,3 +190,65 @@ def test_question_redirects_when_placeholder_response_is_missing(
 
     assert response.status_code == HTTPStatus.FOUND
     assert response.headers["Location"].endswith("/wireframe/questions/q1")
+
+
+def _insert_autosuggest_page(
+    app: Flask,
+    page: QuestionPage,
+) -> None:
+    """Insert an autosuggest page into the test survey.
+
+    Args:
+        app: Configured Flask application.
+        page: Autosuggest page to insert.
+    """
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_pages"]["pages"].insert(1, page)
+
+
+def test_api_autosuggest_question_renders(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test that an API autosuggest question renders."""
+    _authenticate(client)
+    _insert_autosuggest_page(app, api_autosuggest_page)
+
+    response = client.get("/wireframe/questions/q-api-autosuggest")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "What is the main activity" in response_text, response_text
+    assert "/api/business-activity-suggestions" in response_text
+    assert "remote-autosuggest.bundle.js" in response_text
+
+
+def test_api_autosuggest_response_is_saved_and_progresses(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test that an autosuggest response is saved before continuing."""
+    _authenticate(client)
+    _insert_autosuggest_page(app, api_autosuggest_page)
+
+    response = client.post(
+        "/wireframe/questions/q-api-autosuggest",
+        data={"business-activity": ("Retail sale of clothing in specialised stores")},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/wireframe/questions/q1")
+
+    with client.session_transaction() as flask_session:
+        responses = flask_session[SURVEY_RESPONSES_KEY]
+
+    assert responses["q-api-autosuggest"] == {
+        "question_name": "business_activity_question",
+        "response_name": "business-activity",
+        "value": ("Retail sale of clothing in specialised stores"),
+    }

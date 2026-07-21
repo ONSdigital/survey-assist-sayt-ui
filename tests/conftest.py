@@ -211,6 +211,33 @@ def question_page_fixture() -> QuestionPage:
     }
 
 
+@pytest.fixture(name="api_autosuggest_page")
+def api_autosuggest_page_fixture() -> QuestionPage:
+    """Provide an API-backed autosuggest question page.
+
+    Returns:
+        QuestionPage: Business-activity autosuggest question.
+    """
+    return {
+        "page_id": "q-api-autosuggest",
+        "page_type": "question",
+        "page_title": "Business Activity",
+        "question_name": "business_activity_question",
+        "question": {
+            "text": ("What is the main activity of the business " "or freelance work?"),
+        },
+        "answer": {
+            "type": "api_autosuggest",
+            "name": "business-activity",
+            "required": True,
+            "placeholder": "Type the main activity",
+        },
+        "submit_button": {
+            "text": "Save and continue",
+        },
+    }
+
+
 @pytest.fixture(name="app")
 def app_fixture(
     static_token_refresher: TokenRefresher,  # pylint: disable=redefined-outer-name

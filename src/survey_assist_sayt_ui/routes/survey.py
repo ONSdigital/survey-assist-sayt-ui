@@ -51,6 +51,21 @@ def _get_survey_definition() -> SurveyDefinition:
     )
 
 
+def _get_question_template(page: QuestionPage) -> str:
+    """Return the template for a configured question page.
+
+    Args:
+        page: Question page being rendered.
+
+    Returns:
+        str: Jinja template filename.
+    """
+    if page["answer"]["type"] == "api_autosuggest":
+        return "survey_api_autosuggest.html"
+
+    return "survey_question.html"
+
+
 def _get_question_page(page_id: str) -> QuestionPage:
     """Return a question page by identifier.
 
@@ -152,6 +167,11 @@ def question(page_id: str) -> ResponseReturnValue:
             page,
             responses,
         )
+        logger.info(
+            "Rendering question page_id=%s question_text=%s",
+            page_id,
+            question_text,
+        )
     except MissingPlaceholderResponseError as exc:
         logger.warning(
             "Placeholder response missing page_id=%s source_question_name=%s",
@@ -168,8 +188,10 @@ def question(page_id: str) -> ResponseReturnValue:
     saved_response = responses.get(page_id)
     saved_value = saved_response["value"] if saved_response else ""
 
+    template_name = _get_question_template(page)
+
     return render_template(
-        "survey_question.html",
+        template_name,
         page=page,
         question_text=question_text,
         saved_value=saved_value,
@@ -219,9 +241,14 @@ def save_response(page_id: str) -> ResponseReturnValue:
     value = request.form.get(answer["name"], "").strip()
 
     if answer["required"] and not value:
+        logger.warning(
+            "question text: %s page_id=%s missing required response",
+            question_text,
+            page_id,
+        )
         return (
             render_template(
-                "survey_question.html",
+                _get_question_template(page),
                 page=page,
                 question_text=question_text,
                 saved_value=value,

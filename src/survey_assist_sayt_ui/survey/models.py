@@ -119,7 +119,16 @@ class TextAnswer(TypedDict):
     placeholder: NotRequired[str]
 
 
-QuestionAnswer = RadioAnswer | TextAnswer
+class ApiAutosuggestAnswer(TypedDict):
+    """API-backed autosuggest answer configuration."""
+
+    type: Literal["api_autosuggest"]
+    name: str
+    required: bool
+    placeholder: NotRequired[str]
+
+
+QuestionAnswer = RadioAnswer | TextAnswer | ApiAutosuggestAnswer
 
 
 class QuestionGuidance(TypedDict):
