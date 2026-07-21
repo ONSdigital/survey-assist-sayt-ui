@@ -9,7 +9,7 @@ if [[ ! -v CICD_PROJECT_ID ]]; then
    exit 1
 fi
 
-ENV_NAME=dev # Sandbox use only TODO change back to Sandbox after initial testing!!
+ENV_NAME=sandbox # Sandbox use only
 
 GIT_SHA=$(git rev-parse --short HEAD)
 sandbox_config=$(gcloud parametermanager parameters versions describe $ENV_NAME --parameter=infra-test-config --location=global --project $CICD_PROJECT_ID --format=json | python3 -c "import sys, json; print(json.load(sys.stdin)['payload']['data'])" | base64 --decode)
