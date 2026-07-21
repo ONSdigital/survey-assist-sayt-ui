@@ -11,7 +11,7 @@ from survey_assist_sayt_ui.survey.loader import (
     SurveyDefinitionNotFoundError,
     load_survey_definition,
 )
-from survey_assist_sayt_ui.survey.models import QuestionPage, SurveyDefinition
+from survey_assist_sayt_ui.survey.models import ApiAutosuggestAnswer, QuestionPage, SurveyDefinition
 
 
 def test_load_survey_definition_raises_when_file_is_missing(
@@ -293,3 +293,55 @@ def test_load_survey_definition_accepts_api_autosuggest(
     loaded_definition = load_survey_definition(survey_path)
 
     assert loaded_definition["survey_pages"]["pages"][-1]["answer"]["type"] == "api_autosuggest"
+
+
+def test_load_survey_definition_accepts_api_autosuggest_not_listed(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test that an autosuggest question may enable Not listed."""
+    answer = cast(
+        ApiAutosuggestAnswer,
+        api_autosuggest_page["answer"],
+    )
+    answer["not_listed"] = True
+
+    survey_definition["survey_pages"]["pages"].append(api_autosuggest_page)
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    loaded_definition = load_survey_definition(survey_path)
+    loaded_answer = cast(
+        ApiAutosuggestAnswer,
+        loaded_definition["survey_pages"]["pages"][-1]["answer"],
+    )
+
+    assert loaded_answer["not_listed"] is True
+
+
+def test_load_survey_definition_rejects_invalid_not_listed(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test that answer.not_listed must be a boolean."""
+    answer = cast(
+        dict[str, object],
+        api_autosuggest_page["answer"],
+    )
+    answer["not_listed"] = "yes"
+
+    survey_definition["survey_pages"]["pages"].append(api_autosuggest_page)
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="answer.not_listed must be a boolean",
+    ):
+        load_survey_definition(survey_path)

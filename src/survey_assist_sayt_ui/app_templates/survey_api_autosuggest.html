@@ -7,6 +7,7 @@
 {% set main_col_class = "ons-col-8@m" %}
 {% set autosuggest_id = page.page_id ~ "-api-autosuggest" %}
 {% set loading_id = autosuggest_id ~ "-loading" %}
+{% set not_listed_enabled = page.answer.not_listed | default(false) %}
 
 {% if error_message %}
     {% set autosuggest_error = {
@@ -15,6 +16,114 @@
     } %}
 {% else %}
     {% set autosuggest_error = none %}
+{% endif %}
+
+{% if not_listed_enabled %}
+    {% set not_listed_option = {
+        "or": "Or",
+        "deselectMessage": (
+            "Selecting Not listed will clear the business activity"
+        ),
+        "deselectGroupAdjective": "cleared",
+        "deselectExclusiveOptionAdjective": "deselected",
+        "exclusiveOptions": [
+            {
+                "id": autosuggest_id ~ "-not-listed",
+                "name": page.answer.name ~ "-not-listed",
+                "value": "not-listed",
+                "checked": not_listed_selected | default(false),
+                "label": {
+                    "text": "Not listed"
+                }
+            }
+        ]
+    } %}
+{% endif %}
+
+{% set input_attributes = {
+    "placeholder": page.answer.placeholder | default("")
+} %}
+
+{# Native required is suitable only when there is no alternative checkbox. #}
+{% if page.answer.required and not not_listed_enabled %}
+    {% set _ = input_attributes.update({
+        "required": true
+    }) %}
+{% endif %}
+
+{% set input_options = {
+    "name": page.answer.name,
+    "width": "30",
+    "autocomplete": "off",
+    "value": saved_value,
+    "error": autosuggest_error,
+    "attributes": input_attributes
+} %}
+
+{% if not_listed_enabled %}
+    {% set _ = input_options.update({
+        "accessiblePlaceholder": true,
+        "legend": question_text,
+        "legendIsQuestionTitle": true,
+        "mutuallyExclusive": not_listed_option
+    }) %}
+{% else %}
+    {% set _ = input_options.update({
+        "label": {
+            "text": question_text,
+            "id": autosuggest_id ~ "-label",
+            "classes": "ons-u-fs-xl"
+        }
+    }) %}
+{% endif %}
+
+{% set autosuggest_options = {
+    "id": autosuggest_id,
+    "input": input_options,
+    "instructions": (
+        "Use up and down keys to navigate suggestions once you have "
+        "typed 3 or more characters. Use the enter key to select a "
+        "suggestion. Touch device users, explore by touch or with "
+        "swipe gestures."
+    ),
+    "ariaYouHaveSelected": "You have selected",
+    "ariaMinChars": "Enter 3 or more characters for suggestions.",
+    "ariaOneResult": "There is one suggestion available.",
+    "ariaNResults": "There are {n} suggestions available.",
+    "ariaLimitedResults": (
+        "Results have been limited. Type more characters to improve "
+        "your search."
+    ),
+    "moreResults": "Continue entering to improve suggestions",
+    "resultsTitle": "Suggested industries",
+    "resultsTitleId": autosuggest_id ~ "-suggestions",
+    "noResults": (
+        "No suggestions found. You can enter your own answer or "
+        "select Not listed."
+        if not_listed_enabled
+        else
+        "No suggestions found. You can enter your own answer."
+    ),
+    "typeMore": "Continue entering to get suggestions",
+    "minChars": 3,
+    "resultsThreshold": 0.3,
+    "language": "en",
+    "externalInitialiser": true,
+    "apiSource": {
+        "url": url_for(
+            "main.business_activity_suggestions"
+        ),
+        "queryParam": "q",
+        "minChars": 3,
+        "additionalChars": 1,
+        "maxWaitMs": 3000
+    }
+} %}
+
+{% if not_listed_enabled %}
+    {% set _ = autosuggest_options.update({
+        "mutuallyExclusive": not_listed_option
+    }) %}
 {% endif %}
 
 {% block page_scripts %}
@@ -51,84 +160,37 @@
 {% endblock %}
 
 {% block main %}
-<form
-    method="post"
-    action="{{ url_for(
-        'survey.save_response',
-        page_id=page.page_id
-    ) }}"
->
-    {{
-        onsAutosuggest({
-            "id": autosuggest_id,
-            "input": {
-                "name": page.answer.name,
-                "width": "30",
-                "autocomplete": "off",
-                "label": {
-                    "text": question_text,
-                    "id": autosuggest_id ~ "-label",
-                    "classes": "ons-u-fs-xl"
-                },
-                "value": saved_value,
-                "error": autosuggest_error,
-                "attributes": {
-                    "required": page.answer.required,
-                    "placeholder": (
-                        page.answer.placeholder
-                        | default("")
-                    )
-                }
-            },
-            "instructions": "Use up and down keys to navigate suggestions once you have typed 3 or more characters. Use the enter key to select a suggestion. Touch device users, explore by touch or with swipe gestures.",
-            "ariaYouHaveSelected": "You have selected",
-            "ariaMinChars": "Enter 3 or more characters for suggestions.",
-            "ariaOneResult": "There is one suggestion available.",
-            "ariaNResults": "There are {n} suggestions available.",
-            "ariaLimitedResults": "Results have been limited. Type more characters to improve your search.",
-            "moreResults": "Continue entering to improve suggestions",
-            "resultsTitle": "Suggested industries",
-            "resultsTitleId": autosuggest_id ~ "-suggestions",
-            "noResults": "No suggestions found. You can enter your own answer.",
-            "typeMore": "Continue entering to get suggestions",
-            "minChars": 3,
-            "resultsThreshold": 0.3,
-            "language": "en",
-            "externalInitialiser": true,
-            "apiSource": {
-                "url": url_for(
-                    'main.business_activity_suggestions'
-                ),
-                "queryParam": "q",
-                "minChars": 3,
-                "additionalChars": 1,
-                "maxWaitMs": 3000
-            }
-        })
-    }}
-
-    <div
-        id="{{ loading_id }}"
-        class="business-activity-loading ons-u-fs-s ons-u-mt-xs"
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        hidden
+    <form
+        method="post"
+        action="{{ url_for(
+            'survey.save_response',
+            page_id=page.page_id
+        ) }}"
     >
-        <span
-            class="business-activity-loading__spinner"
-            aria-hidden="true"
-        ></span>
-        <span>Searching...</span>
-    </div>
+        {{ onsAutosuggest(autosuggest_options) }}
 
-    {{
-        onsButton({
-            "id": "save-values-button",
-            "variants": ["loader"],
-            "text": page.submit_button.text,
-            "classes": "ons-u-mt-l"
-        })
-    }}
-</form>
+        <div
+            id="{{ loading_id }}"
+            class="business-activity-loading ons-u-fs-s ons-u-mt-xs"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            hidden
+        >
+            <span
+                class="business-activity-loading__spinner"
+                aria-hidden="true"
+            ></span>
+            <span>Searching...</span>
+        </div>
+
+        {{
+            onsButton({
+                "id": "save-values-button",
+                "variants": ["loader"],
+                "text": page.submit_button.text,
+                "classes": "ons-u-mt-l"
+            })
+        }}
+    </form>
 {% endblock %}

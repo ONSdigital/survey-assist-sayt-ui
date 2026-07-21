@@ -30,6 +30,9 @@ from survey_assist_sayt_ui.survey.placeholders import (
 )
 from survey_assist_sayt_ui.survey.session import SURVEY_RESPONSES_KEY
 
+NOT_LISTED_FIELD_SUFFIX = "-not-listed"
+NOT_LISTED_VALUE = "not-listed"
+
 logger = logging.getLogger(__name__)
 
 survey_blueprint = Blueprint(
@@ -145,6 +148,87 @@ def _resolve_page_question_text(
     return resolve_question_text(page, responses)
 
 
+def _get_not_listed_field_name(
+    answer_name: str,
+) -> str:
+    """Return the checkbox field name for a Not listed option.
+
+    Args:
+        answer_name: Configured autosuggest response name.
+
+    Returns:
+        str: Generated Not listed checkbox name.
+    """
+    return f"{answer_name}{NOT_LISTED_FIELD_SUFFIX}"
+
+
+def _get_submitted_response(
+    page: QuestionPage,
+) -> tuple[str, bool]:
+    """Return the submitted response for a question page.
+
+    Args:
+        page: Submitted question page.
+
+    Returns:
+        tuple[str, bool]: Normalised response value and whether Not listed
+            was selected.
+
+    Raises:
+        BadRequest: If an unexpected Not listed value is submitted.
+    """
+    answer = page["answer"]
+    value = request.form.get(answer["name"], "").strip()
+
+    if answer["type"] != "api_autosuggest":
+        return value, False
+
+    if not answer.get("not_listed", False):
+        return value, False
+
+    not_listed_field_name = _get_not_listed_field_name(answer["name"])
+    not_listed_value = request.form.get(not_listed_field_name)
+
+    if not_listed_value is None:
+        return value, False
+
+    if not_listed_value != NOT_LISTED_VALUE:
+        abort(HTTPStatus.BAD_REQUEST)
+
+    return NOT_LISTED_VALUE, True
+
+
+def _get_saved_response_state(
+    page: QuestionPage,
+    responses: SurveyResponses,
+) -> tuple[str, bool]:
+    """Return the input and Not listed state for a saved response.
+
+    Args:
+        page: Question page being rendered.
+        responses: Responses currently stored in the session.
+
+    Returns:
+        tuple[str, bool]: Autosuggest input value and Not listed checked state.
+    """
+    saved_response = responses.get(page["page_id"])
+
+    if saved_response is None:
+        return "", False
+
+    saved_value = saved_response["value"]
+    answer = page["answer"]
+
+    if (
+        answer["type"] == "api_autosuggest"
+        and answer.get("not_listed", False)
+        and saved_value == NOT_LISTED_VALUE
+    ):
+        return "", True
+
+    return saved_value, False
+
+
 @survey_blueprint.get("/questions/<page_id>")
 @login_required
 def question(page_id: str) -> ResponseReturnValue:
@@ -185,8 +269,10 @@ def question(page_id: str) -> ResponseReturnValue:
             )
         )
 
-    saved_response = responses.get(page_id)
-    saved_value = saved_response["value"] if saved_response else ""
+    saved_value, not_listed_selected = _get_saved_response_state(
+        page,
+        responses,
+    )
 
     template_name = _get_question_template(page)
 
@@ -195,6 +281,7 @@ def question(page_id: str) -> ResponseReturnValue:
         page=page,
         question_text=question_text,
         saved_value=saved_value,
+        not_listed_selected=not_listed_selected,
         error_message=None,
     )
 
@@ -238,7 +325,7 @@ def save_response(page_id: str) -> ResponseReturnValue:
             )
         )
 
-    value = request.form.get(answer["name"], "").strip()
+    value, not_listed_selected = _get_submitted_response(page)
 
     if answer["required"] and not value:
         logger.warning(
@@ -252,6 +339,7 @@ def save_response(page_id: str) -> ResponseReturnValue:
                 page=page,
                 question_text=question_text,
                 saved_value=value,
+                not_listed_selected=not_listed_selected,
                 error_message="Enter an answer",
             ),
             HTTPStatus.BAD_REQUEST,

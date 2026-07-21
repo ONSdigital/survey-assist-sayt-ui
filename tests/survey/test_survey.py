@@ -8,7 +8,7 @@ from flask.testing import FlaskClient
 
 from survey_assist_sayt_ui.auth.decorators import SESSION_USER_KEY
 from survey_assist_sayt_ui.routes.survey import SURVEY_RESPONSES_KEY
-from survey_assist_sayt_ui.survey.models import QuestionPage, SurveyDefinition
+from survey_assist_sayt_ui.survey.models import ApiAutosuggestAnswer, QuestionPage, SurveyDefinition
 
 
 def _authenticate(client: FlaskClient) -> None:
@@ -252,3 +252,99 @@ def test_api_autosuggest_response_is_saved_and_progresses(
         "response_name": "business-activity",
         "value": ("Retail sale of clothing in specialised stores"),
     }
+
+
+def test_api_autosuggest_renders_not_listed_when_enabled(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test that Not listed is rendered when configured."""
+    _authenticate(client)
+
+    answer = cast(
+        ApiAutosuggestAnswer,
+        api_autosuggest_page["answer"],
+    )
+    answer["not_listed"] = True
+    _insert_autosuggest_page(app, api_autosuggest_page)
+
+    response = client.get("/wireframe/questions/q-api-autosuggest")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Not listed" in response_text
+    assert 'name="business-activity-not-listed"' in response_text
+
+
+def test_api_autosuggest_omits_not_listed_when_disabled(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test that Not listed is omitted when not configured."""
+    _authenticate(client)
+    _insert_autosuggest_page(app, api_autosuggest_page)
+
+    response = client.get("/wireframe/questions/q-api-autosuggest")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Not listed" not in response_text
+    assert "business-activity-not-listed" not in response_text
+
+
+def test_api_autosuggest_saves_not_listed_response(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test that Not listed is stored as the autosuggest response."""
+    _authenticate(client)
+
+    answer = cast(
+        ApiAutosuggestAnswer,
+        api_autosuggest_page["answer"],
+    )
+    answer["not_listed"] = True
+    _insert_autosuggest_page(app, api_autosuggest_page)
+
+    response = client.post(
+        "/wireframe/questions/q-api-autosuggest",
+        data={
+            "business-activity": "",
+            "business-activity-not-listed": "not-listed",
+        },
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/wireframe/questions/q1")
+
+    with client.session_transaction() as flask_session:
+        responses = flask_session[SURVEY_RESPONSES_KEY]
+
+    assert responses["q-api-autosuggest"] == {
+        "question_name": "business_activity_question",
+        "response_name": "business-activity",
+        "value": "not-listed",
+    }
+
+
+def test_api_autosuggest_rejects_empty_response_when_not_listed_disabled(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test that Not listed cannot bypass required validation when disabled."""
+    _authenticate(client)
+    _insert_autosuggest_page(app, api_autosuggest_page)
+
+    response = client.post(
+        "/wireframe/questions/q-api-autosuggest",
+        data={
+            "business-activity": "",
+            "business-activity-not-listed": "not-listed",
+        },
+    )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST

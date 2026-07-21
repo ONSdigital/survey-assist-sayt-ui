@@ -357,7 +357,8 @@
           "type": "api_autosuggest",
           "name": "business-activity",
           "required": true,
-          "placeholder": "Type the main activity of the business"
+          "placeholder": "Type the main activity of the business",
+          "not_listed": true
         },
         "submit_button": {
           "text": "Save and continue"

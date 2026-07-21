@@ -658,6 +658,14 @@ def _validate_api_autosuggest_answer(
     ):
         raise SurveyDefinitionInvalidError("answer.placeholder must be a string")
 
+    not_listed = answer.get("not_listed")
+
+    if not_listed is not None and not isinstance(
+        not_listed,
+        bool,
+    ):
+        raise SurveyDefinitionInvalidError("answer.not_listed must be a boolean")
+
 
 def _validate_button_block(block: dict[str, object]) -> None:
     """Validate an introduction button block.

@@ -126,6 +126,7 @@ class ApiAutosuggestAnswer(TypedDict):
     name: str
     required: bool
     placeholder: NotRequired[str]
+    not_listed: NotRequired[bool]
 
 
 QuestionAnswer = RadioAnswer | TextAnswer | ApiAutosuggestAnswer
