@@ -40,4 +40,3 @@ class TestSaytUI:  # pylint: disable=too-few-public-methods
         assert (
             response.status_code == 200  # noqa: PLR2004
         ), f"Expected status code 200, but got {response.status_code}."
-
