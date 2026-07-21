@@ -11,7 +11,12 @@ from survey_assist_sayt_ui.survey.loader import (
     SurveyDefinitionNotFoundError,
     load_survey_definition,
 )
-from survey_assist_sayt_ui.survey.models import ApiAutosuggestAnswer, QuestionPage, SurveyDefinition
+from survey_assist_sayt_ui.survey.models import (
+    ApiAutosuggestAnswer,
+    QuestionPage,
+    SurveyDefinition,
+    SurveyFeedback,
+)
 
 
 def test_load_survey_definition_raises_when_file_is_missing(
@@ -343,5 +348,81 @@ def test_load_survey_definition_rejects_invalid_not_listed(
     with pytest.raises(
         SurveyDefinitionInvalidError,
         match="answer.not_listed must be a boolean",
+    ):
+        load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_accepts_optional_feedback(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that a valid feedback section is accepted."""
+    survey_definition["survey_feedback"] = survey_feedback
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    loaded_definition = load_survey_definition(survey_path)
+
+    assert loaded_definition["survey_feedback"]["enabled"] is True
+
+
+def test_load_survey_definition_accepts_missing_feedback(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+) -> None:
+    """Test that survey feedback is optional."""
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    loaded_definition = load_survey_definition(survey_path)
+
+    assert "survey_feedback" not in loaded_definition
+
+
+def test_load_survey_definition_rejects_required_feedback_text(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that text feedback cannot be required."""
+    survey_feedback["pages"][1]["answer"]["required"] = True
+    survey_definition["survey_feedback"] = survey_feedback
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="text answers must have required set to false",
+    ):
+        load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_rejects_feedback_autosuggest(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that feedback supports radio and text only."""
+    answer = cast(
+        dict[str, object],
+        survey_feedback["pages"][0]["answer"],
+    )
+    answer["type"] = "api_autosuggest"
+    survey_definition["survey_feedback"] = survey_feedback
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="must be 'radio' or 'text'",
     ):
         load_survey_definition(survey_path)

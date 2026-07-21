@@ -9,7 +9,11 @@ import pytest
 from survey_assist_sayt_ui.app import create_app
 from survey_assist_sayt_ui.auth.service import AuthService, AuthStore
 from survey_assist_sayt_ui.config import Settings
-from survey_assist_sayt_ui.survey.models import QuestionPage, SurveyDefinition
+from survey_assist_sayt_ui.survey.models import (
+    QuestionPage,
+    SurveyDefinition,
+    SurveyFeedback,
+)
 
 TokenRefresher = Callable[[int, str, str, str], tuple[int, str]]
 
@@ -235,6 +239,70 @@ def api_autosuggest_page_fixture() -> QuestionPage:
         "submit_button": {
             "text": "Save and continue",
         },
+    }
+
+
+@pytest.fixture(name="survey_feedback")
+def survey_feedback_fixture() -> SurveyFeedback:
+    """Provide a valid two-page feedback journey.
+
+    Returns:
+        SurveyFeedback: Radio and optional text feedback pages.
+    """
+    return {
+        "enabled": True,
+        "start_page_id": "fq1",
+        "pages": [
+            {
+                "page_id": "fq1",
+                "page_type": "question",
+                "page_title": "Survey Ease",
+                "question_name": "survey_ease_question",
+                "question": {
+                    "text": ("In general, how easy or difficult " "did you find this survey?"),
+                },
+                "answer": {
+                    "type": "radio",
+                    "name": "survey-ease",
+                    "required": True,
+                    "options": [
+                        {
+                            "id": "survey-ease-easy",
+                            "label": "Easy",
+                            "value": "easy",
+                        },
+                        {
+                            "id": "survey-ease-difficult",
+                            "label": "Difficult",
+                            "value": "difficult",
+                        },
+                    ],
+                },
+                "submit_button": {
+                    "text": "Save and continue",
+                },
+            },
+            {
+                "page_id": "fq2",
+                "page_type": "question",
+                "page_title": "Other Feedback",
+                "question_name": "other_feedback_question",
+                "question": {
+                    "text": ("Do you have any other feedback " "about this survey?"),
+                },
+                "answer": {
+                    "type": "text",
+                    "name": "other-feedback",
+                    "required": False,
+                    "multiline": True,
+                    "rows": 5,
+                    "character_limit": 500,
+                },
+                "submit_button": {
+                    "text": "Submit feedback",
+                },
+            },
+        ],
     }
 
 

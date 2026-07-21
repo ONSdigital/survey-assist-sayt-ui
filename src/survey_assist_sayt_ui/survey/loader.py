@@ -82,6 +82,14 @@ def _validate_survey_definition(payload: dict[str, object]) -> None:
     survey_pages = _require_mapping(payload, "survey_pages")
     _validate_survey_pages(survey_pages)
 
+    survey_feedback_value = payload.get("survey_feedback")
+
+    if survey_feedback_value is not None:
+        if not isinstance(survey_feedback_value, dict):
+            raise SurveyDefinitionInvalidError("survey_feedback must be an object")
+
+        _validate_survey_feedback(cast(dict[str, object], survey_feedback_value))
+
     survey_intro = _require_mapping(payload, "survey_intro")
     enabled = survey_intro.get("enabled")
 
@@ -701,3 +709,103 @@ def _validate_button_block(block: dict[str, object]) -> None:
 
     if not SECTION_ID_PATTERN.fullmatch(target_page_id):
         raise SurveyDefinitionInvalidError(f"Invalid target page id: {target_page_id!r}")
+
+
+def _validate_survey_feedback(
+    survey_feedback: dict[str, object],
+) -> None:
+    """Validate the optional survey feedback journey.
+
+    Args:
+        survey_feedback: Configured feedback section.
+
+    Raises:
+        SurveyDefinitionInvalidError: If feedback configuration is invalid.
+    """
+    enabled = survey_feedback.get("enabled")
+
+    if not isinstance(enabled, bool):
+        raise SurveyDefinitionInvalidError("survey_feedback.enabled must be a boolean")
+
+    if not enabled:
+        return
+
+    start_page_id = _require_non_empty_string(
+        survey_feedback,
+        "start_page_id",
+    )
+    pages = _require_list(
+        survey_feedback,
+        "pages",
+    )
+
+    if not pages:
+        raise SurveyDefinitionInvalidError("survey_feedback.pages must not be empty")
+
+    page_ids: set[str] = set()
+    question_names: set[str] = set()
+
+    for page_index, page_value in enumerate(pages):
+        page = _require_object_value(
+            page_value,
+            f"survey feedback page {page_index}",
+        )
+        page_id = _require_non_empty_string(
+            page,
+            "page_id",
+        )
+        question_name = _require_non_empty_string(
+            page,
+            "question_name",
+        )
+
+        if page_id in page_ids:
+            raise SurveyDefinitionInvalidError(f"Duplicate survey feedback page id: {page_id!r}")
+
+        if question_name in question_names:
+            raise SurveyDefinitionInvalidError(
+                f"Duplicate survey feedback question name: " f"{question_name!r}"
+            )
+
+        if page.get("page_type") != "question":
+            raise SurveyDefinitionInvalidError(
+                "Survey feedback pages must have page_type 'question'"
+            )
+
+        _validate_feedback_page(page)
+
+        page_ids.add(page_id)
+        question_names.add(question_name)
+
+    if start_page_id not in page_ids:
+        raise SurveyDefinitionInvalidError(
+            "survey_feedback.start_page_id does not match " f"a feedback page: {start_page_id!r}"
+        )
+
+
+def _validate_feedback_page(
+    page: dict[str, object],
+) -> None:
+    """Validate a feedback question page.
+
+    Feedback supports radio and text answers only. Text feedback must be
+    optional.
+
+    Args:
+        page: Configured feedback page.
+
+    Raises:
+        SurveyDefinitionInvalidError: If feedback configuration is invalid.
+    """
+    answer = _require_mapping(page, "answer")
+    answer_type = answer.get("type")
+
+    if answer_type not in {"radio", "text"}:
+        raise SurveyDefinitionInvalidError("Survey feedback answer type must be 'radio' or 'text'")
+
+    _validate_question_page(page)
+
+    if answer_type == "text" and answer["required"] is not False:
+        raise SurveyDefinitionInvalidError(
+            "Survey feedback text answers must have required set to false"
+        )

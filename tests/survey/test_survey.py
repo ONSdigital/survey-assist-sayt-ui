@@ -8,7 +8,13 @@ from flask.testing import FlaskClient
 
 from survey_assist_sayt_ui.auth.decorators import SESSION_USER_KEY
 from survey_assist_sayt_ui.routes.survey import SURVEY_RESPONSES_KEY
-from survey_assist_sayt_ui.survey.models import ApiAutosuggestAnswer, QuestionPage, SurveyDefinition
+from survey_assist_sayt_ui.survey.models import (
+    ApiAutosuggestAnswer,
+    QuestionPage,
+    SurveyDefinition,
+    SurveyFeedback,
+)
+from survey_assist_sayt_ui.survey.session import SURVEY_FEEDBACK_RESPONSES_KEY
 
 
 def _authenticate(client: FlaskClient) -> None:
@@ -348,3 +354,131 @@ def test_api_autosuggest_rejects_empty_response_when_not_listed_disabled(
     )
 
     assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_final_survey_page_redirects_to_feedback(
+    app: Flask,
+    client: FlaskClient,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that enabled feedback follows the survey journey."""
+    _authenticate(client)
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_feedback"] = survey_feedback
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q1": {
+                "question_name": "job_title_question",
+                "response_name": "job-title",
+                "value": "Teacher",
+            }
+        }
+
+    response = client.post(
+        "/wireframe/questions/q2",
+        data={
+            "job-description": "Teaching pupils",
+        },
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/wireframe/feedback/fq1")
+
+
+def test_feedback_response_is_stored_separately(
+    app: Flask,
+    client: FlaskClient,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that feedback does not modify survey responses."""
+    _authenticate(client)
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_feedback"] = survey_feedback
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q0": {
+                "question_name": "age_range_question",
+                "response_name": "age-range",
+                "value": "25-34",
+            }
+        }
+
+    response = client.post(
+        "/wireframe/feedback/fq1",
+        data={"survey-ease": "easy"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/wireframe/feedback/fq2")
+
+    with client.session_transaction() as flask_session:
+        assert flask_session[SURVEY_RESPONSES_KEY]["q0"]["value"] == "25-34"
+        assert flask_session[SURVEY_FEEDBACK_RESPONSES_KEY]["fq1"] == {
+            "question_name": "survey_ease_question",
+            "response_name": "survey-ease",
+            "value": "easy",
+        }
+
+
+def test_optional_feedback_text_can_be_skipped(
+    app: Flask,
+    client: FlaskClient,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that optional text feedback can be submitted empty."""
+    _authenticate(client)
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_feedback"] = survey_feedback
+
+    response = client.post(
+        "/wireframe/feedback/fq2",
+        data={"other-feedback": ""},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/wireframe/complete")
+
+    with client.session_transaction() as flask_session:
+        feedback_responses = flask_session.get(
+            SURVEY_FEEDBACK_RESPONSES_KEY,
+            {},
+        )
+
+    assert "fq2" not in feedback_responses
+
+
+def test_optional_feedback_textarea_is_not_required(
+    app: Flask,
+    client: FlaskClient,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that optional feedback text omits the required attribute."""
+    _authenticate(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_feedback"] = survey_feedback
+
+    response = client.get("/wireframe/feedback/fq2")
+    response_text = response.get_data(as_text=True)
+
+    textarea_start = response_text.index("<textarea")
+    textarea_end = response_text.index(">", textarea_start)
+    textarea_tag = response_text[textarea_start : textarea_end + 1]
+
+    assert response.status_code == HTTPStatus.OK
+    assert 'name="other-feedback"' in textarea_tag
+    assert "required" not in textarea_tag

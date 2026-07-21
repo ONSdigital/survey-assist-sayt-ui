@@ -88,6 +88,7 @@ class SurveyDefinition(TypedDict):
     wave_id: str
     survey_intro: SurveyIntro
     survey_pages: SurveyPages
+    survey_feedback: NotRequired[SurveyFeedback]
 
 
 class RadioOption(TypedDict):
@@ -180,6 +181,29 @@ class QuestionPage(TypedDict):
     submit_button: SubmitButton
 
 
+FeedbackAnswer = RadioAnswer | TextAnswer
+
+
+class FeedbackPage(TypedDict):
+    """A configurable survey feedback question page."""
+
+    page_id: str
+    page_type: Literal["question"]
+    page_title: str
+    question_name: str
+    question: QuestionContent
+    answer: FeedbackAnswer
+    submit_button: SubmitButton
+
+
+class SurveyFeedback(TypedDict):
+    """Optional feedback journey shown after survey questions."""
+
+    enabled: bool
+    start_page_id: NotRequired[str]
+    pages: NotRequired[list[FeedbackPage]]
+
+
 class SurveyPages(TypedDict):
     """Ordered pages making up the survey journey."""
 
@@ -197,3 +221,4 @@ class SurveyResponse(TypedDict):
 
 
 SurveyResponses = dict[str, SurveyResponse]
+FeedbackResponses = dict[str, SurveyResponse]

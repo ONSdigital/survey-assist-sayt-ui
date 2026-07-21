@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "survey_title": "Shape Tomorrow Prototype",
+  "survey_title": "Example Survey Prototype",
   "wave_id": "20-07-2026-14D",
   "survey_intro": {
     "enabled": true,
@@ -362,6 +362,165 @@
         },
         "submit_button": {
           "text": "Save and continue"
+        }
+      }
+    ]
+  },
+  "survey_feedback": {
+    "enabled": true,
+    "start_page_id": "fq1",
+    "pages": [
+      {
+        "page_id": "fq1",
+        "page_type": "question",
+        "page_title": "Survey Ease",
+        "question_name": "survey_ease_question",
+        "question": {
+          "text": "In general, how easy or difficult did you find this survey?"
+        },
+        "answer": {
+          "type": "radio",
+          "name": "survey-ease",
+          "required": true,
+          "options": [
+            {
+              "id": "survey-ease-very-easy",
+              "label": "Very easy",
+              "value": "very easy"
+            },
+            {
+              "id": "survey-ease-easy",
+              "label": "Easy",
+              "value": "easy"
+            },
+            {
+              "id": "survey-ease-neither",
+              "label": "Neither easy or difficult",
+              "value": "neither easy or difficult"
+            },
+            {
+              "id": "survey-ease-difficult",
+              "label": "Difficult",
+              "value": "difficult"
+            },
+            {
+              "id": "survey-ease-very-difficult",
+              "label": "Very difficult",
+              "value": "very difficult"
+            }
+          ]
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "fq2",
+        "page_type": "question",
+        "page_title": "Survey Relevance",
+        "question_name": "survey_relevance_question",
+        "question": {
+          "text": "How relevant or irrelevant did you find the questions to your situation?"
+        },
+        "answer": {
+          "type": "radio",
+          "name": "survey-relevance",
+          "required": true,
+          "options": [
+            {
+              "id": "survey-relevance-very-relevant",
+              "label": "Very relevant",
+              "value": "very relevant"
+            },
+            {
+              "id": "survey-relevance-relevant",
+              "label": "Relevant",
+              "value": "relevant"
+            },
+            {
+              "id": "survey-relevance-neither",
+              "label": "Neither relevant or irrelevant",
+              "value": "neither relevant or irrelevant"
+            },
+            {
+              "id": "survey-relevance-irrelevant",
+              "label": "Irrelevant",
+              "value": "irrelevant"
+            },
+            {
+              "id": "survey-relevance-very-irrelevant",
+              "label": "Very irrelevant",
+              "value": "very irrelevant"
+            }
+          ]
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "fq3",
+        "page_type": "question",
+        "page_title": "Survey Comfort",
+        "question_name": "survey_comfort_question",
+        "question": {
+          "text": "How comfortable or uncomfortable were you in providing this information?"
+        },
+        "answer": {
+          "type": "radio",
+          "name": "survey-comfort",
+          "required": true,
+          "options": [
+            {
+              "id": "survey-comfort-very-comfortable",
+              "label": "Very comfortable",
+              "value": "very comfortable"
+            },
+            {
+              "id": "survey-comfort-comfortable",
+              "label": "Comfortable",
+              "value": "comfortable"
+            },
+            {
+              "id": "survey-comfort-neither",
+              "label": "Neither comfortable or uncomfortable",
+              "value": "neither comfortable or uncomfortable"
+            },
+            {
+              "id": "survey-comfort-uncomfortable",
+              "label": "Uncomfortable",
+              "value": "uncomfortable"
+            },
+            {
+              "id": "survey-comfort-very-uncomfortable",
+              "label": "Very uncomfortable",
+              "value": "very uncomfortable"
+            }
+          ]
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "fq4",
+        "page_type": "question",
+        "page_title": "Other Feedback",
+        "question_name": "other_feedback_question",
+        "question": {
+          "text": "Do you have any other feedback about this survey?"
+        },
+        "answer": {
+          "type": "text",
+          "name": "other-feedback",
+          "required": false,
+          "multiline": true,
+          "rows": 8,
+          "character_limit": 500,
+          "placeholder": ""
+        },
+        "submit_button": {
+          "text": "Submit feedback"
         }
       }
     ]

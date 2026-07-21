@@ -20,15 +20,21 @@ from flask.typing import ResponseReturnValue
 
 from survey_assist_sayt_ui.auth.decorators import login_required
 from survey_assist_sayt_ui.survey.models import (
+    FeedbackPage,
+    FeedbackResponses,
     QuestionPage,
     SurveyDefinition,
+    SurveyFeedback,
     SurveyResponses,
 )
 from survey_assist_sayt_ui.survey.placeholders import (
     MissingPlaceholderResponseError,
     resolve_question_text,
 )
-from survey_assist_sayt_ui.survey.session import SURVEY_RESPONSES_KEY
+from survey_assist_sayt_ui.survey.session import (
+    SURVEY_FEEDBACK_RESPONSES_KEY,
+    SURVEY_RESPONSES_KEY,
+)
 
 NOT_LISTED_FIELD_SUFFIX = "-not-listed"
 NOT_LISTED_VALUE = "not-listed"
@@ -229,6 +235,72 @@ def _get_saved_response_state(
     return saved_value, False
 
 
+def _get_survey_feedback() -> SurveyFeedback | None:
+    """Return the enabled survey feedback configuration.
+
+    Returns:
+        SurveyFeedback | None: Enabled feedback configuration, or None.
+    """
+    survey_feedback = _get_survey_definition().get("survey_feedback")
+
+    if survey_feedback is None:
+        return None
+
+    if not survey_feedback["enabled"]:
+        return None
+
+    return survey_feedback
+
+
+def _get_feedback_page(page_id: str) -> FeedbackPage:
+    """Return a feedback page by identifier.
+
+    Args:
+        page_id: Requested feedback page identifier.
+
+    Returns:
+        FeedbackPage: Matching feedback page.
+
+    Raises:
+        NotFound: If feedback is disabled or the page does not exist.
+    """
+    survey_feedback = _get_survey_feedback()
+
+    if survey_feedback is None:
+        abort(HTTPStatus.NOT_FOUND)
+
+    for page in survey_feedback["pages"]:
+        if page["page_id"] == page_id:
+            return page
+
+    abort(HTTPStatus.NOT_FOUND)
+
+
+def _get_next_feedback_page_id(
+    page_id: str,
+) -> str | None:
+    """Return the next feedback page identifier.
+
+    Args:
+        page_id: Current feedback page identifier.
+
+    Returns:
+        str | None: Next feedback page, or None for the final page.
+    """
+    survey_feedback = _get_survey_feedback()
+
+    if survey_feedback is None:
+        return None
+
+    page_ids = [page["page_id"] for page in survey_feedback["pages"]]
+    current_index = page_ids.index(page_id)
+
+    if current_index + 1 >= len(page_ids):
+        return None
+
+    return page_ids[current_index + 1]
+
+
 @survey_blueprint.get("/questions/<page_id>")
 @login_required
 def question(page_id: str) -> ResponseReturnValue:
@@ -282,6 +354,7 @@ def question(page_id: str) -> ResponseReturnValue:
         question_text=question_text,
         saved_value=saved_value,
         not_listed_selected=not_listed_selected,
+        form_action=url_for("survey.save_response", page_id=page_id),
         error_message=None,
     )
 
@@ -340,6 +413,7 @@ def save_response(page_id: str) -> ResponseReturnValue:
                 question_text=question_text,
                 saved_value=value,
                 not_listed_selected=not_listed_selected,
+                form_action=url_for("survey.save_response", page_id=page_id),
                 error_message="Enter an answer",
             ),
             HTTPStatus.BAD_REQUEST,
@@ -361,12 +435,138 @@ def save_response(page_id: str) -> ResponseReturnValue:
 
     next_page_id = _get_next_page_id(page_id)
 
+    # Is this the last question?
+    # Either route to feedback section or show the survey completion page.
     if next_page_id is None:
+        survey_feedback = _get_survey_feedback()
+
+        if survey_feedback is not None:
+            return redirect(
+                url_for(
+                    "survey.feedback_question",
+                    page_id=survey_feedback["start_page_id"],
+                )
+            )
+
         return redirect(url_for("survey.complete"))
 
     return redirect(
         url_for(
             "survey.question",
+            page_id=next_page_id,
+        )
+    )
+
+
+@survey_blueprint.get("/feedback/<page_id>")
+@login_required
+def feedback_question(
+    page_id: str,
+) -> ResponseReturnValue:
+    """Render a configured survey feedback question.
+
+    Args:
+        page_id: Requested feedback page identifier.
+
+    Returns:
+        ResponseReturnValue: Rendered feedback question page.
+    """
+    page = _get_feedback_page(page_id)
+    responses = cast(
+        FeedbackResponses,
+        session.get(
+            SURVEY_FEEDBACK_RESPONSES_KEY,
+            {},
+        ),
+    )
+    saved_response = responses.get(page_id)
+    saved_value = saved_response["value"] if saved_response is not None else ""
+
+    return render_template(
+        "survey_question.html",
+        page=page,
+        question_text=page["question"]["text"],
+        saved_value=saved_value,
+        form_action=url_for(
+            "survey.save_feedback_response",
+            page_id=page_id,
+        ),
+        error_message=None,
+    )
+
+
+@survey_blueprint.post("/feedback/<page_id>")
+@login_required
+def save_feedback_response(
+    page_id: str,
+) -> ResponseReturnValue:
+    """Save a feedback response and continue.
+
+    Optional blank answers are not retained in the feedback session.
+
+    Args:
+        page_id: Submitted feedback page identifier.
+
+    Returns:
+        ResponseReturnValue: Redirect or validation error response.
+    """
+    page = _get_feedback_page(page_id)
+    answer = page["answer"]
+    value = request.form.get(
+        answer["name"],
+        "",
+    ).strip()
+
+    if answer["required"] and not value:
+        return (
+            render_template(
+                "survey_question.html",
+                page=page,
+                question_text=page["question"]["text"],
+                saved_value=value,
+                form_action=url_for(
+                    "survey.save_feedback_response",
+                    page_id=page_id,
+                ),
+                error_message="Select an answer",
+            ),
+            HTTPStatus.BAD_REQUEST,
+        )
+
+    if answer["type"] == "radio" and value:
+        allowed_values = {option["value"] for option in answer["options"]}
+
+        if value not in allowed_values:
+            abort(HTTPStatus.BAD_REQUEST)
+
+    responses = cast(
+        FeedbackResponses,
+        session.get(
+            SURVEY_FEEDBACK_RESPONSES_KEY,
+            {},
+        ),
+    )
+    updated_responses = dict(responses)
+
+    if value:
+        updated_responses[page_id] = {
+            "question_name": page["question_name"],
+            "response_name": answer["name"],
+            "value": value,
+        }
+    else:
+        updated_responses.pop(page_id, None)
+
+    session[SURVEY_FEEDBACK_RESPONSES_KEY] = updated_responses
+
+    next_page_id = _get_next_feedback_page_id(page_id)
+
+    if next_page_id is None:
+        return redirect(url_for("survey.complete"))
+
+    return redirect(
+        url_for(
+            "survey.feedback_question",
             page_id=next_page_id,
         )
     )
@@ -382,15 +582,21 @@ def complete() -> ResponseReturnValue:
     """
 
     survey_definition = _get_survey_definition()
-    responses = session.get(SURVEY_RESPONSES_KEY, {})
+    survey_responses = session.get(SURVEY_RESPONSES_KEY, {})
+    feedback_responses = session.get(
+        SURVEY_FEEDBACK_RESPONSES_KEY,
+        {},
+    )
 
     logger.info(
-        "Survey completed wave_id=%s responses=%s",
+        "Survey completed wave_id=%s survey_responses=%s feedback_responses=%s",
         survey_definition["wave_id"],
-        responses,
+        survey_responses,
+        feedback_responses,
     )
 
     return render_template(
         "survey_complete.html",
-        responses=session.get(SURVEY_RESPONSES_KEY, {}),
+        responses=survey_responses,
+        feedback_responses=feedback_responses,
     )

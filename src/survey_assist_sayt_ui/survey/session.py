@@ -5,10 +5,12 @@ from __future__ import annotations
 from flask import session
 
 SURVEY_RESPONSES_KEY = "survey_responses"
+SURVEY_FEEDBACK_RESPONSES_KEY = "survey_feedback_responses"
 
 SURVEY_SESSION_KEYS = frozenset(
     {
         SURVEY_RESPONSES_KEY,
+        SURVEY_FEEDBACK_RESPONSES_KEY,
     }
 )
 

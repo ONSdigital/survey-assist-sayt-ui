@@ -12,7 +12,7 @@
 {% block main %}
     <form
         method="post"
-        action="{{ url_for('survey.save_response', page_id=page.page_id) }}"
+        action="{{ form_action }}"
     >
         {% set question_options = {
             "title": question_text,
@@ -44,6 +44,16 @@
         {% endif %}
 
         {% call onsQuestion(question_options) %}
+            {% set text_attributes = {
+                "placeholder": page.answer.placeholder | default("")
+            } %}
+
+            {% if page.answer.required %}
+                {% set _ = text_attributes.update({
+                    "required": true
+                }) %}
+            {% endif %}
+
             {% if page.answer.type == "radio" %}
                 {% set radio_options = [] %}
 
@@ -79,10 +89,7 @@
                         "name": page.answer.name,
                         "rows": page.answer.rows | default(5),
                         "value": saved_value,
-                        "attributes": {
-                            "required": page.answer.required,
-                            "placeholder": page.answer.placeholder | default("")
-                        },
+                        "attributes": text_attributes,
                         "charCheckLimit": {
                             "limit": page.answer.character_limit
                         }
@@ -96,10 +103,7 @@
                         "name": page.answer.name,
                         "type": "text",
                         "value": saved_value,
-                        "attributes": {
-                            "required": page.answer.required,
-                            "placeholder": page.answer.placeholder | default("")
-                        }
+                        "attributes": text_attributes
                     })
                 }}
             {% endif %}
