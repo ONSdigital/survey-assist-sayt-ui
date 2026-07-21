@@ -6,7 +6,7 @@ from http import HTTPStatus
 import logging
 from typing import cast
 
-from flask import Blueprint, abort, current_app, jsonify, render_template, request, session
+from flask import Blueprint, abort, current_app, jsonify, render_template, request, session, url_for
 from flask.typing import ResponseReturnValue
 
 from survey_assist_sayt_ui.auth.decorators import SESSION_USER_KEY, login_required
@@ -191,12 +191,21 @@ def wireframe() -> ResponseReturnValue:
         for entry in intro["navigation"]["entries"]
     ]
 
+    survey_page_urls = {
+        page["page_id"]: url_for(
+            ("survey.guidance" if page["page_type"] == "guidance" else "survey.question"),
+            page_id=page["page_id"],
+        )
+        for page in survey_definition["survey_pages"]["pages"]
+    }
+
     return render_template(
         "survey_intro.html",
         page_title=survey_definition["survey_title"],
         survey=survey_definition,
         intro=intro,
         navigation_items=navigation_items,
+        survey_page_urls=survey_page_urls,
         authenticated_user=session.get(SESSION_USER_KEY),
     )
 

@@ -13,6 +13,7 @@ from survey_assist_sayt_ui.survey.loader import (
 )
 from survey_assist_sayt_ui.survey.models import (
     ApiAutosuggestAnswer,
+    GuidancePage,
     QuestionPage,
     SurveyDefinition,
     SurveyFeedback,
@@ -426,3 +427,70 @@ def test_load_survey_definition_rejects_feedback_autosuggest(
         match="must be 'radio' or 'text'",
     ):
         load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_accepts_guidance_page(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+    guidance_page: GuidancePage,
+) -> None:
+    """Test that guidance may appear within survey pages."""
+    survey_definition["survey_pages"]["pages"].insert(
+        1,
+        guidance_page,
+    )
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    loaded_definition = load_survey_definition(survey_path)
+
+    assert loaded_definition["survey_pages"]["pages"][1]["page_type"] == "guidance"
+
+
+def test_load_survey_definition_rejects_guidance_without_overview(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+    guidance_page: GuidancePage,
+) -> None:
+    """Test that guidance overview text is required."""
+    guidance = cast(
+        dict[str, object],
+        guidance_page,
+    )
+    guidance.pop("guidance_overview")
+
+    survey_definition["survey_pages"]["pages"].append(guidance_page)
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="guidance_overview must be a non-empty string",
+    ):
+        load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_accepts_guidance_as_start_page(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+    guidance_page: GuidancePage,
+) -> None:
+    """Test that guidance may be the first survey page."""
+    survey_definition["survey_pages"]["pages"].insert(
+        0,
+        guidance_page,
+    )
+    survey_definition["survey_pages"]["start_page_id"] = "g1"
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    loaded_definition = load_survey_definition(survey_path)
+
+    assert loaded_definition["survey_pages"]["start_page_id"] == "g1"

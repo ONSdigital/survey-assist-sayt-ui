@@ -22,9 +22,11 @@ from survey_assist_sayt_ui.auth.decorators import login_required
 from survey_assist_sayt_ui.survey.models import (
     FeedbackPage,
     FeedbackResponses,
+    GuidancePage,
     QuestionPage,
     SurveyDefinition,
     SurveyFeedback,
+    SurveyPage,
     SurveyResponses,
 )
 from survey_assist_sayt_ui.survey.placeholders import (
@@ -75,14 +77,16 @@ def _get_question_template(page: QuestionPage) -> str:
     return "survey_question.html"
 
 
-def _get_question_page(page_id: str) -> QuestionPage:
-    """Return a question page by identifier.
+def _get_survey_page(
+    page_id: str,
+) -> SurveyPage:
+    """Return a survey page by identifier.
 
     Args:
         page_id: Requested survey page identifier.
 
     Returns:
-        QuestionPage: Matching question page.
+        SurveyPage: Matching question or guidance page.
 
     Raises:
         NotFound: If the page does not exist.
@@ -96,23 +100,92 @@ def _get_question_page(page_id: str) -> QuestionPage:
     abort(HTTPStatus.NOT_FOUND)
 
 
-def _get_next_page_id(page_id: str) -> str | None:
-    """Return the next configured page identifier.
+def _get_question_page(
+    page_id: str,
+) -> QuestionPage:
+    """Return a question page by identifier.
+
+    Args:
+        page_id: Requested survey page identifier.
+
+    Returns:
+        QuestionPage: Matching question page.
+
+    Raises:
+        NotFound: If the page is missing or is not a question.
+    """
+    page = _get_survey_page(page_id)
+
+    if page["page_type"] != "question":
+        abort(HTTPStatus.NOT_FOUND)
+
+    return page
+
+
+def _get_guidance_page(
+    page_id: str,
+) -> GuidancePage:
+    """Return a guidance page by identifier.
+
+    Args:
+        page_id: Requested survey page identifier.
+
+    Returns:
+        GuidancePage: Matching guidance page.
+
+    Raises:
+        NotFound: If the page is missing or is not guidance.
+    """
+    page = _get_survey_page(page_id)
+
+    if page["page_type"] != "guidance":
+        abort(HTTPStatus.NOT_FOUND)
+
+    return page
+
+
+def _get_next_survey_page(
+    page_id: str,
+) -> SurveyPage | None:
+    """Return the next configured survey page.
 
     Args:
         page_id: Current survey page identifier.
 
     Returns:
-        str | None: Next page identifier, or None for the final page.
+        SurveyPage | None: Next page, or None for the final survey page.
     """
     pages = _get_survey_definition()["survey_pages"]["pages"]
     page_ids = [page["page_id"] for page in pages]
     current_index = page_ids.index(page_id)
 
-    if current_index + 1 >= len(page_ids):
+    if current_index + 1 >= len(pages):
         return None
 
-    return page_ids[current_index + 1]
+    return pages[current_index + 1]
+
+
+def _get_survey_page_url(
+    page: SurveyPage,
+) -> str:
+    """Return the URL for a survey page.
+
+    Args:
+        page: Question or guidance page.
+
+    Returns:
+        str: URL for the page-specific endpoint.
+    """
+    if page["page_type"] == "guidance":
+        return url_for(
+            "survey.guidance",
+            page_id=page["page_id"],
+        )
+
+    return url_for(
+        "survey.question",
+        page_id=page["page_id"],
+    )
 
 
 def _get_page_id_by_question_name(
@@ -132,7 +205,7 @@ def _get_page_id_by_question_name(
     pages = _get_survey_definition()["survey_pages"]["pages"]
 
     for page in pages:
-        if page["question_name"] == question_name:
+        if page["page_type"] == "question" and page["question_name"] == question_name:
             return page["page_id"]
 
     raise RuntimeError(f"No page exists for question {question_name!r}")
@@ -252,6 +325,36 @@ def _get_survey_feedback() -> SurveyFeedback | None:
     return survey_feedback
 
 
+def _get_next_survey_url(
+    page_id: str,
+) -> str:
+    """Return the URL following a survey page.
+
+    The destination may be another survey page, the first feedback question
+    or the survey completion page.
+
+    Args:
+        page_id: Current survey page identifier.
+
+    Returns:
+        str: URL for the next journey step.
+    """
+    next_page = _get_next_survey_page(page_id)
+
+    if next_page is not None:
+        return _get_survey_page_url(next_page)
+
+    survey_feedback = _get_survey_feedback()
+
+    if survey_feedback is not None:
+        return url_for(
+            "survey.feedback_question",
+            page_id=survey_feedback["start_page_id"],
+        )
+
+    return url_for("survey.complete")
+
+
 def _get_feedback_page(page_id: str) -> FeedbackPage:
     """Return a feedback page by identifier.
 
@@ -299,6 +402,28 @@ def _get_next_feedback_page_id(
         return None
 
     return page_ids[current_index + 1]
+
+
+@survey_blueprint.get("/guidance/<page_id>")
+@login_required
+def guidance(
+    page_id: str,
+) -> ResponseReturnValue:
+    """Render a configured guidance page.
+
+    Args:
+        page_id: Requested guidance page identifier.
+
+    Returns:
+        ResponseReturnValue: Rendered guidance page.
+    """
+    page = _get_guidance_page(page_id)
+
+    return render_template(
+        "survey_guidance.html",
+        page=page,
+        continue_url=_get_next_survey_url(page_id),
+    )
 
 
 @survey_blueprint.get("/questions/<page_id>")
@@ -433,29 +558,7 @@ def save_response(page_id: str) -> ResponseReturnValue:
     }
     session[SURVEY_RESPONSES_KEY] = updated_responses
 
-    next_page_id = _get_next_page_id(page_id)
-
-    # Is this the last question?
-    # Either route to feedback section or show the survey completion page.
-    if next_page_id is None:
-        survey_feedback = _get_survey_feedback()
-
-        if survey_feedback is not None:
-            return redirect(
-                url_for(
-                    "survey.feedback_question",
-                    page_id=survey_feedback["start_page_id"],
-                )
-            )
-
-        return redirect(url_for("survey.complete"))
-
-    return redirect(
-        url_for(
-            "survey.question",
-            page_id=next_page_id,
-        )
-    )
+    return redirect(_get_next_survey_url(page_id))
 
 
 @survey_blueprint.get("/feedback/<page_id>")

@@ -382,7 +382,9 @@ def _validate_inline_content(items: list[object]) -> None:
             )
 
 
-def _validate_survey_pages(survey_pages: dict[str, object]) -> None:
+def _validate_survey_pages(
+    survey_pages: dict[str, object],
+) -> None:
     """Validate the ordered survey page definitions.
 
     Args:
@@ -403,7 +405,10 @@ def _validate_survey_pages(survey_pages: dict[str, object]) -> None:
         survey_pages,
         "start_page_id",
     )
-    pages = _require_list(survey_pages, "pages")
+    pages = _require_list(
+        survey_pages,
+        "pages",
+    )
 
     if not pages:
         raise SurveyDefinitionInvalidError("survey_pages.pages must not be empty")
@@ -416,36 +421,44 @@ def _validate_survey_pages(survey_pages: dict[str, object]) -> None:
             page_value,
             f"survey page {page_index}",
         )
-
-        page_id = _require_non_empty_string(page, "page_id")
-        question_name = _require_non_empty_string(
+        page_id = _require_non_empty_string(
             page,
-            "question_name",
+            "page_id",
         )
 
         if page_id in page_ids:
             raise SurveyDefinitionInvalidError(f"Duplicate survey page id: {page_id!r}")
 
-        if question_name in question_names:
-            raise SurveyDefinitionInvalidError(f"Duplicate question name: {question_name!r}")
+        page_type = page.get("page_type")
 
-        if page.get("page_type") != "question":
-            raise SurveyDefinitionInvalidError(
-                f"Unsupported survey page type: {page.get('page_type')!r}"
+        if page_type == "question":
+            question_name = _require_non_empty_string(
+                page,
+                "question_name",
             )
 
-        _validate_question_page(page)
-        _validate_question_placeholders(
-            page,
-            preceding_question_names=question_names,
-        )
+            if question_name in question_names:
+                raise SurveyDefinitionInvalidError(f"Duplicate question name: {question_name!r}")
+
+            _validate_question_page(page)
+            _validate_question_placeholders(
+                page,
+                preceding_question_names=question_names,
+            )
+
+            question_names.add(question_name)
+
+        elif page_type == "guidance":
+            _validate_guidance_page(page)
+
+        else:
+            raise SurveyDefinitionInvalidError(f"Unsupported survey page type: {page_type!r}")
 
         page_ids.add(page_id)
-        question_names.add(question_name)
 
     if start_page_id not in page_ids:
         raise SurveyDefinitionInvalidError(
-            f"start_page_id does not match a survey page: {start_page_id!r}"
+            "start_page_id does not match a survey page: " f"{start_page_id!r}"
         )
 
 
@@ -508,6 +521,40 @@ def _validate_question_placeholders(
             )
 
         placeholders.add(placeholder)
+
+
+def _validate_guidance_page(
+    page: dict[str, object],
+) -> None:
+    """Validate a guidance page.
+
+    Args:
+        page: Configured guidance page.
+
+    Raises:
+        SurveyDefinitionInvalidError: If guidance content is invalid.
+    """
+    _require_non_empty_string(
+        page,
+        "page_title",
+    )
+    _require_non_empty_string(
+        page,
+        "guidance_overview",
+    )
+    _require_non_empty_string(
+        page,
+        "guidance_subsection",
+    )
+
+    continue_button = _require_mapping(
+        page,
+        "continue_button",
+    )
+    _require_non_empty_string(
+        continue_button,
+        "text",
+    )
 
 
 def _validate_question_page(page: dict[str, object]) -> None:

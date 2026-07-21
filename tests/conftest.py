@@ -10,6 +10,7 @@ from survey_assist_sayt_ui.app import create_app
 from survey_assist_sayt_ui.auth.service import AuthService, AuthStore
 from survey_assist_sayt_ui.config import Settings
 from survey_assist_sayt_ui.survey.models import (
+    GuidancePage,
     QuestionPage,
     SurveyDefinition,
     SurveyFeedback,
@@ -303,6 +304,25 @@ def survey_feedback_fixture() -> SurveyFeedback:
                 },
             },
         ],
+    }
+
+
+@pytest.fixture(name="guidance_page")
+def guidance_page_fixture() -> GuidancePage:
+    """Provide a configured guidance page.
+
+    Returns:
+        GuidancePage: Guidance displayed between survey questions.
+    """
+    return {
+        "page_id": "g1",
+        "page_type": "guidance",
+        "page_title": "Describing your work",
+        "guidance_overview": ("The next questions ask about your main job or business."),
+        "guidance_subsection": ("Give the job title and describe the work you usually do."),
+        "continue_button": {
+            "text": "Continue",
+        },
     }
 
 

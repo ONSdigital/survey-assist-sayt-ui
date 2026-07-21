@@ -10,6 +10,7 @@ from survey_assist_sayt_ui.auth.decorators import SESSION_USER_KEY
 from survey_assist_sayt_ui.routes.survey import SURVEY_RESPONSES_KEY
 from survey_assist_sayt_ui.survey.models import (
     ApiAutosuggestAnswer,
+    GuidancePage,
     QuestionPage,
     SurveyDefinition,
     SurveyFeedback,
@@ -25,6 +26,28 @@ def _authenticate(client: FlaskClient) -> None:
     """
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
+
+
+def _insert_guidance_page(
+    app: Flask,
+    page: GuidancePage,
+    index: int,
+) -> None:
+    """Insert guidance into the configured survey.
+
+    Args:
+        app: Configured Flask application.
+        page: Guidance page to insert.
+        index: Position in the ordered page list.
+    """
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_pages"]["pages"].insert(
+        index,
+        page,
+    )
 
 
 def test_first_question_renders(client: FlaskClient) -> None:
@@ -482,3 +505,111 @@ def test_optional_feedback_textarea_is_not_required(
     assert response.status_code == HTTPStatus.OK
     assert 'name="other-feedback"' in textarea_tag
     assert "required" not in textarea_tag
+
+
+def test_guidance_page_renders(
+    app: Flask,
+    client: FlaskClient,
+    guidance_page: GuidancePage,
+) -> None:
+    """Test that a configured guidance page renders."""
+    _authenticate(client)
+    _insert_guidance_page(
+        app,
+        guidance_page,
+        index=1,
+    )
+
+    response = client.get("/wireframe/guidance/g1")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Describing your work" in response_text
+    assert "The next questions ask about" in response_text
+    assert "Continue" in response_text
+
+
+def test_question_redirects_to_following_guidance(
+    app: Flask,
+    client: FlaskClient,
+    guidance_page: GuidancePage,
+) -> None:
+    """Test that question progression supports guidance."""
+    _authenticate(client)
+    _insert_guidance_page(
+        app,
+        guidance_page,
+        index=1,
+    )
+
+    response = client.post(
+        "/wireframe/questions/q0",
+        data={"age-range": "16-24"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/wireframe/guidance/g1")
+
+
+def test_guidance_links_to_following_question(
+    app: Flask,
+    client: FlaskClient,
+    guidance_page: GuidancePage,
+) -> None:
+    """Test that guidance continues to the next question."""
+    _authenticate(client)
+    _insert_guidance_page(
+        app,
+        guidance_page,
+        index=1,
+    )
+
+    response = client.get("/wireframe/guidance/g1")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "/wireframe/questions/q1" in response_text
+
+
+def test_final_guidance_links_to_feedback(
+    app: Flask,
+    client: FlaskClient,
+    guidance_page: GuidancePage,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that final guidance continues to enabled feedback."""
+    _authenticate(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_pages"]["pages"].append(guidance_page)
+    survey_definition["survey_feedback"] = survey_feedback
+
+    response = client.get("/wireframe/guidance/g1")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "/wireframe/feedback/fq1" in response_text
+
+
+def test_final_guidance_links_to_completion(
+    app: Flask,
+    client: FlaskClient,
+    guidance_page: GuidancePage,
+) -> None:
+    """Test that final guidance continues to completion."""
+    _authenticate(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_pages"]["pages"].append(guidance_page)
+
+    response = client.get("/wireframe/guidance/g1")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "/wireframe/complete" in response_text

@@ -346,6 +346,16 @@
         }
       },
       {
+        "page_id": "g1",
+        "page_type": "guidance",
+        "page_title": "Describing your organisation",
+        "guidance_overview": "The next questions ask about the company you work for.",
+        "guidance_subsection": "You will choose the industry associated with your workplace from a list.",
+        "continue_button": {
+          "text": "Continue"
+        }
+      },
+      {
         "page_id": "q-business-activity",
         "page_type": "question",
         "page_title": "Business Activity",

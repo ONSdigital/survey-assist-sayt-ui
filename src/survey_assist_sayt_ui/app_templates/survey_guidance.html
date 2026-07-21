@@ -1,0 +1,31 @@
+{% extends "core.html" %}
+
+{% from "components/button/_macro.njk" import onsButton %}
+
+{% set page_title = page.page_title %}
+{% set page_heading = page.page_title %}
+{% set main_col_class = "ons-col-8@m" %}
+
+{% block main %}
+    <div class="ons-page__body">
+        <h1 class="ons-u-fs-2xl">
+            {{ page_heading }}
+        </h1>
+
+        <p>
+            {{ page.guidance_overview }}
+        </p>
+
+        <p>
+            {{ page.guidance_subsection }}
+        </p>
+
+        {{
+            onsButton({
+                "classes": "ons-u-mb-l ons-u-mt-xl",
+                "text": page.continue_button.text,
+                "url": continue_url
+            })
+        }}
+    </div>
+{% endblock %}

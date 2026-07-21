@@ -181,6 +181,26 @@ class QuestionPage(TypedDict):
     submit_button: SubmitButton
 
 
+class ContinueButton(TypedDict):
+    """Button used to continue from an informational page."""
+
+    text: str
+
+
+class GuidancePage(TypedDict):
+    """A configurable guidance page within the survey journey."""
+
+    page_id: str
+    page_type: Literal["guidance"]
+    page_title: str
+    guidance_overview: str
+    guidance_subsection: str
+    continue_button: ContinueButton
+
+
+SurveyPage = QuestionPage | GuidancePage
+
+
 FeedbackAnswer = RadioAnswer | TextAnswer
 
 
@@ -209,7 +229,7 @@ class SurveyPages(TypedDict):
 
     enabled: bool
     start_page_id: str
-    pages: list[QuestionPage]
+    pages: list[SurveyPage]
 
 
 class SurveyResponse(TypedDict):

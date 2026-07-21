@@ -48,10 +48,9 @@
                     {% set button_url = block.link %}
 
                     {% if block.target_page_id %}
-                        {% set button_url = url_for(
-                            "survey.question",
-                            page_id=block.target_page_id
-                        ) %}
+                        {% set button_url = survey_page_urls[
+                            block.target_page_id
+                        ] %}
                     {% endif %}
 
                     {{
