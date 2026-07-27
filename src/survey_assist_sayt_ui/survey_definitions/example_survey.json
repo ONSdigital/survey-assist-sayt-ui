@@ -26,6 +26,10 @@
             "text": "Use of automated follow-up questions"
           },
           {
+            "link": "#repeat-questions",
+            "text": "Why we repeat questions"
+          },
+          {
             "link": "#contact",
             "text": "Contact us"
           }
@@ -194,8 +198,50 @@
           ]
         },
         {
+          "id": "repeat-questions",
+          "heading": "5. Why we repeat questions",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "This study assesses two ways to get the same answer, the first set of questions use AI to get the answer by asking more questions, the second section determines if a selecting an answer from a list could return similar results."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "By asking the same question using different styles we can determine the best way to get accurate answers from our respondents."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "When you experience the same question asked a different way, please be patient and answer the question as if it is the first time you are seeing it."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "By testing different ways to get the same data we can provide the best experience to the public when we deliver our surveys."
+                }
+              ]
+            }
+          ]
+        },
+        {
           "id": "contact",
-          "heading": "5. Contact us",
+          "heading": "6. Contact us",
           "blocks": [
             {
               "type": "paragraph",
@@ -291,15 +337,40 @@
       {
         "page_id": "q1",
         "page_type": "question",
+        "page_title": "Paid Job",
+        "question_name": "paid_job_question",
+        "question": {
+          "text": "Did you have a paid job, either as an employee or self-employed, in the week Monday 13 July to Sunday 19 July 2026?"
+        },
+        "answer": {
+          "type": "radio",
+          "name": "paid-job",
+          "required": true,
+          "options": [
+            {
+              "id": "paid-job-yes",
+              "label": "Yes",
+              "value": "yes"
+            },
+            {
+              "id": "paid-job-no",
+              "label": "No",
+              "value": "no"
+            }
+          ]
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "q2",
+        "page_type": "question",
         "page_title": "Job Title",
         "question_name": "job_title_question",
         "question": {
           "text": "What is the exact job title for your main job or business?",
-          "description": "For example, office cleaner, district nurse or primary school teacher",
-          "justification": {
-            "title": "Why we ask this question",
-            "content": "Placeholder text"
-          }
+          "description": "For example, office cleaner, district nurse or primary school teacher"
         },
         "answer": {
           "type": "text",
@@ -315,7 +386,7 @@
         }
       },
       {
-        "page_id": "q2",
+        "page_id": "q3",
         "page_type": "question",
         "page_title": "Job Description",
         "question_name": "job_description_question",
@@ -327,10 +398,7 @@
               "source_question_name": "job_title_question"
             }
           ],
-          "justification": {
-            "title": "Why we ask this question",
-            "content": "Placeholder text"
-          }
+          "justification": {}
         },
         "answer": {
           "type": "text",
@@ -346,11 +414,48 @@
         }
       },
       {
+        "page_id": "q4",
+        "page_type": "question",
+        "page_title": "Organisation Activity",
+        "question_name": "organisation_activity_question",
+        "question": {
+          "text": "At your main job, describe the main activity of the business or organisation",
+          "description": "For example, elderly residential care, food and beverage manufacturing or primary education",
+          "placeholders": [],
+          "justification": {
+            "title": "Why we ask this question",
+            "content": "Placeholder text"
+          }
+        },
+        "answer": {
+          "type": "text",
+          "name": "organisation-activity",
+          "required": true,
+          "multiline": true,
+          "rows": 8,
+          "character_limit": 500,
+          "placeholder": ""
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "g0",
+        "page_type": "guidance",
+        "page_title": "!!! Design Note - Not for public test !!!",
+        "guidance_overview": "The user may see two extra questions posed by Survey Assist at this point.",
+        "guidance_subsection": "The questions will not be shown if the industry can be classified automatically from the answers already provided.",
+        "continue_button": {
+          "text": "Continue"
+        }
+      },
+      {
         "page_id": "g1",
         "page_type": "guidance",
-        "page_title": "Describing your organisation",
-        "guidance_overview": "The next questions ask about the company you work for.",
-        "guidance_subsection": "You will choose the industry associated with your workplace from a list.",
+        "page_title": "Before we continue",
+        "guidance_overview": "We are now going to ask a similar question in a different way.",
+        "guidance_subsection": "We are testing different question designs and would like you to answer this question as if you are seeing it for the first time. Please try not to be influenced by the answers you gave earlier. There are no right or wrong answers. We simply want to understand how well this approach works.",
         "continue_button": {
           "text": "Continue"
         }
@@ -372,6 +477,16 @@
         },
         "submit_button": {
           "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "g2",
+        "page_type": "guidance",
+        "page_title": "Survey Feedback",
+        "guidance_overview": "Thank you, that concludes the survey section for this public test.",
+        "guidance_subsection": "Please answer four short questions to provide feedback and be entered into the prize draw.",
+        "continue_button": {
+          "text": "Continue"
         }
       }
     ]
