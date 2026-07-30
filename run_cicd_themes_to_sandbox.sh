@@ -4,7 +4,7 @@
 #
 # Please set the environment variable CICD_PROJECT_ID i.e. export CICD_PROJECT_ID=
 
-if [[ ! -v CICD_PROJECT_ID ]]; then
+if [[ -z "${CICD_PROJECT_ID:-}" ]]; then
    echo "Please set the environment variable CICD_PROJECT_ID i.e. export CICD_PROJECT_ID="
    exit 1
 fi
