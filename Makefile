@@ -6,12 +6,20 @@ PY ?= python
 PKG ?= survey_assist_sayt_ui
 IMAGE_NAME ?= survey-assist-sayt-ui
 CRED_FILE ?= $(HOME)/gcp-project-creds-ui.json
+VERSION ?= $(shell poetry version -s 2>/dev/null || echo 0.0.0+unknown)
+GIT_SHA ?= $(shell git rev-parse --short=7 HEAD 2>/dev/null || echo unknown)
+BUILD_DATE ?= $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
+
+CONTAINER_BUILD_ARGS = \
+	--build-arg VERSION=$(VERSION) \
+	--build-arg GIT_SHA=$(GIT_SHA) \
+	--build-arg BUILD_DATE=$(BUILD_DATE)
 
 .PHONY: help all clean install templates run run-docs all-tests test lint format \
 	check-python check-python-nofix \
 	docker-build docker-run podman-build podman-run \
 	provision-user pre-commit-install pre-commit-run pre-push-run \
-	secrets-baseline
+	secrets-baseline show-build-metadata
 
 help: ## Show the available make targets.
 	@echo "Usage: make <target>"
@@ -66,7 +74,7 @@ check-python-nofix: ## Format and lint the python code (no fix)
 	poetry run bandit -r src/survey_assist_sayt_ui
 
 docker-build:  ## Build the Docker image.
-	docker build -t survey-assist-sayt-ui .
+	docker build $(CONTAINER_BUILD_ARGS) -t $(IMAGE_NAME) .
 
 docker-run:  ## Run the Docker container.
 	docker run \
@@ -76,10 +84,10 @@ docker-run:  ## Run the Docker container.
 		--mount type=bind,src=$(CRED_FILE),target=/run/secrets/gcp-key.json,readonly \
 		-e GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-key.json \
 		--env-file .env \
-		survey-assist-sayt-ui
+		$(IMAGE_NAME)
 
 podman-build:  ## Build the Podman image.
-	podman build -t survey-assist-sayt-ui .
+	podman build $(CONTAINER_BUILD_ARGS) -t $(IMAGE_NAME) .
 
 podman-run:  ## Run the Podman container.
 	podman run \
@@ -89,7 +97,7 @@ podman-run:  ## Run the Podman container.
 		--mount type=bind,src=$(CRED_FILE),target=/run/secrets/gcp-key.json,readonly \
 		-e GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-key.json \
 		--env-file .env \
-		survey-assist-sayt-ui
+		$(IMAGE_NAME)
 
 provision-user:  ## Provision a new user in the local users.json file.
 	poetry run python scripts/provision_users.py
@@ -107,3 +115,8 @@ pre-push-run:  ## Run pre-commit hooks for the pre-push stage on all files.
 secrets-baseline:  ## Create a baseline for detect-secrets and audit it.
 	poetry run detect-secrets scan > .secrets.baseline
 	poetry run detect-secrets audit .secrets.baseline
+
+show-build-metadata:  ## Show metadata that will be included in the image.
+	@echo VERSION=$(VERSION)
+	@echo GIT_SHA=$(GIT_SHA)
+	@echo BUILD_DATE=$(BUILD_DATE)

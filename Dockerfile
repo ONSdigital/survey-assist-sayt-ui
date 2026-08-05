@@ -1,4 +1,8 @@
 # syntax=docker/dockerfile:1.7
+ARG VERSION=0.0.0+unknown
+ARG GIT_SHA=unknown
+ARG BUILD_DATE=unknown
+
 FROM python:3.12-slim-bookworm AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -29,10 +33,21 @@ RUN .venv/bin/pip install --no-cache-dir gunicorn==23.0.0
 
 FROM python:3.12-slim-bookworm AS runtime
 
+ARG VERSION
+ARG GIT_SHA
+ARG BUILD_DATE
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:${PATH}" \
-    PORT=8000
+    PORT=8000 \
+    APP_VERSION="${VERSION}" \
+    APP_GIT_SHA="${GIT_SHA}" \
+    APP_BUILD_DATE="${BUILD_DATE}"
+
+LABEL org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${GIT_SHA}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
 
 WORKDIR /app
 

@@ -29,7 +29,19 @@ steps:
         export PROXY_API_URL=$(echo $config | python3 -c "import sys, json; print(json.load(sys.stdin)['proxy-api-url'])")
 
         echo === Build Docker image, tag and push to GAR ===
-        docker build -t $$SAYT_UI_IMAGE:$SHORT_SHA -t $$SAYT_UI_IMAGE:latest .
+        APP_VERSION=$(poetry version -s)
+        APP_BUILD_DATE=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+
+        echo "Building version=$$APP_VERSION sha=$SHORT_SHA date=$$APP_BUILD_DATE"
+
+        docker build \
+          --build-arg VERSION="$$APP_VERSION" \
+          --build-arg GIT_SHA="$SHORT_SHA" \
+          --build-arg BUILD_DATE="$$APP_BUILD_DATE" \
+          -t $$SAYT_UI_IMAGE:$SHORT_SHA \
+          -t $$SAYT_UI_IMAGE:latest \
+          .
+
         docker push $$SAYT_UI_IMAGE:latest
         docker push $$SAYT_UI_IMAGE:$SHORT_SHA
 
