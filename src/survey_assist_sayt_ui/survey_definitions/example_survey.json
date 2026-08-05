@@ -1,0 +1,653 @@
+{
+  "schema_version": 1,
+  "survey_title": "Example Survey Prototype",
+  "wave_id": "20-07-2026-14D",
+  "survey_intro": {
+    "enabled": true,
+    "intro": {
+      "navigation": {
+        "header": "In this section",
+        "aria_label": "Sections in this page",
+        "entries": [
+          {
+            "link": "#begin-study",
+            "text": "Begin study"
+          },
+          {
+            "link": "#about-research",
+            "text": "About this research"
+          },
+          {
+            "link": "#data-protection",
+            "text": "How we protect your data"
+          },
+          {
+            "link": "#automated-questions",
+            "text": "Use of automated follow-up questions"
+          },
+          {
+            "link": "#repeat-questions",
+            "text": "Why we repeat questions"
+          },
+          {
+            "link": "#contact",
+            "text": "Contact us"
+          }
+        ]
+      },
+      "sections": [
+        {
+          "id": "begin-study",
+          "heading": "1. Begin study",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Thank you for taking part. The information you give us is protected by law and treated as confidential."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "To begin the study, select “Start now”."
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "text": "Start now",
+              "target_page_id": "q0",
+              "variants": [
+                "loader"
+              ]
+            },
+            {
+              "type": "panel",
+              "variant": "info",
+              "heading": "Use of automated follow-up questions",
+              "paragraphs": [
+                [
+                  {
+                    "type": "text",
+                    "text": "This study uses an Artificial Intelligence (AI) tool to generate automated follow-up questions."
+                  }
+                ],
+                [
+                  {
+                    "type": "text",
+                    "text": "Sometimes these automated follow-up questions may be confusing or ask for personal details. If that happens, type ‘n/a’ or ‘inappropriate’ into the text box. This helps us improve the tool."
+                  }
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "id": "about-research",
+          "heading": "2. About this research",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "The purpose of this research is to test survey questions. The findings will be used to help shape the design of government surveys. We are grateful for your time."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Your participation in this research is voluntary, and you may withdraw at any time, without reason."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "data-protection",
+          "heading": "3. How we protect your data",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "UK legislation allows us to collect and process your data to produce statistics for the public good. Your information will be treated as confidential as directed by the Code of Practice for Statistics. It will only be held for as long as it is being used for producing statistics and will not identify you. Study information may be provided to approved organisations or researchers for statistical purposes only."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "For more information, see "
+                },
+                {
+                  "type": "link",
+                  "text": "data protection",
+                  "link": "https://www.ons.gov.uk/aboutus/transparencyandgovernance/dataprotection",
+                  "new_window": true
+                },
+                {
+                  "type": "text",
+                  "text": " and "
+                },
+                {
+                  "type": "link",
+                  "text": "data protection and studies about people, families and households",
+                  "link": "https://www.ons.gov.uk/surveys/informationforhouseholdsandindividuals/householdandindividualsurveys/findingyourstudy/mystudy/confidentialityanddataprotection",
+                  "new_window": true
+                },
+                {
+                  "type": "text",
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "automated-questions",
+          "heading": "4. Use of automated follow-up questions",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "This study uses an artificial intelligence (AI) tool to create automated follow-up questions. These are labelled and there may be a delay between questions."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Automated follow-up questions are only asked if we need extra information. By answering, you help make our statistics more accurate."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sometimes these automated follow-up questions may be confusing or ask for personal details. If that happens, type ‘n/a’ or ‘inappropriate’ into the text box. This helps us improve the tool."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "The automated follow-up questions are created by Google Gemini. This is an AI tool which uses a large language model. Your data is not stored by Google Gemini, and it is not used to train Google’s AI models. It is only used to create the automated follow-up questions. The ONS will receive all data and remain in control of all information you give."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "repeat-questions",
+          "heading": "5. Why we repeat questions",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "This study assesses two ways to get the same answer, the first set of questions use AI to get the answer by asking more questions, the second section determines if a selecting an answer from a list could return similar results."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "By asking the same question using different styles we can determine the best way to get accurate answers from our respondents."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "When you experience the same question asked a different way, please be patient and answer the question as if it is the first time you are seeing it."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "By testing different ways to get the same data we can provide the best experience to the public when we deliver our surveys."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "contact",
+          "heading": "6. Contact us",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "For any queries please email: "
+                },
+                {
+                  "type": "link",
+                  "text": "support@example-research.org",
+                  "link": "mailto:support@example-research.org",
+                  "new_window": false
+                },
+                {
+                  "type": "text",
+                  "text": "."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "When you are ready to take part, please return to "
+                },
+                {
+                  "type": "link",
+                  "text": "begin study",
+                  "link": "#begin-study",
+                  "new_window": false
+                },
+                {
+                  "type": "text",
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "survey_pages": {
+    "enabled": true,
+    "start_page_id": "q0",
+    "pages": [
+      {
+        "page_id": "q0",
+        "page_type": "question",
+        "page_title": "Age Range",
+        "question_name": "age_range_question",
+        "question": {
+          "text": "Select your age range from the options below"
+        },
+        "answer": {
+          "type": "radio",
+          "name": "age-range",
+          "required": true,
+          "options": [
+            {
+              "id": "age-range-16-24",
+              "label": "16-24",
+              "value": "16-24"
+            },
+            {
+              "id": "age-range-25-34",
+              "label": "25-34",
+              "value": "25-34"
+            },
+            {
+              "id": "age-range-35-49",
+              "label": "35-49",
+              "value": "35-49"
+            },
+            {
+              "id": "age-range-50-64",
+              "label": "50-64",
+              "value": "50-64"
+            },
+            {
+              "id": "age-range-65",
+              "label": "65 plus",
+              "value": "65-plus"
+            }
+          ]
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "q1",
+        "page_type": "question",
+        "page_title": "Paid Job",
+        "question_name": "paid_job_question",
+        "question": {
+          "text": "Did you have a paid job, either as an employee or self-employed, in the week Monday 13 July to Sunday 19 July 2026?"
+        },
+        "answer": {
+          "type": "radio",
+          "name": "paid-job",
+          "required": true,
+          "options": [
+            {
+              "id": "paid-job-yes",
+              "label": "Yes",
+              "value": "yes"
+            },
+            {
+              "id": "paid-job-no",
+              "label": "No",
+              "value": "no"
+            }
+          ]
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "q2",
+        "page_type": "question",
+        "page_title": "Job Title",
+        "question_name": "job_title_question",
+        "question": {
+          "text": "What is the exact job title for your main job or business?",
+          "description": "For example, office cleaner, district nurse or primary school teacher"
+        },
+        "answer": {
+          "type": "text",
+          "name": "job-title",
+          "required": true,
+          "multiline": true,
+          "rows": 5,
+          "character_limit": 150,
+          "placeholder": ""
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "q3",
+        "page_type": "question",
+        "page_title": "Job Description",
+        "question_name": "job_description_question",
+        "question": {
+          "text": "Describe what you do in that job or business as a PLACEHOLDER_TEXT",
+          "placeholders": [
+            {
+              "placeholder": "PLACEHOLDER_TEXT",
+              "source_question_name": "job_title_question"
+            }
+          ],
+          "justification": {}
+        },
+        "answer": {
+          "type": "text",
+          "name": "job-description",
+          "required": true,
+          "multiline": true,
+          "rows": 8,
+          "character_limit": 500,
+          "placeholder": ""
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "q4",
+        "page_type": "question",
+        "page_title": "Organisation Activity",
+        "question_name": "organisation_activity_question",
+        "question": {
+          "text": "At your main job, describe the main activity of the business or organisation",
+          "description": "For example, elderly residential care, food and beverage manufacturing or primary education",
+          "placeholders": [],
+          "justification": {
+            "title": "Why we ask this question",
+            "content": "Placeholder text"
+          }
+        },
+        "answer": {
+          "type": "text",
+          "name": "organisation-activity",
+          "required": true,
+          "multiline": true,
+          "rows": 8,
+          "character_limit": 500,
+          "placeholder": ""
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "g0",
+        "page_type": "guidance",
+        "page_title": "!!! Design Note - Not for public test !!!",
+        "guidance_overview": "The user may see two extra questions posed by Survey Assist at this point.",
+        "guidance_subsection": "The questions will not be shown if the industry can be classified automatically from the answers already provided.",
+        "continue_button": {
+          "text": "Continue"
+        }
+      },
+      {
+        "page_id": "g1",
+        "page_type": "guidance",
+        "page_title": "Before we continue",
+        "guidance_overview": "We are now going to ask a similar question in a different way.",
+        "guidance_subsection": "We are testing different question designs and would like you to answer this question as if you are seeing it for the first time. Please try not to be influenced by the answers you gave earlier. There are no right or wrong answers. We simply want to understand how well this approach works.",
+        "continue_button": {
+          "text": "Continue"
+        }
+      },
+      {
+        "page_id": "q-business-activity",
+        "page_type": "question",
+        "page_title": "Business Activity",
+        "question_name": "business_activity_question",
+        "question": {
+          "text": "What is the main activity of the business or freelance work?"
+        },
+        "answer": {
+          "type": "api_autosuggest",
+          "name": "business-activity",
+          "required": true,
+          "placeholder": "Type the main activity of the business",
+          "not_listed": true
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "g2",
+        "page_type": "guidance",
+        "page_title": "Survey Feedback",
+        "guidance_overview": "Thank you, that concludes the survey section for this public test.",
+        "guidance_subsection": "Please answer four short questions to provide feedback and be entered into the prize draw.",
+        "continue_button": {
+          "text": "Continue"
+        }
+      }
+    ]
+  },
+  "survey_feedback": {
+    "enabled": true,
+    "start_page_id": "fq1",
+    "pages": [
+      {
+        "page_id": "fq1",
+        "page_type": "question",
+        "page_title": "Survey Ease",
+        "question_name": "survey_ease_question",
+        "question": {
+          "text": "In general, how easy or difficult did you find this survey?"
+        },
+        "answer": {
+          "type": "radio",
+          "name": "survey-ease",
+          "required": true,
+          "options": [
+            {
+              "id": "survey-ease-very-easy",
+              "label": "Very easy",
+              "value": "very easy"
+            },
+            {
+              "id": "survey-ease-easy",
+              "label": "Easy",
+              "value": "easy"
+            },
+            {
+              "id": "survey-ease-neither",
+              "label": "Neither easy or difficult",
+              "value": "neither easy or difficult"
+            },
+            {
+              "id": "survey-ease-difficult",
+              "label": "Difficult",
+              "value": "difficult"
+            },
+            {
+              "id": "survey-ease-very-difficult",
+              "label": "Very difficult",
+              "value": "very difficult"
+            }
+          ]
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "fq2",
+        "page_type": "question",
+        "page_title": "Survey Relevance",
+        "question_name": "survey_relevance_question",
+        "question": {
+          "text": "How relevant or irrelevant did you find the questions to your situation?"
+        },
+        "answer": {
+          "type": "radio",
+          "name": "survey-relevance",
+          "required": true,
+          "options": [
+            {
+              "id": "survey-relevance-very-relevant",
+              "label": "Very relevant",
+              "value": "very relevant"
+            },
+            {
+              "id": "survey-relevance-relevant",
+              "label": "Relevant",
+              "value": "relevant"
+            },
+            {
+              "id": "survey-relevance-neither",
+              "label": "Neither relevant or irrelevant",
+              "value": "neither relevant or irrelevant"
+            },
+            {
+              "id": "survey-relevance-irrelevant",
+              "label": "Irrelevant",
+              "value": "irrelevant"
+            },
+            {
+              "id": "survey-relevance-very-irrelevant",
+              "label": "Very irrelevant",
+              "value": "very irrelevant"
+            }
+          ]
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "fq3",
+        "page_type": "question",
+        "page_title": "Survey Comfort",
+        "question_name": "survey_comfort_question",
+        "question": {
+          "text": "How comfortable or uncomfortable were you in providing this information?"
+        },
+        "answer": {
+          "type": "radio",
+          "name": "survey-comfort",
+          "required": true,
+          "options": [
+            {
+              "id": "survey-comfort-very-comfortable",
+              "label": "Very comfortable",
+              "value": "very comfortable"
+            },
+            {
+              "id": "survey-comfort-comfortable",
+              "label": "Comfortable",
+              "value": "comfortable"
+            },
+            {
+              "id": "survey-comfort-neither",
+              "label": "Neither comfortable or uncomfortable",
+              "value": "neither comfortable or uncomfortable"
+            },
+            {
+              "id": "survey-comfort-uncomfortable",
+              "label": "Uncomfortable",
+              "value": "uncomfortable"
+            },
+            {
+              "id": "survey-comfort-very-uncomfortable",
+              "label": "Very uncomfortable",
+              "value": "very uncomfortable"
+            }
+          ]
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "fq4",
+        "page_type": "question",
+        "page_title": "Other Feedback",
+        "question_name": "other_feedback_question",
+        "question": {
+          "text": "Do you have any other feedback about this survey?"
+        },
+        "answer": {
+          "type": "text",
+          "name": "other-feedback",
+          "required": false,
+          "multiline": true,
+          "rows": 8,
+          "character_limit": 500,
+          "placeholder": ""
+        },
+        "submit_button": {
+          "text": "Submit feedback"
+        }
+      }
+    ]
+  }
+}

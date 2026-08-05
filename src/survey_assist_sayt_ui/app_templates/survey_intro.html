@@ -1,0 +1,84 @@
+{% extends "core.html" %}
+
+{% from "components/button/_macro.njk" import onsButton %}
+{% from "components/panel/_macro.njk" import onsPanel %}
+{% from "components/table-of-contents/_macro.njk" import onsTableOfContents %}
+
+{% set page_title = survey.survey_title %}
+{% set page_heading = survey.survey_title %}
+{% set current_path = url_for("main.wireframe") %}
+{% set main_col_class = "ons-col-8@m" %}
+
+{% macro render_inline(items) %}
+    {% for item in items %}
+        {% if item.type == "link" %}
+            <a
+                href="{{ item.link }}"
+                {% if item.new_window %}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                {% endif %}
+            >{{ item.text }}</a>
+        {% else %}
+            {{ item.text }}
+        {% endif %}
+    {% endfor %}
+{% endmacro %}
+
+{% block main %}
+    <h1>{{ page_heading }}</h1>
+
+    {{
+        onsTableOfContents({
+            "title": intro.navigation.header,
+            "ariaLabel": intro.navigation.aria_label,
+            "itemsList": navigation_items,
+        })
+    }}
+
+    {% for section in intro.sections %}
+        <section id="{{ section.id }}" class="ons-u-mt-l">
+            <h2>{{ section.heading }}</h2>
+
+            {% for block in section.blocks %}
+                {% if block.type == "paragraph" %}
+                    <p>{{ render_inline(block.content) }}</p>
+
+                {% elif block.type == "button" %}
+                    {% set button_url = block.link %}
+
+                    {% if block.target_page_id %}
+                        {% set button_url = survey_page_urls[
+                            block.target_page_id
+                        ] %}
+                    {% endif %}
+
+                    {{
+                        onsButton({
+                            "text": block.text,
+                            "url": button_url,
+                            "variants": block.variants | default([]),
+                        })
+                    }}
+
+                {% elif block.type == "panel" %}
+                    <br>
+                    <br>
+                    {% call onsPanel({
+                        "variant": block.variant,
+                        "title": block.heading,
+                        "headingLevel": 3,
+                    }) %}
+                        {% for paragraph in block.paragraphs %}
+                            <p>{{ render_inline(paragraph) }}</p>
+                        {% endfor %}
+                    {% endcall %}
+                {% endif %}
+            {% endfor %}
+        </section>
+
+        {% if not loop.last %}
+            <hr class="ons-u-mt-l ons-u-mb-l">
+        {% endif %}
+    {% endfor %}
+{% endblock %}
