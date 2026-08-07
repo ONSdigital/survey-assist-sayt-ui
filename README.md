@@ -203,6 +203,8 @@ Prefer supplying `FLASK_SECRET_KEY` from Secret Manager.
 | `/cookies` | Placeholder cookies page |
 | `/accessibility` | Placeholder accessibility statement |
 | `/privacy` | Placeholder privacy notice |
+| `/__meta` | UI build information |
+
 
 ## Development checks
 
