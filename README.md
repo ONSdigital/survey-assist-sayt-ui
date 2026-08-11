@@ -60,26 +60,43 @@ src/survey_assist_sayt_ui/templates/components/
 src/survey_assist_sayt_ui/templates/layout/
 ```
 
-## Provision a local user file
+## Manage local users
 
-Create a local `users.json` with one or more hashed users:
+Authentication users are stored in `users.json`. The management script can add,
+update, or delete individual users while preserving all other user records.
+
+### Add a user
 
 ```bash
-poetry run python scripts/provision_users.py \
-  --user "user@example.com:change-me" \
+poetry run python scripts/provision_users.py add \
+  --username "user@example.com" \
+  --output users.json
+```
+You will be prompted for the user's password. The password is hashed before being
+written to ```users.json```.
+
+If ```users.json``` does not exist, it will be created.
+
+Attempting to add a username that already exists will fail. Use ```update``` to change
+an existing user's password.
+
+### Change a user password
+
+```bash
+poetry run python scripts/provision_users.py update \
+  --username "user@example.com" \
   --output users.json
 ```
 
-You can provide `--user` more than once:
+### Delete a user
 
 ```bash
-poetry run python scripts/provision_users.py \
-  --user "user1@example.com:password-one" \
-  --user "user2@example.com:password-two" \
+poetry run python scripts/provision_users.py delete \
+  --username "user@example.com" \
   --output users.json
 ```
 
-If you omit `--user`, the script prompts for an email address and password.
+### Users.json
 
 The generated file has this shape:
 
@@ -88,11 +105,14 @@ The generated file has this shape:
   "users": [
     {
       "username": "user@example.com",
-      "password_hash": "scrypt:..."  # pragma: allowlist secret
+      "password_hash": "scrypt:..." #pragma: allowlist secret
     }
   ]
 }
 ```
+
+Passwords can also be supplied with ```--password```, although interactive entry is
+preferred because it avoids storing the plaintext password in shell history.
 
 ## Run locally
 
@@ -133,12 +153,14 @@ The app can load `users.json` from GCS when deployed to Cloud Run.
 First create and upload the file:
 
 ```bash
-poetry run python scripts/provision_users.py \
+poetry run python scripts/provision_users.py add \
   --user "user@example.com:change-me" \
   --output users.json \
   --bucket "YOUR_AUTH_BUCKET" \
   --blob "users.json"
 ```
+
+**Warning:** When using the script to connect to GCS, ensure the local ```users.json``` contains the current contents of the GCS object before making changes. The complete local file is uploaded after the requested change.
 
 For an encrypted auth file using a customer-managed Cloud KMS key, add:
 
