@@ -20,6 +20,7 @@
             "iconType": 'check',
             "body": 'Logged in successfully.',
         }) }}
+        {% if std_autosuggest_enabled %}
         <br>
         {{
             onsButton({
@@ -27,6 +28,8 @@
                 "url": url_for("main.standard_autosuggest"),
             })
         }}
+        {% endif %}
+        {% if api_autosuggest_enabled %}
         <br>
         <br>
         {{
@@ -35,6 +38,7 @@
                 "url": url_for("main.api_autosuggest"),
             })
         }}
+        {% endif %}
         {% if wireframe_enabled %}
             <br>
             <br>
