@@ -30,11 +30,17 @@ def load_users(users_file: Path) -> list[UserRecord]:
         if not isinstance(record, dict):
             raise ValueError("Each user record must be a JSON object")
 
-        username = str(record.get("username", "")).strip().lower()
-        password_hash = str(record.get("password_hash", ""))
+        username_value = record.get("username")
+        password_hash_value = record.get("password_hash")
 
-        if not username or not password_hash:
-            raise ValueError("Each user record must contain 'username' and 'password_hash'")
+        if not isinstance(username_value, str) or not username_value.strip():
+            raise ValueError("Each user record must contain a valid 'username'")
+
+        if not isinstance(password_hash_value, str) or not password_hash_value.strip():
+            raise ValueError("Each user record must contain a valid 'password_hash'")
+
+        username = username_value.strip().lower()
+        password_hash = password_hash_value
 
         users.append(
             {

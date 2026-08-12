@@ -150,3 +150,45 @@ def test_save_and_load_users(tmp_path: Path) -> None:
 
     raw_payload = json.loads(users_file.read_text(encoding="utf-8"))
     assert raw_payload == {"users": users}
+
+
+def test_load_users_rejects_null_username(tmp_path: Path) -> None:
+    """Null usernames should not be coerced into strings."""
+    users_file = tmp_path / "users.json"
+    users_file.write_text(
+        json.dumps(
+            {
+                "users": [
+                    {
+                        "username": None,
+                        "password_hash": EXISTING_HASH,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="valid 'username'"):
+        load_users(users_file)
+
+
+def test_load_users_rejects_null_password_hash(tmp_path: Path) -> None:
+    """Null password_hash should not be coerced into strings."""
+    users_file = tmp_path / "users.json"
+    users_file.write_text(
+        json.dumps(
+            {
+                "users": [
+                    {
+                        "username": "user@example.com",
+                        "password_hash": None,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="valid 'password_hash'"):
+        load_users(users_file)
