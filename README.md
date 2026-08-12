@@ -154,7 +154,7 @@ First create and upload the file:
 
 ```bash
 poetry run python scripts/provision_users.py add \
-  --user "user@example.com:change-me" \
+  --username "user@example.com:change-me" \
   --output users.json \
   --bucket "YOUR_AUTH_BUCKET" \
   --blob "users.json"
