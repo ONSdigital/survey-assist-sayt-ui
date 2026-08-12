@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from http import HTTPStatus
 import logging
+import time
 from typing import Protocol
 
 import httpx
@@ -114,6 +115,7 @@ class HttpBusinessActivitySearchClient:
         """Search the configured API endpoint."""
 
         if MOCK_BUSINESS_ACTIVITY_API:
+            time.sleep(0.5)  # Simulate network latency
             # Temporary mock for SA858 wireframe sharing.
             return [
                 BusinessActivitySuggestion(label=f"Example search response {index}")
