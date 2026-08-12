@@ -99,7 +99,7 @@ podman-run:  ## Run the Podman container.
 		--env-file .env \
 		$(IMAGE_NAME)
 
-manage-users:
+manage-users:  ## Show user management commands
 	poetry run python scripts/provision_users.py --help
 
 pre-commit-install:  ## Install pre-commit hooks.
