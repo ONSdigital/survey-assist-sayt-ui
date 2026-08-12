@@ -24,8 +24,6 @@ from survey_assist_sayt_ui.auth.user_management import (
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-UserRecord = dict[str, str]
-
 
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments.
