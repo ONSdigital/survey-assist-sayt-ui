@@ -50,6 +50,9 @@ class BusinessActivitySearchClient(Protocol):  # pylint: disable=too-few-public-
         """Search for matching business activities."""
 
 
+MOCK_BUSINESS_ACTIVITY_API = True
+
+
 class HttpBusinessActivitySearchClient:
     """HTTP implementation of the business activity search client."""
 
@@ -109,6 +112,14 @@ class HttpBusinessActivitySearchClient:
         limit: int,
     ) -> list[BusinessActivitySuggestion]:
         """Search the configured API endpoint."""
+
+        if MOCK_BUSINESS_ACTIVITY_API:
+            # Temporary mock for SA858 wireframe sharing.
+            return [
+                BusinessActivitySuggestion(label=f"Example search response {index}")
+                for index in range(1, 9)
+            ][:limit]
+
         try:
             response = self._get_suggestions_response(query)
 
