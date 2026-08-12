@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from http import HTTPStatus
 import logging
+import time
 from typing import Protocol
 
 import httpx
@@ -48,6 +49,9 @@ class BusinessActivitySearchClient(Protocol):  # pylint: disable=too-few-public-
         limit: int,
     ) -> list[BusinessActivitySuggestion]:
         """Search for matching business activities."""
+
+
+MOCK_BUSINESS_ACTIVITY_API = True
 
 
 class HttpBusinessActivitySearchClient:
@@ -109,6 +113,15 @@ class HttpBusinessActivitySearchClient:
         limit: int,
     ) -> list[BusinessActivitySuggestion]:
         """Search the configured API endpoint."""
+
+        if MOCK_BUSINESS_ACTIVITY_API:
+            time.sleep(0.5)  # Simulate network latency
+            # Temporary mock for SA858 wireframe sharing.
+            return [
+                BusinessActivitySuggestion(label=f"Example search response {index}")
+                for index in range(1, 9)
+            ][:limit]
+
         try:
             response = self._get_suggestions_response(query)
 

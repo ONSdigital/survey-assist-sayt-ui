@@ -7,10 +7,24 @@ from http import HTTPStatus
 import httpx
 import pytest
 
+from survey_assist_sayt_ui.services import business_activity
 from survey_assist_sayt_ui.services.business_activity import (
     BusinessActivityApiError,
     HttpBusinessActivitySearchClient,
 )
+
+
+# Must be removed when wireframe share is complete and the mock is no longer needed.
+@pytest.fixture(autouse=True)
+def disable_mock_business_activity_api(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Use the real HTTP client implementation in service tests."""
+    monkeypatch.setattr(
+        business_activity,
+        "MOCK_BUSINESS_ACTIVITY_API",
+        False,
+    )
 
 
 def test_search_uses_current_bearer_token() -> None:
