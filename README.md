@@ -73,11 +73,11 @@ poetry run python scripts/provision_users.py add \
   --output users.json
 ```
 You will be prompted for the user's password. The password is hashed before being
-written to ```users.json```.
+written to `users.json`.
 
-If ```users.json``` does not exist, it will be created.
+If `users.json` does not exist, it will be created.
 
-Attempting to add a username that already exists will fail. Use ```update``` to change
+Attempting to add a username that already exists will fail. Use `update` to change
 an existing user's password.
 
 ### Change a user password
@@ -105,13 +105,13 @@ The generated file has this shape:
   "users": [
     {
       "username": "user@example.com",
-      "password_hash": "scrypt:..." #pragma: allowlist secret
+      "password_hash": "scrypt:..." # pragma: allowlist secret
     }
   ]
 }
 ```
 
-Passwords can also be supplied with ```--password```, although interactive entry is
+Passwords can also be supplied with `--password`, although interactive entry is
 preferred because it avoids storing the plaintext password in shell history.
 
 ## Run locally
@@ -130,7 +130,7 @@ LOCAL_USERS_FILE=users.json
 SESSION_COOKIE_SECURE=false
 ```
 
-**Note:** if running in a **container locally** use the make commands and ensure ```LOCAL_USERS_FILE=/app/users.json```
+**Note:** if running in a **container locally** use the make commands and ensure `LOCAL_USERS_FILE=/app/users.json`
 
 Then run:
 
@@ -154,13 +154,13 @@ First create and upload the file:
 
 ```bash
 poetry run python scripts/provision_users.py add \
-  --username "user@example.com:change-me" \
+  --username "user@example.com" \
   --output users.json \
   --bucket "YOUR_AUTH_BUCKET" \
   --blob "users.json"
 ```
 
-**Warning:** When using the script to connect to GCS, ensure the local ```users.json``` contains the current contents of the GCS object before making changes. The complete local file is uploaded after the requested change.
+**Warning:** When using the script to connect to GCS, ensure the local `users.json` contains the current contents of the GCS object before making changes. The complete local file is uploaded after the requested change.
 
 For an encrypted auth file using a customer-managed Cloud KMS key, add:
 
