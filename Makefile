@@ -18,7 +18,7 @@ CONTAINER_BUILD_ARGS = \
 .PHONY: help all clean install templates run run-docs all-tests test lint format \
 	check-python check-python-nofix \
 	docker-build docker-run podman-build podman-run \
-	provision-user pre-commit-install pre-commit-run pre-push-run \
+	manage-users pre-commit-install pre-commit-run pre-push-run \
 	secrets-baseline show-build-metadata
 
 help: ## Show the available make targets.
@@ -99,8 +99,8 @@ podman-run:  ## Run the Podman container.
 		--env-file .env \
 		$(IMAGE_NAME)
 
-provision-user:  ## Provision a new user in the local users.json file.
-	poetry run python scripts/provision_users.py
+manage-users:  ## Show user management commands
+	poetry run python scripts/provision_users.py --help
 
 pre-commit-install:  ## Install pre-commit hooks.
 	poetry run pre-commit install

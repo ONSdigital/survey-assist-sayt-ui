@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create or upload a hashed users.json file for lightweight authentication."""
+"""Add, update, or delete users in the lightweight authentication user store."""
 
 from __future__ import annotations
 
@@ -11,92 +11,152 @@ from pathlib import Path
 import sys
 
 from google.cloud import storage
-from werkzeug.security import generate_password_hash
+
+from survey_assist_sayt_ui.auth.user_management import (
+    add_user,
+    delete_user,
+    load_users,
+    normalise_username,
+    save_users,
+    update_user,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def main() -> int:
-    """Provision hashed users and optionally upload to Cloud Storage.
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments.
 
     Returns:
-        int: Zero when provisioning succeeds.
+        argparse.Namespace: Parsed command-line arguments.
     """
-    parser = argparse.ArgumentParser(description="Provision users for the Flask auth template.")
-    parser.add_argument(
-        "--user",
-        action="append",
-        default=[],
-        metavar="EMAIL:PASSWORD",
-        help="User to add. Can be supplied more than once. Omit to be prompted.",
+    parser = argparse.ArgumentParser(
+        description="Add, update, or delete users in a users.json file."
     )
-    parser.add_argument("--output", default="users.json", help="Local output path.")
-    parser.add_argument("--bucket", help="Optional GCS bucket to upload the users file to.")
     parser.add_argument(
-        "--blob", default="users.json", help="GCS blob name. Defaults to users.json."
+        "action",
+        choices=("add", "update", "delete"),
+        help="User management action to perform.",
+    )
+    parser.add_argument(
+        "--username",
+        required=True,
+        help="User email address.",
+    )
+    parser.add_argument(
+        "--password",
+        help="Plaintext password. If omitted for add/update, you will be prompted.",
+    )
+    parser.add_argument(
+        "--output",
+        default="users.json",
+        help="Local users file. Defaults to users.json.",
+    )
+    parser.add_argument(
+        "--bucket",
+        help="Optional GCS bucket to upload the updated users file to.",
+    )
+    parser.add_argument(
+        "--blob",
+        default="users.json",
+        help="GCS blob name. Defaults to users.json.",
     )
     parser.add_argument(
         "--kms-key-name",
-        help="Optional Cloud KMS key resource name used as object customer-managed encryption key",
+        help="Optional Cloud KMS key resource name for the uploaded object.",
     )
-    args = parser.parse_args()
-
-    raw_users = args.user or [_prompt_for_user()]
-    users = [_parse_user(raw_user) for raw_user in raw_users]
-    payload = {"users": users}
-
-    output_path = Path(args.output)
-    output_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    logger.info("Wrote %s", output_path)
-
-    if args.bucket:
-        client = storage.Client()
-        bucket = client.bucket(args.bucket)
-        blob = bucket.blob(args.blob)
-        if args.kms_key_name:
-            blob.kms_key_name = args.kms_key_name
-        blob.upload_from_filename(output_path, content_type="application/json")
-        logger.info("Uploaded gs://%s/%s", args.bucket, args.blob)
-
-    return 0
+    return parser.parse_args()
 
 
-def _prompt_for_user() -> str:
-    """Prompt for one user in ``email:password`` format.
-
-    Returns:
-        str: A single ``email:password`` value from interactive input.
-    """
-    email = input("Email address: ").strip().lower()
-    password = getpass.getpass("Password: ")
-    return f"{email}:{password}"
-
-
-def _parse_user(raw_user: str) -> dict[str, str]:
-    """Parse and hash an individual user credential pair.
+def upload_users(
+    users_file: Path,
+    bucket_name: str,
+    blob_name: str,
+    kms_key_name: str | None,
+) -> None:
+    """Upload a users file to Google Cloud Storage.
 
     Args:
-        raw_user: User credentials in ``EMAIL:PASSWORD`` format.
+        users_file: Local users file.
+        bucket_name: GCS bucket name.
+        blob_name: GCS object name.
+        kms_key_name: Optional customer-managed encryption key.
+    """
+    client = storage.Client()  # type: ignore[no-untyped-call]
+    bucket = client.bucket(bucket_name)  # type: ignore[no-untyped-call]
+    blob = bucket.blob(blob_name)
+
+    if kms_key_name:
+        blob.kms_key_name = kms_key_name
+
+    blob.upload_from_filename(
+        users_file,
+        content_type="application/json",
+    )
+
+    logger.info("Uploaded gs://%s/%s", bucket_name, blob_name)
+
+
+def _get_password(password: str | None) -> str:
+    """Return a supplied or interactively entered password.
+
+    Args:
+        password: Optional command-line password.
 
     Returns:
-        dict[str, str]: A user record with normalised username and password hash.
+        str: Plaintext password.
 
     Raises:
-        ValueError: If the input is not in the expected format or values are blank.
+        ValueError: If the password is blank.
     """
-    if ":" not in raw_user:
-        raise ValueError("--user must be in EMAIL:PASSWORD format")
-    username, password = raw_user.split(":", 1)
-    username = username.strip().lower()
-    if not username or not password:
-        raise ValueError("Both email and password are required")
-    return {"username": username, "password_hash": generate_password_hash(password)}
+    resolved_password = password if password is not None else getpass.getpass("Password: ")
+
+    if not resolved_password:
+        raise ValueError("Password must not be blank")
+
+    return resolved_password
+
+
+def main() -> int:
+    """Run user management.
+
+    Returns:
+        int: Zero when user management succeeds.
+    """
+    args = parse_args()
+    users_file = Path(args.output)
+    users = load_users(users_file)
+
+    username = normalise_username(args.username)
+
+    if args.action == "add":
+        users = add_user(users, username, _get_password(args.password))
+        logger.info("Added user '%s'", username)
+    elif args.action == "update":
+        users = update_user(users, username, _get_password(args.password))
+        logger.info("Updated user '%s'", username)
+    else:
+        users = delete_user(users, username)
+        logger.info("Deleted user '%s'", username)
+
+    save_users(users_file, users)
+    logger.info("Wrote %s", users_file)
+
+    if args.bucket:
+        upload_users(
+            users_file=users_file,
+            bucket_name=args.bucket,
+            blob_name=args.blob,
+            kms_key_name=args.kms_key_name,
+        )
+
+    return 0
 
 
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except ValueError as exc:
+    except (json.JSONDecodeError, ValueError) as exc:
         logger.error("%s", exc)
         sys.exit(2)
