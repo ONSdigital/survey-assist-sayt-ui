@@ -97,6 +97,7 @@ class RadioOption(TypedDict):
     id: str
     label: str
     value: str
+    target_page_id: NotRequired[str]
 
 
 class RadioAnswer(TypedDict):

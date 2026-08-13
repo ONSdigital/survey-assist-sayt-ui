@@ -461,6 +461,11 @@ def _validate_survey_pages(
             "start_page_id does not match a survey page: " f"{start_page_id!r}"
         )
 
+    _validate_radio_routing(
+        pages,
+        section_name="survey_pages",
+    )
+
 
 def _validate_question_placeholders(
     page: dict[str, object],
@@ -829,6 +834,11 @@ def _validate_survey_feedback(
             "survey_feedback.start_page_id does not match " f"a feedback page: {start_page_id!r}"
         )
 
+    _validate_radio_routing(
+        pages,
+        section_name="survey_feedback",
+    )
+
 
 def _validate_feedback_page(
     page: dict[str, object],
@@ -856,3 +866,70 @@ def _validate_feedback_page(
         raise SurveyDefinitionInvalidError(
             "Survey feedback text answers must have required set to false"
         )
+
+
+def _validate_radio_routing(
+    pages: list[object],
+    section_name: str,
+) -> None:
+    """Validate optional forward routing configured on radio options.
+
+    Args:
+        pages: Ordered pages within one survey or feedback section.
+        section_name: JSON section name used in validation messages.
+
+    Raises:
+        SurveyDefinitionInvalidError: If a target is missing, belongs to
+            another section or does not appear after the radio question.
+    """
+    page_positions: dict[str, int] = {}
+
+    for page_index, page_value in enumerate(pages):
+        page = _require_object_value(
+            page_value,
+            f"{section_name} page {page_index}",
+        )
+        page_id = _require_non_empty_string(page, "page_id")
+        page_positions[page_id] = page_index
+
+    for page_index, page_value in enumerate(pages):
+        page = _require_object_value(
+            page_value,
+            f"{section_name} page {page_index}",
+        )
+
+        if page.get("page_type") != "question":
+            continue
+
+        answer = _require_mapping(page, "answer")
+
+        if answer.get("type") != "radio":
+            continue
+
+        for option_index, option_value in enumerate(_require_list(answer, "options")):
+            option = _require_object_value(
+                option_value,
+                f"Radio option {option_index}",
+            )
+            target_page_id = option.get("target_page_id")
+
+            if target_page_id is None:
+                continue
+
+            target_page_id = _require_non_empty_string(
+                option,
+                "target_page_id",
+            )
+            target_index = page_positions.get(target_page_id)
+
+            if target_index is None:
+                raise SurveyDefinitionInvalidError(
+                    f"{section_name} radio target_page_id does not match "
+                    f"a page in the same section: {target_page_id!r}"
+                )
+
+            if target_index <= page_index:
+                raise SurveyDefinitionInvalidError(
+                    f"{section_name} radio target_page_id must reference "
+                    f"a later page: {target_page_id!r}"
+                )

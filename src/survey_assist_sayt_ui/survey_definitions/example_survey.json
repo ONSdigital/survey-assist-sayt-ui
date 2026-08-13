@@ -355,7 +355,8 @@
             {
               "id": "paid-job-no",
               "label": "No",
-              "value": "no"
+              "value": "no",
+              "target_page_id": "g2"
             }
           ]
         },
