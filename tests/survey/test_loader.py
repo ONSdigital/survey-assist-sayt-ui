@@ -494,3 +494,147 @@ def test_load_survey_definition_accepts_guidance_as_start_page(
     loaded_definition = load_survey_definition(survey_path)
 
     assert loaded_definition["survey_pages"]["start_page_id"] == "g1"
+
+
+def test_load_survey_definition_accepts_forward_radio_target(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+) -> None:
+    """Test that a radio option may target a later survey page."""
+    answer = cast(
+        dict[str, object],
+        survey_definition["survey_pages"]["pages"][0]["answer"],
+    )
+    options = cast(
+        list[dict[str, object]],
+        answer["options"],
+    )
+    options[1]["target_page_id"] = "q2"
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    loaded_definition = load_survey_definition(survey_path)
+    loaded_answer = loaded_definition["survey_pages"]["pages"][0]["answer"]
+
+    assert loaded_answer["type"] == "radio"
+    assert loaded_answer["options"][1]["target_page_id"] == "q2"
+
+
+def test_load_survey_definition_rejects_unknown_radio_target(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+) -> None:
+    """Test that a radio target must exist in its section."""
+    answer = cast(
+        dict[str, object],
+        survey_definition["survey_pages"]["pages"][0]["answer"],
+    )
+    options = cast(
+        list[dict[str, object]],
+        answer["options"],
+    )
+    options[1]["target_page_id"] = "missing"
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="does not match a page in the same section",
+    ):
+        load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_rejects_backward_radio_target(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+) -> None:
+    """Test that a radio target must appear later in the section."""
+    second_page = survey_definition["survey_pages"]["pages"][1]
+    second_page["answer"] = {
+        "type": "radio",
+        "name": "job-title",
+        "required": True,
+        "options": [
+            {
+                "id": "job-title-teacher",
+                "label": "Teacher",
+                "value": "teacher",
+                "target_page_id": "q0",
+            }
+        ],
+    }
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="must reference a later page",
+    ):
+        load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_rejects_cross_section_radio_target(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that survey radio routing cannot target feedback."""
+    answer = cast(
+        dict[str, object],
+        survey_definition["survey_pages"]["pages"][0]["answer"],
+    )
+    options = cast(
+        list[dict[str, object]],
+        answer["options"],
+    )
+    options[1]["target_page_id"] = "fq1"
+    survey_definition["survey_feedback"] = survey_feedback
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="does not match a page in the same section",
+    ):
+        load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_accepts_feedback_radio_target(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that feedback radio options may target later feedback."""
+    answer = cast(
+        dict[str, object],
+        survey_feedback["pages"][0]["answer"],
+    )
+    options = cast(
+        list[dict[str, object]],
+        answer["options"],
+    )
+    options[1]["target_page_id"] = "fq2"
+    survey_definition["survey_feedback"] = survey_feedback
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    loaded_definition = load_survey_definition(survey_path)
+
+    loaded_feedback = loaded_definition["survey_feedback"]
+    assert loaded_feedback["pages"][0]["answer"]["type"] == "radio"
+    assert loaded_feedback["pages"][0]["answer"]["options"][1]["target_page_id"] == "fq2"

@@ -308,6 +308,32 @@ def _get_saved_response_state(
     return saved_value, False
 
 
+def _get_radio_target_page_id(
+    page: QuestionPage | FeedbackPage,
+    value: str,
+) -> str | None:
+    """Return the route configured for a selected radio option.
+
+    Args:
+        page: Submitted survey or feedback question.
+        value: Validated submitted radio value.
+
+    Returns:
+        str | None: Configured target page identifier, or None when normal
+            sequential routing should be used.
+    """
+    answer = page["answer"]
+
+    if answer["type"] != "radio":
+        return None
+
+    for option in answer["options"]:
+        if option["value"] == value:
+            return option.get("target_page_id")
+
+    return None
+
+
 def _get_survey_feedback() -> SurveyFeedback | None:
     """Return the enabled survey feedback configuration.
 
@@ -558,6 +584,15 @@ def save_response(page_id: str) -> ResponseReturnValue:
     }
     session[SURVEY_RESPONSES_KEY] = updated_responses
 
+    target_page_id = _get_radio_target_page_id(
+        page,
+        value,
+    )
+
+    if target_page_id is not None:
+        target_page = _get_survey_page(target_page_id)
+        return redirect(_get_survey_page_url(target_page))
+
     return redirect(_get_next_survey_url(page_id))
 
 
@@ -662,7 +697,14 @@ def save_feedback_response(
 
     session[SURVEY_FEEDBACK_RESPONSES_KEY] = updated_responses
 
-    next_page_id = _get_next_feedback_page_id(page_id)
+    target_page_id = _get_radio_target_page_id(
+        page,
+        value,
+    )
+
+    next_page_id = (
+        target_page_id if target_page_id is not None else _get_next_feedback_page_id(page_id)
+    )
 
     if next_page_id is None:
         return redirect(url_for("survey.complete"))
