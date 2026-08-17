@@ -125,6 +125,10 @@ class HttpBusinessActivitySearchClient:
         try:
             response = self._get_suggestions_response(query)
 
+            if response.status_code == HTTPStatus.GATEWAY_TIMEOUT:
+                logger.info("SAYT API returned 504; retrying once")
+                response = self._get_suggestions_response(query)
+
             # If the API returns a 401 Unauthorized, attempt to refresh the token and retry once.
             if (
                 response.status_code == HTTPStatus.UNAUTHORIZED

@@ -99,6 +99,50 @@ def test_search_refreshes_token_and_retries_once_after_unauthorized() -> None:
     assert suggestions[0].code == "45200"
 
 
+def test_search_retries_once_after_gateway_timeout() -> None:
+    """Test that a 504 response retries the request once."""
+    request_count = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal request_count
+        request_count += 1
+
+        if request_count == 1:
+            return httpx.Response(
+                HTTPStatus.GATEWAY_TIMEOUT,
+                request=request,
+            )
+
+        return httpx.Response(
+            HTTPStatus.OK,
+            json={
+                "results": [
+                    {
+                        "en": "Software development",
+                        "code": "62012",
+                    }
+                ]
+            },
+            request=request,
+        )
+
+    client = HttpBusinessActivitySearchClient(
+        endpoint_url="https://example.com/sic-lookup",
+        token="current-jwt-token",
+        query_parameter="description",
+        client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+        ),
+    )
+
+    suggestions = client.search("software", limit=10)
+
+    assert request_count == 2
+    assert len(suggestions) == 1
+    assert suggestions[0].label == "Software development"
+    assert suggestions[0].code == "62012"
+
+
 def test_search_does_not_refresh_token_for_non_unauthorized_error() -> None:
     """Test that only 401 responses trigger JWT refresh."""
 
