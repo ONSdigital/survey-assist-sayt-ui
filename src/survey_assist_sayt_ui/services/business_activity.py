@@ -51,7 +51,7 @@ class BusinessActivitySearchClient(Protocol):  # pylint: disable=too-few-public-
         """Search for matching business activities."""
 
 
-MOCK_BUSINESS_ACTIVITY_API = True
+MOCK_BUSINESS_ACTIVITY_API = False
 
 
 class HttpBusinessActivitySearchClient:

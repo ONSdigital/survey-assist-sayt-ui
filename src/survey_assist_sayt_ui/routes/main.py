@@ -63,7 +63,7 @@ def index() -> ResponseReturnValue:
         page_title="Home",
         authenticated_user=session.get(SESSION_USER_KEY),
         std_autosuggest_enabled=False,
-        api_autosuggest_enabled=False,
+        api_autosuggest_enabled=True,
         wireframe_enabled=survey_definition["survey_intro"]["enabled"],
     )
 
