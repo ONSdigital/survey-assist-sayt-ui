@@ -123,7 +123,11 @@ class HttpBusinessActivitySearchClient:
             ][:limit]
 
         try:
-            response = self._get_suggestions_response(query)
+            try:
+                response = self._get_suggestions_response(query)
+            except httpx.TimeoutException:
+                logger.info("SAYT API request timed out; retrying once")
+                response = self._get_suggestions_response(query)
 
             if response.status_code == HTTPStatus.GATEWAY_TIMEOUT:
                 logger.info("SAYT API returned 504; retrying once")
