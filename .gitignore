@@ -6,7 +6,7 @@ __pycache__/
 .coverage
 htmlcov/
 .env
-users.json
+*users.json
 src/survey_assist_sayt_ui/templates/components/
 src/survey_assist_sayt_ui/templates/layout/
 .DS_Store
