@@ -85,7 +85,10 @@ class SurveyAssistApiClient:
         params: QueryParameters | None = None,
         body: JsonObject | None = None,
     ) -> httpx.Response:
-        """Send a request, refreshing the bearer token once after a 401 response."""
+        """
+        Send a request, retrying after request and gateway timeout and
+        refreshing the bearer token once after a 401 response.
+        """
         try:
             try:
                 response = self._send_request(
