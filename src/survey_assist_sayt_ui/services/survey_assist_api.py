@@ -87,12 +87,21 @@ class SurveyAssistApiClient:
     ) -> httpx.Response:
         """Send a request, refreshing the bearer token once after a 401 response."""
         try:
-            response = self._send_request(
-                method,
-                endpoint,
-                params=params,
-                body=body,
-            )
+            try:
+                response = self._send_request(
+                    method,
+                    endpoint,
+                    params=params,
+                    body=body,
+                )
+            except httpx.TimeoutException:
+                logger.info("Survey Assist API request timed out; retrying once")
+                response = self._send_request(
+                    method,
+                    endpoint,
+                    params=params,
+                    body=body,
+                )
 
             if response.status_code == HTTPStatus.GATEWAY_TIMEOUT:
                 logger.info("SAYT API returned 504; retrying once")

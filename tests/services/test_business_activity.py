@@ -193,3 +193,44 @@ def test_search_raises_timeout_error() -> None:
         match="Business activity API request timed out",
     ):
         client.search("software", limit=5)
+
+
+def test_request_retries_once_after_timeout() -> None:
+    """Test that a timed-out request is retried once."""
+    request_count = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal request_count
+        request_count += 1
+
+        if request_count == 1:
+            raise httpx.ReadTimeout(
+                "Request timed out",
+                request=request,
+            )
+
+        return httpx.Response(
+            HTTPStatus.OK,
+            json={"suggestions": []},
+            request=request,
+        )
+
+    client = SurveyAssistApiClient(
+        base_url="https://gateway.example",
+        token="test-token",
+        client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+        ),
+    )
+
+    response = client.post(
+        "/suggestions",
+        body={
+            "type": "sic",
+            "query": "software",
+            "limit": 5,
+        },
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert request_count == 2
