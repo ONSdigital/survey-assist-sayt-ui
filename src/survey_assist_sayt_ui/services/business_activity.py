@@ -81,13 +81,13 @@ class HttpBusinessActivitySearchClient:  # pylint: disable=too-few-public-method
                 for index in range(1, 9)
             ][:limit]
 
-        request = SuggestionsRequest(
-            type=SuggestionType.SIC,
-            query=query,
-            limit=limit,
-        )
-
         try:
+            request = SuggestionsRequest(
+                type=SuggestionType.SIC,
+                query=query,
+                limit=limit,
+            )
+
             response = self._api_client.post(
                 SUGGESTIONS_ENDPOINT,
                 body=request.model_dump(mode="json", exclude_none=True),
