@@ -55,7 +55,7 @@ SUGGESTIONS_ENDPOINT = "suggestions"
 MOCK_BUSINESS_ACTIVITY_API = False
 
 
-class HttpBusinessActivitySearchClient:
+class HttpBusinessActivitySearchClient:  # pylint: disable=too-few-public-methods
     """Survey Assist API implementation of business activity search."""
 
     def __init__(

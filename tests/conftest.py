@@ -342,7 +342,7 @@ def app_fixture(
     """
     settings = Settings(
         secret_key="test-secret-key",  # pragma: allowlist secret
-        sayt_api_url="http://0.0.0.0:8080/v1/survey-assist/sic-lookup",
+        survey_assist_api_base_url="http://0.0.0.0:8080/v1/survey-assist",
         sa_email="sayt-ui@example.iam.gserviceaccount.com",
         service_name="Survey Assist SAYT UI",
         auth_mode="local",

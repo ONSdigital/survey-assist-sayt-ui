@@ -11,7 +11,31 @@ from survey_assist_sayt_ui.auth.decorators import (
     POST_LOGIN_REDIRECT_KEY,
     SESSION_USER_KEY,
 )
+from survey_assist_sayt_ui.services.business_activity import BusinessActivitySuggestion
 from survey_assist_sayt_ui.survey.models import SurveyDefinition
+
+
+class StubBusinessActivitySearchClient:  # pylint: disable=too-few-public-methods
+    """Provide deterministic business activity suggestions for route tests."""
+
+    def search(
+        self,
+        query: str,
+        *,
+        limit: int,
+    ) -> list[BusinessActivitySuggestion]:
+        """Return fixed business activity suggestions."""
+        assert query == "soft"
+        assert limit == 20
+
+        return [
+            BusinessActivitySuggestion(
+                label="Software development: 62012",
+            ),
+            BusinessActivitySuggestion(
+                label="Soft drinks production: 11070",
+            ),
+        ]
 
 
 def test_index_redirects_unauthenticated_user(
@@ -126,3 +150,47 @@ def test_index_hides_wireframe_button_when_intro_is_disabled(
 
     assert response.status_code == HTTPStatus.OK
     assert "Wireframe" not in response.get_data(as_text=True)
+
+
+def test_business_activity_suggestions_rejects_query_over_maximum_length(
+    client: FlaskClient,
+) -> None:
+    """Test that autosuggest queries longer than 100 characters are rejected."""
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+
+    response = client.get(
+        "/api/business-activity-suggestions",
+        query_string={"q": "a" * 101},
+    )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert response.get_json() == {
+        "error": "Search query is too long",
+    }
+
+
+def test_business_activity_suggestions_returns_search_results(
+    app: Flask,
+    client: FlaskClient,
+) -> None:
+    """Test returning business activity suggestions to the autosuggest component."""
+    app.extensions["business_activity_search_client"] = StubBusinessActivitySearchClient()
+
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+
+    response = client.get(
+        "/api/business-activity-suggestions",
+        query_string={"q": "soft"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.get_json() == [
+        {
+            "en": "Software development: 62012",
+        },
+        {
+            "en": "Soft drinks production: 11070",
+        },
+    ]

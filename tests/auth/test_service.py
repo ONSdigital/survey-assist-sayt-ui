@@ -331,7 +331,7 @@ def test_credentials_do_not_match_when_store_loading_fails(
 def test_build_auth_store_returns_local_store() -> None:
     """Test building a local authentication store."""
     settings = Settings(
-        sayt_api_url="http://0.0.0.0:8080/v1/survey-assist/sic-lookup",
+        survey_assist_api_base_url="http://0.0.0.0:8080/v1/survey-assist",
         sa_email="sayt-ui@example.iam.gserviceaccount.com",
         secret_key="test-secret",  # pragma: allowlist secret
         auth_mode="local",
@@ -347,7 +347,7 @@ def test_build_auth_store_returns_local_store() -> None:
 def test_build_auth_store_returns_gcs_store() -> None:
     """Test building a Google Cloud Storage authentication store."""
     settings = Settings(
-        sayt_api_url="http://0.0.0.0:8080/v1/survey-assist/sic-lookup",
+        survey_assist_api_base_url="http://0.0.0.0:8080/v1/survey-assist",
         sa_email="sayt-ui@example.iam.gserviceaccount.com",
         secret_key="test-secret",  # pragma: allowlist secret
         auth_mode="gcs",
@@ -365,7 +365,7 @@ def test_build_auth_store_returns_gcs_store() -> None:
 def test_build_auth_store_requires_gcs_bucket() -> None:
     """Test that GCS mode requires a configured bucket."""
     settings = Settings(
-        sayt_api_url="http://0.0.0.0:8080/v1/survey-assist/sic-lookup",
+        survey_assist_api_base_url="http://0.0.0.0:8080/v1/survey-assist",
         sa_email="sayt-ui@example.iam.gserviceaccount.com",
         secret_key="test-secret",  # pragma: allowlist secret
         auth_mode="gcs",
