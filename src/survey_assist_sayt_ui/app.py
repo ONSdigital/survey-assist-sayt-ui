@@ -33,9 +33,8 @@ logger = logging.getLogger(__name__)
 
 TokenRefresher = Callable[[int, str, str, str], tuple[int, str]]
 
-dataclass(slots=True)
 
-
+@dataclass(slots=True)
 class JwtTokenState:  # pylint: disable=too-few-public-methods
     """Runtime state for the short-lived Survey Assist API JWT."""
 
