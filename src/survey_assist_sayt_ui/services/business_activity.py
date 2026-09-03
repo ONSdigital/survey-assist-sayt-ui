@@ -6,6 +6,13 @@ from dataclasses import dataclass
 import time
 from typing import Protocol
 
+from pydantic import ValidationError
+
+from survey_assist_sayt_ui.models.suggestions import (
+    SuggestionsRequest,
+    SuggestionsResponse,
+    SuggestionType,
+)
 from survey_assist_sayt_ui.services.survey_assist_api import (
     SurveyAssistApiClient,
     SurveyAssistApiError,
@@ -26,16 +33,10 @@ class BusinessActivitySuggestion:
     """A business activity suggestion returned by the API."""
 
     label: str
-    code: str | None = None
 
     def to_dict(self) -> dict[str, str]:
         """Convert the suggestion to the ONS language-keyed format."""
-        result = {"en": self.label}
-
-        if self.code:
-            result["code"] = self.code
-
-        return result
+        return {"en": self.label}
 
 
 class BusinessActivitySearchClient(Protocol):  # pylint: disable=too-few-public-methods
@@ -50,9 +51,8 @@ class BusinessActivitySearchClient(Protocol):  # pylint: disable=too-few-public-
         """Search for matching business activities."""
 
 
-SIC_LOOKUP_ENDPOINT = "sic-lookup"
 SUGGESTIONS_ENDPOINT = "suggestions"
-MOCK_BUSINESS_ACTIVITY_API = True
+MOCK_BUSINESS_ACTIVITY_API = False
 
 
 class HttpBusinessActivitySearchClient:
@@ -81,53 +81,31 @@ class HttpBusinessActivitySearchClient:
                 for index in range(1, 9)
             ][:limit]
 
+        request = SuggestionsRequest(
+            type=SuggestionType.SIC,
+            query=query,
+            limit=limit,
+        )
+
         try:
-            response = self._api_client.get(
-                SIC_LOOKUP_ENDPOINT,
-                params={
-                    "description": query,
-                    "similarity": "true",
-                },
+            response = self._api_client.post(
+                SUGGESTIONS_ENDPOINT,
+                body=request.model_dump(mode="json", exclude_none=True),
             )
-            payload = response.json()
+            result = SuggestionsResponse.model_validate(response.json())
 
         except SurveyAssistApiTimeoutError as error:
             raise BusinessActivityApiTimeoutError(
                 "Business activity API request timed out"
             ) from error
-        except (SurveyAssistApiError, ValueError) as error:
+        except (
+            SurveyAssistApiError,
+            ValidationError,
+            ValueError,
+        ) as error:
             raise BusinessActivityApiError("Business activity API request failed") from error
 
-        items: object
-
-        if isinstance(payload, list):
-            items = payload
-        elif isinstance(payload, dict):
-            items = payload.get("results")
-        else:
-            items = None
-
-        if not isinstance(items, list):
-            raise BusinessActivityApiError("Business activity API returned an invalid response")
-
-        suggestions: list[BusinessActivitySuggestion] = []
-
-        for item in items[:limit]:
-            if not isinstance(item, dict):
-                continue
-
-            label = item.get("en")
-
-            if not isinstance(label, str) or not label.strip():
-                continue
-
-            code = item.get("code")
-
-            suggestions.append(
-                BusinessActivitySuggestion(
-                    label=label.strip(),
-                    code=code if isinstance(code, str) else None,
-                )
-            )
-
-        return suggestions
+        return [
+            BusinessActivitySuggestion(label=suggestion.display_text)
+            for suggestion in result.suggestions
+        ]

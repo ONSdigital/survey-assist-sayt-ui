@@ -94,6 +94,15 @@ class SurveyAssistApiClient:
                 body=body,
             )
 
+            if response.status_code == HTTPStatus.GATEWAY_TIMEOUT:
+                logger.info("SAYT API returned 504; retrying once")
+                response = self._send_request(
+                    method,
+                    endpoint,
+                    params=params,
+                    body=body,
+                )
+
             if (
                 response.status_code == HTTPStatus.UNAUTHORIZED
                 and self._token_refresher is not None

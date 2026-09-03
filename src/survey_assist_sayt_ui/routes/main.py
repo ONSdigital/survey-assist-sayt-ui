@@ -19,7 +19,7 @@ from survey_assist_sayt_ui.survey.models import SurveyDefinition
 from survey_assist_sayt_ui.survey.session import clear_survey_session_data
 
 MIN_AUTOSUGGEST_CHARACTERS = 3
-MAX_AUTOSUGGEST_QUERY_LENGTH = 200
+MAX_AUTOSUGGEST_QUERY_LENGTH = 100
 MAX_AUTOSUGGEST_RESULTS = 20
 
 
@@ -63,7 +63,7 @@ def index() -> ResponseReturnValue:
         page_title="Home",
         authenticated_user=session.get(SESSION_USER_KEY),
         std_autosuggest_enabled=False,
-        api_autosuggest_enabled=False,
+        api_autosuggest_enabled=True,
         wireframe_enabled=survey_definition["survey_intro"]["enabled"],
     )
 
