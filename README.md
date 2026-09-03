@@ -1,28 +1,12 @@
 # Survey Assist SAYT UI
 
-A containerised Flask starter app for Cloud Run prototypes that need an ONS Design System UI and a lightweight password-gated landing page.
-
-This template borrows the useful parts of `ONSdigital/theme-analysis-ui`:
-
-- Flask application factory with `template_folder="app_templates"`
-- Jinja configured with `ChainableUndefined` for ONS/Nunjucks-style templates
-- downloaded ONS Design System `components/` and `layout/` templates loaded through a Jinja `ChoiceLoader`
-- session-based login flow using Werkzeug password hashes
-- `scripts/` utilities for fetching ONS templates and provisioning users
-
-It deliberately separates authentication into an `auth` package so the template can be reused across small services.
-
-## What this is suitable for
-
-Use this for low-risk prototypes, internal demos, and short-lived Cloud Run services where a simple password gate is enough.
-
-For production, sensitive, or externally exposed services, prefer organisation-managed authentication such as IAP, SSO, or another centrally managed identity service. This template stores password hashes only, but it is still not a replacement for enterprise identity management.
+A containerised Flask app for implementing a Search As You Type (SAYT) user interface to test Survey Assist Smart SAYT.
 
 ## Requirements
 
 - Python 3.12
 - Poetry 2.1.3
-- Docker, if building the container locally
+- Docker or Podman if building the container locally
 - Google Cloud SDK credentials, if uploading the users file to GCS
 
 ## Install locally
@@ -33,7 +17,7 @@ poetry install
 
 ## Fetch the ONS Design System templates
 
-The ONS Design System uses Nunjucks templates. The ONS guidance for Jinja apps is to use `ChainableUndefined`, and when using the release zip, copy the `components` and `layout` folders into the Flask templates path.
+The ONS Design System uses Nunjucks templates. The ONS guidance for Jinja apps is to use `ChainableUndefined` (which this application does), and when using the release zip, copy the `components` and `layout` folders into the Flask templates path.
 
 Run:
 
@@ -231,11 +215,11 @@ Prefer supplying `FLASK_SECRET_KEY` from Secret Manager.
 ## Development checks
 
 ```bash
-make test
-make lint
+make all-tests
+make check-python
 ```
 
-## Extending the template
+## Extending the code
 
 Replace `src/survey_assist_sayt_ui/app_templates/index.html` and add new blueprints under `src/survey_assist_sayt_ui/routes/`.
 
