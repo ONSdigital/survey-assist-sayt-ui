@@ -17,7 +17,7 @@ class Settings:  # pylint: disable=too-many-instance-attributes
 
     Attributes:
         secret_key: Secret key used for Flask session signing.
-        sayt_api_url: URL of the search as yout type API endpoint.
+        survey_assist_api_base_url: URL of the survey assist API endpoint.
         sa_email: Service Account email for GCP authentication.
         service_name: Service display name.
         survey_definition_file: Path to the JSON survey definition.
@@ -29,7 +29,7 @@ class Settings:  # pylint: disable=too-many-instance-attributes
     """
 
     secret_key: str
-    sayt_api_url: str
+    survey_assist_api_base_url: str
     sa_email: str
     service_name: str = "Survey Assist SAYT UI"
     survey_definition_file: str = str(DEFAULT_SURVEY_DEFINITION_FILE)
@@ -64,7 +64,7 @@ def load_settings() -> Settings:
     """
     return Settings(
         secret_key=os.getenv("FLASK_SECRET_KEY", "dev-only-change-me"),
-        sayt_api_url=_required_env("SAYT_API_URL"),
+        survey_assist_api_base_url=_required_env("SURVEY_ASSIST_API_BASE_URL"),
         sa_email=_required_env("SA_EMAIL"),
         service_name=os.getenv("SERVICE_NAME", "Survey Assist SAYT UI"),
         survey_definition_file=os.getenv(

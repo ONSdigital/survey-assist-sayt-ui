@@ -3,107 +3,164 @@
 from __future__ import annotations
 
 from http import HTTPStatus
+import json
 
 import httpx
 import pytest
 
-from survey_assist_sayt_ui.services import business_activity
 from survey_assist_sayt_ui.services.business_activity import (
     BusinessActivityApiError,
+    BusinessActivityApiTimeoutError,
     HttpBusinessActivitySearchClient,
 )
+from survey_assist_sayt_ui.services.survey_assist_api import SurveyAssistApiClient
 
 
-# Must be removed when wireframe share is complete and the mock is no longer needed.
-@pytest.fixture(autouse=True)
-def disable_mock_business_activity_api(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Use the real HTTP client implementation in service tests."""
-    monkeypatch.setattr(
-        business_activity,
-        "MOCK_BUSINESS_ACTIVITY_API",
-        False,
+def _create_client(
+    handler: httpx.MockTransport,
+) -> HttpBusinessActivitySearchClient:
+    """Create a business activity client using a mocked HTTP transport."""
+    api_client = SurveyAssistApiClient(
+        base_url="https://gateway.example",
+        token="test-jwt-token",
+        client=httpx.Client(transport=handler),
     )
 
-
-def test_search_uses_current_bearer_token() -> None:
-    """Use the latest configured JWT on each request."""
-    authorization_headers: list[str] = []
-
-    def handle_request(request: httpx.Request) -> httpx.Response:
-        authorization_headers.append(request.headers["Authorization"])
-        return httpx.Response(
-            status_code=HTTPStatus.OK,
-            json=[{"en": "81210 - General cleaning of buildings"}],
-        )
-
-    http_client = httpx.Client(transport=httpx.MockTransport(handle_request))
-    client = HttpBusinessActivitySearchClient(
-        endpoint_url="https://gateway.example/sic-lookup",
-        token="initial-token",
-        client=http_client,
-    )
-
-    client.search("cleaning", limit=20)
-    client.update_token("refreshed-token")
-    client.search("cleaning", limit=20)
-
-    assert authorization_headers == [
-        "Bearer initial-token",
-        "Bearer refreshed-token",
-    ]
-
-    client.close()
+    return HttpBusinessActivitySearchClient(api_client=api_client)
 
 
-def test_search_refreshes_token_and_retries_once_after_unauthorized() -> None:
-    """Test that a 401 refreshes the JWT and retries the request once."""
-    request_authorizations: list[str | None] = []
-    token_refresh_count = 0
-
-    def token_refresher() -> str:
-        nonlocal token_refresh_count
-        token_refresh_count += 1
-        return "new-jwt-token"
+def test_search_posts_suggestions_request() -> None:
+    """Test that searches use the Survey Assist suggestions endpoint."""
+    captured_request: httpx.Request | None = None
 
     def handler(request: httpx.Request) -> httpx.Response:
-        request_authorizations.append(request.headers.get("Authorization"))
-
-        if len(request_authorizations) == 1:
-            return httpx.Response(HTTPStatus.UNAUTHORIZED, request=request)
+        nonlocal captured_request
+        captured_request = request
 
         return httpx.Response(
             HTTPStatus.OK,
-            json={"results": [{"en": "Car repair", "code": "45200"}]},
+            json={"suggestions": []},
             request=request,
         )
 
-    client = HttpBusinessActivitySearchClient(
-        endpoint_url="https://example.com/sic-lookup",
-        token="expired-jwt-token",
-        query_parameter="description",
-        client=httpx.Client(transport=httpx.MockTransport(handler)),
-        token_refresher=token_refresher,
-    )
+    client = _create_client(httpx.MockTransport(handler))
 
-    suggestions = client.search("car", limit=10)
+    client.search("soft", limit=5)
 
-    assert token_refresh_count == 1
-    assert request_authorizations == [
-        "Bearer expired-jwt-token",
-        "Bearer new-jwt-token",
+    assert captured_request is not None
+    assert captured_request.method == "POST"
+    assert captured_request.url == "https://gateway.example/suggestions"
+    assert json.loads(captured_request.content) == {
+        "type": "sic",
+        "query": "soft",
+        "limit": 5,
+    }
+
+
+def test_search_maps_suggestions_response() -> None:
+    """Test that API suggestions are mapped to business activity suggestions."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            HTTPStatus.OK,
+            json={
+                "suggestions": [
+                    {
+                        "display_text": "Toy and game manufacturing: 32409",
+                    },
+                    {
+                        "display_text": "Soft drinks production: 11070",
+                    },
+                    {
+                        "display_text": "Landscape gardening: 81300",
+                    },
+                ]
+            },
+            request=request,
+        )
+
+    client = _create_client(httpx.MockTransport(handler))
+
+    suggestions = client.search("soft", limit=5)
+
+    assert [suggestion.label for suggestion in suggestions] == [
+        "Toy and game manufacturing: 32409",
+        "Soft drinks production: 11070",
+        "Landscape gardening: 81300",
     ]
+
+
+def test_search_ignores_optional_score() -> None:
+    """Test that optional API scores do not affect displayed suggestions."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            HTTPStatus.OK,
+            json={
+                "suggestions": [
+                    {
+                        "display_text": "Software development: 62012",
+                        "score": 0.95,
+                    }
+                ]
+            },
+            request=request,
+        )
+
+    client = _create_client(httpx.MockTransport(handler))
+
+    suggestions = client.search("software", limit=5)
+
     assert len(suggestions) == 1
-    assert suggestions[0].label == "Car repair"
-    assert suggestions[0].code == "45200"
+    assert suggestions[0].label == "Software development: 62012"
 
 
-def test_search_does_not_refresh_token_for_non_unauthorized_error() -> None:
-    """Test that only 401 responses trigger JWT refresh."""
+def test_search_raises_error_for_invalid_response() -> None:
+    """Test that an invalid suggestions response raises an API error."""
 
-    def token_refresher() -> str:
-        pytest.fail("Token refresher should not be called for non-401 errors")
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            HTTPStatus.OK,
+            json={
+                "suggestions": [
+                    {
+                        "unexpected_field": "Software development",
+                    }
+                ]
+            },
+            request=request,
+        )
+
+    client = _create_client(httpx.MockTransport(handler))
+
+    with pytest.raises(
+        BusinessActivityApiError,
+        match="Business activity API request failed",
+    ):
+        client.search("software", limit=5)
+
+
+def test_search_raises_error_for_invalid_json() -> None:
+    """Test that invalid response JSON raises an API error."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            HTTPStatus.OK,
+            content=b"not-json",
+            request=request,
+        )
+
+    client = _create_client(httpx.MockTransport(handler))
+
+    with pytest.raises(
+        BusinessActivityApiError,
+        match="Business activity API request failed",
+    ):
+        client.search("software", limit=5)
+
+
+def test_search_raises_error_for_api_failure() -> None:
+    """Test that Survey Assist API failures are translated."""
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -111,41 +168,69 @@ def test_search_does_not_refresh_token_for_non_unauthorized_error() -> None:
             request=request,
         )
 
-    client = HttpBusinessActivitySearchClient(
-        endpoint_url="https://example.com/sic-lookup",
-        token="current-jwt-token",
-        query_parameter="description",
-        client=httpx.Client(transport=httpx.MockTransport(handler)),
-        token_refresher=token_refresher,
-    )
+    client = _create_client(httpx.MockTransport(handler))
 
-    with pytest.raises(BusinessActivityApiError, match="Business activity API request failed"):
-        client.search("car", limit=10)
+    with pytest.raises(
+        BusinessActivityApiError,
+        match="Business activity API request failed",
+    ):
+        client.search("software", limit=5)
 
 
-def test_search_raises_error_when_retry_after_token_refresh_is_still_unauthorized() -> None:
-    """Test that repeated 401 responses do not cause an infinite retry loop."""
-    request_authorizations: list[str | None] = []
-
-    def token_refresher() -> str:
-        return "new-jwt-token"
+def test_search_raises_timeout_error() -> None:
+    """Test that Survey Assist API timeouts are translated."""
 
     def handler(request: httpx.Request) -> httpx.Response:
-        request_authorizations.append(request.headers.get("Authorization"))
-        return httpx.Response(HTTPStatus.UNAUTHORIZED, request=request)
+        raise httpx.ReadTimeout(
+            "Request timed out",
+            request=request,
+        )
 
-    client = HttpBusinessActivitySearchClient(
-        endpoint_url="https://example.com/sic-lookup",
-        token="expired-jwt-token",
-        query_parameter="description",
-        client=httpx.Client(transport=httpx.MockTransport(handler)),
-        token_refresher=token_refresher,
+    client = _create_client(httpx.MockTransport(handler))
+
+    with pytest.raises(
+        BusinessActivityApiTimeoutError,
+        match="Business activity API request timed out",
+    ):
+        client.search("software", limit=5)
+
+
+def test_request_retries_once_after_timeout() -> None:
+    """Test that a timed-out request is retried once."""
+    request_count = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal request_count
+        request_count += 1
+
+        if request_count == 1:
+            raise httpx.ReadTimeout(
+                "Request timed out",
+                request=request,
+            )
+
+        return httpx.Response(
+            HTTPStatus.OK,
+            json={"suggestions": []},
+            request=request,
+        )
+
+    client = SurveyAssistApiClient(
+        base_url="https://gateway.example",
+        token="test-token",
+        client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+        ),
     )
 
-    with pytest.raises(BusinessActivityApiError, match="Business activity API request failed"):
-        client.search("car", limit=10)
+    response = client.post(
+        "/suggestions",
+        body={
+            "type": "sic",
+            "query": "software",
+            "limit": 5,
+        },
+    )
 
-    assert request_authorizations == [
-        "Bearer expired-jwt-token",
-        "Bearer new-jwt-token",
-    ]
+    assert response.status_code == HTTPStatus.OK
+    assert request_count == 2

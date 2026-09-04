@@ -42,7 +42,7 @@ def test_user_can_log_in_with_local_credentials(
 
     app = create_app(
         Settings(
-            sayt_api_url="http://0.0.0.0:8080/v1/survey-assist/sic-lookup",
+            survey_assist_api_base_url="http://0.0.0.0:8080/v1/survey-assist",
             sa_email="sayt-ui@example.iam.gserviceaccount.com",
             secret_key="test-secret-key",  # pragma: allowlist secret
             local_users_file=str(users_file),

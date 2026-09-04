@@ -13,6 +13,9 @@ from jinja2 import ChainableUndefined, ChoiceLoader, FileSystemLoader
 from survey_assist_utils.api_token.jwt_utils import check_and_refresh_token
 
 from survey_assist_sayt_ui.services.business_activity import HttpBusinessActivitySearchClient
+from survey_assist_sayt_ui.services.survey_assist_api import (
+    SurveyAssistApiClient,
+)
 from survey_assist_sayt_ui.survey.loader import (
     SurveyDefinitionError,
     load_survey_definition,
@@ -30,22 +33,21 @@ logger = logging.getLogger(__name__)
 
 TokenRefresher = Callable[[int, str, str, str], tuple[int, str]]
 
-dataclass(slots=True)
 
-
+@dataclass(slots=True)
 class JwtTokenState:  # pylint: disable=too-few-public-methods
-    """Runtime state for the short-lived SAYT API JWT."""
+    """Runtime state for the short-lived Survey Assist API JWT."""
 
     start_time: int = 0
     token: str = ""
 
 
 def _get_api_gateway_hostname(api_url: str) -> str:
-    """Extract the API Gateway audience from the configured endpoint URL."""
+    """Extract the API Gateway audience from the configured base URL."""
     hostname = urlparse(api_url).netloc.rstrip("/")
 
     if not hostname:
-        raise ValueError("SAYT_API_URL must include a scheme and hostname")
+        raise ValueError("SURVEY_ASSIST_API_BASE_URL must include a scheme and hostname")
 
     return hostname
 
@@ -71,8 +73,8 @@ def create_app(  # pylint: disable=too-many-locals
         Flask: The configured Flask application instance.
     """
 
-    def refresh_sayt_api_token_state(*, force: bool = False) -> tuple[bool, str]:
-        """Refresh the SAYT API token state when it is approaching expiry."""
+    def refresh_survey_assist_api_token_state(*, force: bool = False) -> tuple[bool, str]:
+        """Refresh the Survey Assist API token state when it is approaching expiry."""
         previous_start_time = token_state.start_time
 
         if force:
@@ -133,20 +135,24 @@ def create_app(  # pylint: disable=too-many-locals
 
     app.extensions["survey_definition"] = resolved_survey_definition
 
-    # Setup the business activity search client with a short-lived JWT token
-    gateway_hostname = _get_api_gateway_hostname(resolved_settings.sayt_api_url)
+    # Setup the shared Survey Assist API client with a short-lived JWT token
+    gateway_hostname = _get_api_gateway_hostname(resolved_settings.survey_assist_api_base_url)
 
     token_state = JwtTokenState()
-    _, initial_token = refresh_sayt_api_token_state(force=True)
+    _, initial_token = refresh_survey_assist_api_token_state(force=True)
 
-    business_activity_client = HttpBusinessActivitySearchClient(
-        endpoint_url=resolved_settings.sayt_api_url,
+    survey_assist_api_client = SurveyAssistApiClient(
+        base_url=resolved_settings.survey_assist_api_base_url,
         token=initial_token,
-        query_parameter="description",
         timeout_seconds=5.0,
-        token_refresher=lambda: refresh_sayt_api_token_state(force=True)[1],
+        token_refresher=lambda: refresh_survey_assist_api_token_state(force=True)[1],
     )
 
+    business_activity_client = HttpBusinessActivitySearchClient(
+        api_client=survey_assist_api_client,
+    )
+
+    app.extensions["survey_assist_api_client"] = survey_assist_api_client
     app.extensions["business_activity_search_client"] = business_activity_client
 
     app.register_blueprint(auth_blueprint)
@@ -166,17 +172,17 @@ def create_app(  # pylint: disable=too-many-locals
     # Before each request, check if the SAYT API JWT is approaching expiry
     # and refresh it if necessary
     @app.before_request
-    def refresh_sayt_api_token() -> None:
+    def refresh_survey_assist_api_token() -> None:
         """Refresh the SAYT API token when it is approaching expiry."""
-        refreshed, token = refresh_sayt_api_token_state()
+        refreshed, token = refresh_survey_assist_api_token_state()
 
         if not refreshed:
             return
 
-        business_activity_client.update_token(token)
+        survey_assist_api_client.update_token(token)
 
         logger.info(
-            "Refreshed SAYT API JWT for method=%s endpoint=%s",
+            "Refreshed Survey Assist API JWT for method=%s endpoint=%s",
             request.method,
             request.endpoint,
         )
