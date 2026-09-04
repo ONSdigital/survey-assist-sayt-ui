@@ -2,9 +2,21 @@
 
 {% from "components/autosuggest/_macro.njk" import onsAutosuggest %}
 {% from "components/button/_macro.njk" import onsButton %}
+{% from "components/input/_macro.njk" import onsInput %}
+{% from "components/list/_macro.njk" import onsList %}
+{% from "components/panel/_macro.njk" import onsPanel %}
 
-{% set page_title = "What is the main activity of the business or freelance work?" %}
+{% set question_title = "What is the main activity of the business or freelance work?" %}
+{% set page_title = question_title %}
 {% set main_col_class = "ons-col-8@m" %}
+
+{% set not_listed_selected = business_activity_not_listed | default(false) %}
+{% set self_describe_id = "business-activity-api-self-describe" %}
+{% set self_describe_field_id = self_describe_id ~ "-field" %}
+
+{% if error_message or self_describe_error_message %}
+    {% set page_title = "Error: " ~ question_title %}
+{% endif %}
 
 {% set not_listed_option = {
     "or": "Or",
@@ -16,9 +28,18 @@
             "id": "business-activity-not-listed",
             "name": "business_activity_not_listed",
             "value": "not-listed",
-            "checked": business_activity_not_listed | default(false),
+            "checked": not_listed_selected,
             "label": {
                 "text": "Not listed"
+            },
+            "attributes": {
+                "aria-controls": self_describe_field_id,
+                "aria-expanded": (
+                    "true"
+                    if not_listed_selected
+                    else
+                    "false"
+                )
             }
         }
     ]
@@ -31,6 +52,35 @@
     } %}
 {% else %}
     {% set business_activity_error = none %}
+{% endif %}
+
+{% if self_describe_error_message %}
+    {% set self_describe_error = {
+        "id": self_describe_id ~ "-error",
+        "text": self_describe_error_message
+    } %}
+{% else %}
+    {% set self_describe_error = none %}
+{% endif %}
+
+{% set autosuggest_input_attributes = {} %}
+
+{% if not_listed_selected %}
+    {% set _ = autosuggest_input_attributes.update({
+        "disabled": true
+    }) %}
+{% endif %}
+
+{% set self_describe_field_classes = "ons-u-mt-l" %}
+{% set self_describe_attributes = {} %}
+
+{% if not not_listed_selected %}
+    {% set self_describe_field_classes = (
+        self_describe_field_classes ~ " ons-u-d-no"
+    ) %}
+    {% set _ = self_describe_attributes.update({
+        "disabled": true
+    }) %}
 {% endif %}
 
 {% block page_scripts %}
@@ -50,11 +100,44 @@
     src="{{ url_for('static', filename='js/remote-autosuggest.bundle.js') }}"
     defer
   ></script>
+  <script
+    src="{{ url_for(
+        'static',
+        filename='js/autosuggest-self-describe.js'
+    ) }}"
+    data-not-listed-checkbox-id="business-activity-not-listed"
+    data-autosuggest-input-id="business-activity-api"
+    data-self-describe-input-id="{{ self_describe_id }}"
+    defer
+  ></script>
 {% endblock %}
 
 
 {% block main %}
-<form method="post" action="{{ url_for('main.save_response') }}">
+{% if self_describe_error_message %}
+    {% call onsPanel({
+        "title": "There is a problem with your answer",
+        "variant": "error"
+    }) %}
+        {{
+            onsList({
+                "element": "ol",
+                "itemsList": [
+                    {
+                        "text": self_describe_error_message,
+                        "url": "#" ~ self_describe_error.id,
+                        "variants": "inPageLink"
+                    }
+                ]
+            })
+        }}
+    {% endcall %}
+{% endif %}
+<form
+    method="post"
+    action="{{ url_for('main.save_api_autosuggest_response') }}"
+    novalidate
+>
     {{
         onsAutosuggest({
             "id": "business-activity-api",
@@ -64,10 +147,11 @@
                 "width": "30",
                 "accessiblePlaceholder": true,
                 "autocomplete": "off",
-                "legend": page_title,
+                "legend": question_title,
                 "legendIsQuestionTitle": true,
                 "value": business_activity | default(""),
                 "error": business_activity_error,
+                "attributes": autosuggest_input_attributes,
                 "mutuallyExclusive": not_listed_option
             },
             "instructions": "Use up and down keys to navigate suggestions once you have typed 3 or more characters. Use the enter key to select a suggestion. Touch device users, explore by touch or with swipe gestures.",
@@ -106,6 +190,25 @@
         <span class="business-activity-loading__spinner" aria-hidden="true"></span>
         <span>Searching...</span>
     </div>
+
+    {{
+        onsInput({
+            "id": self_describe_id,
+            "fieldId": self_describe_field_id,
+            "fieldClasses": self_describe_field_classes,
+            "name": "business_activity_self_describe",
+            "type": "text",
+            "width": "30",
+            "autocomplete": "off",
+            "value": business_activity_self_describe | default(""),
+            "attributes": self_describe_attributes,
+            "label": {
+                "id": self_describe_id ~ "-label",
+                "text": "Describe the main activity of your organisation"
+            },
+            "error": self_describe_error
+        })
+    }}
 
     {{
         onsButton({
