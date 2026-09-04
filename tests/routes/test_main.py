@@ -194,3 +194,103 @@ def test_business_activity_suggestions_returns_search_results(
             "en": "Soft drinks production: 11070",
         },
     ]
+
+
+def test_api_autosuggest_renders_self_describe_input(
+    client: FlaskClient,
+) -> None:
+    """Test API autosuggest renders the self-description control."""
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+
+    response = client.get("/api-autosuggest")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert 'id="business-activity-api-self-describe"' in response_text
+    assert "Describe the main activity of your organisation" in response_text
+    assert "autosuggest-self-describe.js" in response_text
+    assert 'action="/api-autosuggest"' in response_text
+
+
+def test_api_autosuggest_requires_self_description_for_not_listed(
+    client: FlaskClient,
+) -> None:
+    """Test Not listed requires a free-text description."""
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+
+    response = client.post(
+        "/api-autosuggest",
+        data={
+            "business_activity": "",
+            "business_activity_not_listed": "not-listed",
+            "business_activity_self_describe": "   ",
+        },
+    )
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "Enter a description of the main activity of your organisation" in response_text
+    assert 'id="business-activity-api-self-describe"' in response_text
+    assert "checked" in response_text
+
+
+def test_api_autosuggest_uses_self_description_for_not_listed(
+    client: FlaskClient,
+) -> None:
+    """Test Not listed uses the supplied free-text description."""
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+
+    response = client.post(
+        "/api-autosuggest",
+        data={
+            "business_activity": "Software development: 62012",
+            "business_activity_not_listed": "not-listed",
+            "business_activity_self_describe": ("Repair and restoration of bicycles"),
+        },
+    )
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Repair and restoration of bicycles" in response_text
+    assert "Software development: 62012" not in response_text
+
+
+def test_api_autosuggest_uses_selected_suggestion_when_not_listed_not_selected(
+    client: FlaskClient,
+) -> None:
+    """Test the selected suggestion is used normally."""
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+
+    response = client.post(
+        "/api-autosuggest",
+        data={
+            "business_activity": "Software development: 62012",
+            "business_activity_self_describe": "Ignored description",
+        },
+    )
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Software development: 62012" in response_text
+    assert "Ignored description" not in response_text
+
+
+def test_api_autosuggest_rejects_invalid_not_listed_value(
+    client: FlaskClient,
+) -> None:
+    """Test an invalid Not listed value is rejected."""
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+
+    response = client.post(
+        "/api-autosuggest",
+        data={
+            "business_activity_not_listed": "unexpected",
+        },
+    )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
