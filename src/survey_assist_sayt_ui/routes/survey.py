@@ -39,7 +39,11 @@ from survey_assist_sayt_ui.survey.session import (
 )
 
 NOT_LISTED_FIELD_SUFFIX = "-not-listed"
+SELF_DESCRIBE_FIELD_SUFFIX = "-self-describe"
 NOT_LISTED_VALUE = "not-listed"
+
+DEFAULT_SELF_DESCRIBE_LABEL = "Describe it in your own words"
+DEFAULT_SELF_DESCRIBE_REQUIRED_ERROR = "Enter a description of it in your own words"
 
 logger = logging.getLogger(__name__)
 
@@ -241,71 +245,126 @@ def _get_not_listed_field_name(
     return f"{answer_name}{NOT_LISTED_FIELD_SUFFIX}"
 
 
+def _get_self_describe_field_name(
+    page_id: str,
+) -> str:
+    """Return the self-description field name for a survey page.
+
+    Args:
+        page_id: Configured survey page identifier.
+
+    Returns:
+        str: Generated self-description field name.
+    """
+    return f"{page_id}{SELF_DESCRIBE_FIELD_SUFFIX}"
+
+
+def _get_self_describe_config(
+    page: QuestionPage,
+) -> tuple[str, str]:
+    """Return self-description label and required error text.
+
+    Args:
+        page: Configured survey question.
+
+    Returns:
+        tuple[str, str]: Label and required validation message.
+    """
+    answer = page["answer"]
+
+    if answer["type"] != "api_autosuggest" or not answer.get("not_listed", False):
+        return "", ""
+
+    config = answer.get("self_describe", {})
+
+    return (
+        config.get(
+            "label",
+            DEFAULT_SELF_DESCRIBE_LABEL,
+        ),
+        config.get(
+            "required_error",
+            DEFAULT_SELF_DESCRIBE_REQUIRED_ERROR,
+        ),
+    )
+
+
 def _get_submitted_response(
     page: QuestionPage,
-) -> tuple[str, bool]:
+) -> tuple[str, bool, str]:
     """Return the submitted response for a question page.
 
     Args:
         page: Submitted question page.
 
     Returns:
-        tuple[str, bool]: Normalised response value and whether Not listed
-            was selected.
+        tuple[str, bool, str]: Normalised response value, whether Not listed
+            was selected, and the response field name.
 
     Raises:
         BadRequest: If an unexpected Not listed value is submitted.
     """
     answer = page["answer"]
-    value = request.form.get(answer["name"], "").strip()
+    response_name = answer["name"]
+    value = request.form.get(response_name, "").strip()
 
     if answer["type"] != "api_autosuggest":
-        return value, False
+        return value, False, response_name
 
     if not answer.get("not_listed", False):
-        return value, False
+        return value, False, response_name
 
-    not_listed_field_name = _get_not_listed_field_name(answer["name"])
+    not_listed_field_name = _get_not_listed_field_name(response_name)
     not_listed_value = request.form.get(not_listed_field_name)
 
     if not_listed_value is None:
-        return value, False
+        return value, False, response_name
 
     if not_listed_value != NOT_LISTED_VALUE:
         abort(HTTPStatus.BAD_REQUEST)
 
-    return NOT_LISTED_VALUE, True
+    self_describe_field_name = _get_self_describe_field_name(page["page_id"])
+    self_describe_value = request.form.get(
+        self_describe_field_name,
+        "",
+    ).strip()
+
+    return (
+        self_describe_value,
+        True,
+        self_describe_field_name,
+    )
 
 
 def _get_saved_response_state(
     page: QuestionPage,
     responses: SurveyResponses,
-) -> tuple[str, bool]:
-    """Return the input and Not listed state for a saved response.
+) -> tuple[str, bool, str]:
+    """Return the input state for a saved response.
 
     Args:
         page: Question page being rendered.
         responses: Responses currently stored in the session.
 
     Returns:
-        tuple[str, bool]: Autosuggest input value and Not listed checked state.
+        tuple[str, bool, str]: Autosuggest value, Not listed checked state,
+            and self-description value.
     """
     saved_response = responses.get(page["page_id"])
 
     if saved_response is None:
-        return "", False
+        return "", False, ""
 
     saved_value = saved_response["value"]
     answer = page["answer"]
 
-    if (
-        answer["type"] == "api_autosuggest"
-        and answer.get("not_listed", False)
-        and saved_value == NOT_LISTED_VALUE
-    ):
-        return "", True
+    if answer["type"] == "api_autosuggest" and answer.get("not_listed", False):
+        self_describe_field_name = _get_self_describe_field_name(page["page_id"])
 
-    return saved_value, False
+        if saved_response["response_name"] == self_describe_field_name:
+            return "", True, saved_value
+
+    return saved_value, False, ""
 
 
 def _get_radio_target_page_id(
@@ -492,10 +551,16 @@ def question(page_id: str) -> ResponseReturnValue:
             )
         )
 
-    saved_value, not_listed_selected = _get_saved_response_state(
+    (
+        saved_value,
+        not_listed_selected,
+        self_describe_value,
+    ) = _get_saved_response_state(
         page,
         responses,
     )
+
+    self_describe_label, _ = _get_self_describe_config(page)
 
     template_name = _get_question_template(page)
 
@@ -505,6 +570,9 @@ def question(page_id: str) -> ResponseReturnValue:
         question_text=question_text,
         saved_value=saved_value,
         not_listed_selected=not_listed_selected,
+        self_describe_value=self_describe_value,
+        self_describe_label=self_describe_label,
+        self_describe_error_message=None,
         form_action=url_for("survey.save_response", page_id=page_id),
         error_message=None,
     )
@@ -549,7 +617,41 @@ def save_response(page_id: str) -> ResponseReturnValue:
             )
         )
 
-    value, not_listed_selected = _get_submitted_response(page)
+    (
+        value,
+        not_listed_selected,
+        response_name,
+    ) = _get_submitted_response(page)
+
+    (
+        self_describe_label,
+        self_describe_required_error,
+    ) = _get_self_describe_config(page)
+
+    if not_listed_selected and not value:
+        logger.warning(
+            "question text: %s page_id=%s missing self-description",
+            question_text,
+            page_id,
+        )
+        return (
+            render_template(
+                _get_question_template(page),
+                page=page,
+                question_text=question_text,
+                saved_value="",
+                not_listed_selected=True,
+                self_describe_value=value,
+                self_describe_label=self_describe_label,
+                self_describe_error_message=(self_describe_required_error),
+                form_action=url_for(
+                    "survey.save_response",
+                    page_id=page_id,
+                ),
+                error_message=None,
+            ),
+            HTTPStatus.BAD_REQUEST,
+        )
 
     if answer["required"] and not value:
         logger.warning(
@@ -564,6 +666,9 @@ def save_response(page_id: str) -> ResponseReturnValue:
                 question_text=question_text,
                 saved_value=value,
                 not_listed_selected=not_listed_selected,
+                self_describe_value="",
+                self_describe_label=self_describe_label,
+                self_describe_error_message=None,
                 form_action=url_for("survey.save_response", page_id=page_id),
                 error_message="Enter an answer",
             ),
@@ -579,7 +684,7 @@ def save_response(page_id: str) -> ResponseReturnValue:
     updated_responses = dict(responses)
     updated_responses[page_id] = {
         "question_name": page["question_name"],
-        "response_name": answer["name"],
+        "response_name": response_name,
         "value": value,
     }
     session[SURVEY_RESPONSES_KEY] = updated_responses

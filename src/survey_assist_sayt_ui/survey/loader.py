@@ -726,6 +726,32 @@ def _validate_api_autosuggest_answer(
     ):
         raise SurveyDefinitionInvalidError("answer.not_listed must be a boolean")
 
+    self_describe_value = answer.get("self_describe")
+
+    if self_describe_value is None:
+        return
+
+    if not_listed is not True:
+        raise SurveyDefinitionInvalidError(
+            "answer.self_describe may only be used when answer.not_listed is true"
+        )
+
+    if not isinstance(self_describe_value, dict):
+        raise SurveyDefinitionInvalidError("answer.self_describe must be an object")
+
+    self_describe = cast(
+        dict[str, object],
+        self_describe_value,
+    )
+
+    for field_name in ("label", "required_error"):
+        value = self_describe.get(field_name)
+
+        if value is not None and (not isinstance(value, str) or not value.strip()):
+            raise SurveyDefinitionInvalidError(
+                f"answer.self_describe.{field_name} " "must be a non-empty string"
+            )
+
 
 def _validate_button_block(block: dict[str, object]) -> None:
     """Validate an introduction button block.
