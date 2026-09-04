@@ -726,18 +726,18 @@ def _validate_api_autosuggest_answer(
     ):
         raise SurveyDefinitionInvalidError("answer.not_listed must be a boolean")
 
-    self_describe_value = answer.get("self_describe")
-
-    if self_describe_value is None:
+    if "self_describe" not in answer:
         return
+
+    self_describe_value = answer["self_describe"]
+
+    if not isinstance(self_describe_value, dict):
+        raise SurveyDefinitionInvalidError("answer.self_describe must be an object")
 
     if not_listed is not True:
         raise SurveyDefinitionInvalidError(
             "answer.self_describe may only be used when answer.not_listed is true"
         )
-
-    if not isinstance(self_describe_value, dict):
-        raise SurveyDefinitionInvalidError("answer.self_describe must be an object")
 
     self_describe = cast(
         dict[str, object],
