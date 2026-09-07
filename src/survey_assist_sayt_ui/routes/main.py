@@ -6,7 +6,17 @@ from http import HTTPStatus
 import logging
 from typing import cast
 
-from flask import Blueprint, abort, current_app, jsonify, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    abort,
+    current_app,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from flask.typing import ResponseReturnValue
 
 from survey_assist_sayt_ui.auth.decorators import SESSION_USER_KEY, login_required
@@ -60,15 +70,13 @@ def index() -> ResponseReturnValue:
             sorted(removed_keys),
         )
 
-    survey_definition = _get_survey_definition()
-
     return render_template(
         "index.html",
         page_title="Home",
         authenticated_user=session.get(SESSION_USER_KEY),
         std_autosuggest_enabled=False,
         api_autosuggest_enabled=True,
-        wireframe_enabled=survey_definition["survey_intro"]["enabled"],
+        survey_section_enabled=True,
     )
 
 
@@ -216,9 +224,9 @@ def save_response() -> ResponseReturnValue:
     )
 
 
-@main_blueprint.get("/wireframe")
+@main_blueprint.get("/survey")
 @login_required
-def wireframe() -> ResponseReturnValue:
+def survey() -> ResponseReturnValue:
     """Render the configured survey introduction page.
 
     Returns:
@@ -229,9 +237,24 @@ def wireframe() -> ResponseReturnValue:
     """
     survey_definition = _get_survey_definition()
     survey_intro = survey_definition["survey_intro"]
+    logger.info("survey_intro=%s", survey_intro)
 
     if not survey_intro["enabled"]:
-        abort(HTTPStatus.NOT_FOUND)
+        first_page = survey_definition["survey_pages"]["pages"][0]
+        logger.info(
+            "Survey introduction is disabled, redirecting to first page",
+            extra={
+                "wave_id": survey_definition["wave_id"],
+                "first_page_id": first_page["page_id"],
+                "first_page_type": first_page["page_type"],
+            },
+        )
+        return redirect(
+            url_for(
+                ("survey.guidance" if first_page["page_type"] == "guidance" else "survey.question"),
+                page_id=first_page["page_id"],
+            )
+        )
 
     intro = survey_intro.get("intro")
     if intro is None:

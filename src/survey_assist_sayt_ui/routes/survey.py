@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 survey_blueprint = Blueprint(
     "survey",
     __name__,
-    url_prefix="/wireframe",
+    url_prefix="/survey",
 )
 
 
