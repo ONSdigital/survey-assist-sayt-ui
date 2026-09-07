@@ -21,6 +21,10 @@ from survey_assist_sayt_ui.survey.session import clear_survey_session_data
 MIN_AUTOSUGGEST_CHARACTERS = 3
 MAX_AUTOSUGGEST_QUERY_LENGTH = 100
 MAX_AUTOSUGGEST_RESULTS = 20
+NOT_LISTED_VALUE = "not-listed"
+API_AUTOSUGGEST_SELF_DESCRIBE_REQUIRED_ERROR = (
+    "Enter a description of the main activity of your organisation"
+)
 
 
 def _get_survey_definition() -> SurveyDefinition:
@@ -92,14 +96,66 @@ def api_autosuggest() -> ResponseReturnValue:
     """Render the protected API autosuggest page.
 
     Returns:
-        ResponseReturnValue: Autosuggest page template response.
+        ResponseReturnValue: Autosuggest page response.
     """
     return render_template(
         "business_activity_api.html",
         business_activity="",
         business_activity_not_listed=False,
+        business_activity_self_describe="",
         error_message=None,
+        self_describe_error_message=None,
         page_title="API business activity",
+        authenticated_user=session.get(SESSION_USER_KEY),
+    )
+
+
+@main_blueprint.post("/api-autosuggest")
+@login_required
+def save_api_autosuggest_response() -> ResponseReturnValue:
+    """Validate and save the API autosuggest response.
+
+    Returns:
+        ResponseReturnValue: Confirmation page or validation error response.
+    """
+    business_activity = request.form.get(
+        "business_activity",
+        "",
+    ).strip()
+    self_describe = request.form.get(
+        "business_activity_self_describe",
+        "",
+    ).strip()
+
+    not_listed_value = request.form.get("business_activity_not_listed")
+
+    if not_listed_value not in (None, NOT_LISTED_VALUE):
+        abort(HTTPStatus.BAD_REQUEST)
+
+    not_listed_selected = not_listed_value == NOT_LISTED_VALUE
+
+    if not_listed_selected and not self_describe:
+        logger.warning("API autosuggest Not listed response is missing a self-description")
+        return (
+            render_template(
+                "business_activity_api.html",
+                business_activity="",
+                business_activity_not_listed=True,
+                business_activity_self_describe="",
+                error_message=None,
+                self_describe_error_message=(API_AUTOSUGGEST_SELF_DESCRIBE_REQUIRED_ERROR),
+                page_title="API business activity",
+                authenticated_user=session.get(SESSION_USER_KEY),
+            ),
+            HTTPStatus.BAD_REQUEST,
+        )
+
+    selected = self_describe if not_listed_selected else business_activity
+
+    return render_template(
+        "confirmation.html",
+        page_title="Confirmation",
+        selected=selected,
         authenticated_user=session.get(SESSION_USER_KEY),
     )
 

@@ -2,12 +2,21 @@
 
 {% from "components/autosuggest/_macro.njk" import onsAutosuggest %}
 {% from "components/button/_macro.njk" import onsButton %}
+{% from "components/input/_macro.njk" import onsInput %}
+{% from "components/list/_macro.njk" import onsList %}
+{% from "components/panel/_macro.njk" import onsPanel %}
 
 {% set page_title = page.page_title %}
 {% set main_col_class = "ons-col-8@m" %}
 {% set autosuggest_id = page.page_id ~ "-api-autosuggest" %}
 {% set loading_id = autosuggest_id ~ "-loading" %}
 {% set not_listed_enabled = page.answer.not_listed | default(false) %}
+{% set self_describe_id = page.page_id ~ "-self-describe" %}
+{% set self_describe_field_id = self_describe_id ~ "-field" %}
+
+{% if error_message or self_describe_error_message %}
+    {% set page_title = "Error: " ~ page.page_title %}
+{% endif %}
 
 {% if error_message %}
     {% set autosuggest_error = {
@@ -16,6 +25,15 @@
     } %}
 {% else %}
     {% set autosuggest_error = none %}
+{% endif %}
+
+{% if self_describe_error_message %}
+    {% set self_describe_error = {
+        "id": self_describe_id ~ "-error",
+        "text": self_describe_error_message
+    } %}
+{% else %}
+    {% set self_describe_error = none %}
 {% endif %}
 
 {% if not_listed_enabled %}
@@ -34,6 +52,15 @@
                 "checked": not_listed_selected | default(false),
                 "label": {
                     "text": "Not listed"
+                },
+                "attributes": {
+                    "aria-controls": self_describe_field_id,
+                    "aria-expanded": (
+                        "true"
+                        if not_listed_selected
+                        else
+                        "false"
+                        )
                 }
             }
         ]
@@ -44,10 +71,9 @@
     "placeholder": page.answer.placeholder | default("")
 } %}
 
-{# Native required is suitable only when there is no alternative checkbox. #}
-{% if page.answer.required and not not_listed_enabled %}
+{% if not_listed_selected %}
     {% set _ = input_attributes.update({
-        "required": true
+        "disabled": true
     }) %}
 {% endif %}
 
@@ -126,6 +152,18 @@
     }) %}
 {% endif %}
 
+{% set self_describe_field_classes = "ons-u-mt-l" %}
+{% set self_describe_attributes = {} %}
+
+{% if not not_listed_selected %}
+    {% set self_describe_field_classes = (
+        self_describe_field_classes ~ " ons-u-d-no"
+    ) %}
+    {% set _ = self_describe_attributes.update({
+        "disabled": true
+    }) %}
+{% endif %}
+
 {% block page_scripts %}
     {{ super() }}
 
@@ -157,15 +195,47 @@
         ) }}"
         defer
     ></script>
+    <script
+        src="{{ url_for(
+            'static',
+            filename='js/autosuggest-self-describe.js'
+        ) }}"
+        data-not-listed-checkbox-id="{{
+            autosuggest_id
+        }}-not-listed"
+        data-autosuggest-input-id="{{ autosuggest_id }}"
+        data-self-describe-input-id="{{ self_describe_id }}"
+        defer
+    ></script>
 {% endblock %}
 
 {% block main %}
+    {% if self_describe_error_message %}
+        {% call onsPanel({
+            "title": "There is a problem with your answer",
+            "variant": "error"
+        }) %}
+            {{
+                onsList({
+                    "element": "ol",
+                    "itemsList": [
+                        {
+                            "text": self_describe_error_message,
+                            "url": "#" ~ self_describe_error.id,
+                            "variants": "inPageLink"
+                        }
+                    ]
+                })
+            }}
+        {% endcall %}
+    {% endif %}
     <form
         method="post"
         action="{{ url_for(
             'survey.save_response',
             page_id=page.page_id
         ) }}"
+        novalidate
     >
         {{ onsAutosuggest(autosuggest_options) }}
 
@@ -183,6 +253,27 @@
             ></span>
             <span>Searching...</span>
         </div>
+
+        {% if not_listed_enabled %}
+            {{
+                onsInput({
+                    "id": self_describe_id,
+                    "fieldId": self_describe_field_id,
+                    "fieldClasses": self_describe_field_classes,
+                    "name": self_describe_id,
+                    "type": "text",
+                    "width": "30",
+                    "autocomplete": "off",
+                    "value": self_describe_value | default(""),
+                    "attributes": self_describe_attributes,
+                    "label": {
+                        "id": self_describe_id ~ "-label",
+                        "text": self_describe_label
+                    },
+                    "error": self_describe_error
+                })
+            }}
+        {% endif %}
 
         {{
             onsButton({

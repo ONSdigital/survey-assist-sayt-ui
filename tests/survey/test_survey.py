@@ -221,6 +221,21 @@ def test_question_redirects_when_placeholder_response_is_missing(
     assert response.headers["Location"].endswith("/wireframe/questions/q1")
 
 
+def _enable_autosuggest_self_describe(
+    page: QuestionPage,
+) -> None:
+    """Enable self-description for an autosuggest question."""
+    answer = cast(
+        ApiAutosuggestAnswer,
+        page["answer"],
+    )
+    answer["not_listed"] = True
+    answer["self_describe"] = {
+        "label": "Describe your organisation activity",
+        "required_error": "Enter your organisation activity",
+    }
+
+
 def _insert_autosuggest_page(
     app: Flask,
     page: QuestionPage,
@@ -323,40 +338,97 @@ def test_api_autosuggest_omits_not_listed_when_disabled(
     assert "business-activity-not-listed" not in response_text
 
 
-def test_api_autosuggest_saves_not_listed_response(
+def test_api_autosuggest_saves_self_described_response(
     app: Flask,
     client: FlaskClient,
     api_autosuggest_page: QuestionPage,
 ) -> None:
-    """Test that Not listed is stored as the autosuggest response."""
+    """Test that a Not listed description is stored."""
     _authenticate(client)
-
-    answer = cast(
-        ApiAutosuggestAnswer,
-        api_autosuggest_page["answer"],
+    _enable_autosuggest_self_describe(api_autosuggest_page)
+    _insert_autosuggest_page(
+        app,
+        api_autosuggest_page,
     )
-    answer["not_listed"] = True
-    _insert_autosuggest_page(app, api_autosuggest_page)
 
     response = client.post(
         "/wireframe/questions/q-api-autosuggest",
         data={
             "business-activity": "",
             "business-activity-not-listed": "not-listed",
+            "q-api-autosuggest-self-describe": ("Repair and restoration of bicycles"),
         },
     )
 
     assert response.status_code == HTTPStatus.FOUND
-    assert response.headers["Location"].endswith("/wireframe/questions/q1")
 
     with client.session_transaction() as flask_session:
         responses = flask_session[SURVEY_RESPONSES_KEY]
 
     assert responses["q-api-autosuggest"] == {
         "question_name": "business_activity_question",
-        "response_name": "business-activity",
-        "value": "not-listed",
+        "response_name": ("q-api-autosuggest-self-describe"),
+        "value": "Repair and restoration of bicycles",
     }
+
+
+def test_api_autosuggest_requires_self_description(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test that Not listed requires a description."""
+    _authenticate(client)
+    _enable_autosuggest_self_describe(api_autosuggest_page)
+    _insert_autosuggest_page(
+        app,
+        api_autosuggest_page,
+    )
+
+    response = client.post(
+        "/wireframe/questions/q-api-autosuggest",
+        data={
+            "business-activity": "",
+            "business-activity-not-listed": "not-listed",
+            "q-api-autosuggest-self-describe": "   ",
+        },
+    )
+
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "Enter your organisation activity" in response_text
+    assert 'id="q-api-autosuggest-self-describe"' in response_text
+
+
+def test_api_autosuggest_repopulates_self_description(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test that a saved self-description is repopulated."""
+    _authenticate(client)
+    _enable_autosuggest_self_describe(api_autosuggest_page)
+    _insert_autosuggest_page(
+        app,
+        api_autosuggest_page,
+    )
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q-api-autosuggest": {
+                "question_name": ("business_activity_question"),
+                "response_name": ("q-api-autosuggest-self-describe"),
+                "value": "Bicycle repair",
+            }
+        }
+
+    response = client.get("/wireframe/questions/q-api-autosuggest")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Bicycle repair" in response_text
+    assert "Describe your organisation activity" in response_text
 
 
 def test_api_autosuggest_rejects_empty_response_when_not_listed_disabled(

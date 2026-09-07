@@ -121,6 +121,13 @@ class TextAnswer(TypedDict):
     placeholder: NotRequired[str]
 
 
+class ApiAutosuggestSelfDescribe(TypedDict):
+    """Self-description configuration for an API autosuggest answer."""
+
+    label: NotRequired[str]
+    required_error: NotRequired[str]
+
+
 class ApiAutosuggestAnswer(TypedDict):
     """API-backed autosuggest answer configuration."""
 
@@ -129,6 +136,7 @@ class ApiAutosuggestAnswer(TypedDict):
     required: bool
     placeholder: NotRequired[str]
     not_listed: NotRequired[bool]
+    self_describe: NotRequired[ApiAutosuggestSelfDescribe]
 
 
 QuestionAnswer = RadioAnswer | TextAnswer | ApiAutosuggestAnswer

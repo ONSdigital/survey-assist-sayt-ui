@@ -638,3 +638,29 @@ def test_load_survey_definition_accepts_feedback_radio_target(
     loaded_feedback = loaded_definition["survey_feedback"]
     assert loaded_feedback["pages"][0]["answer"]["type"] == "radio"
     assert loaded_feedback["pages"][0]["answer"]["options"][1]["target_page_id"] == "fq2"
+
+
+def test_load_survey_definition_rejects_null_self_describe(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test that answer.self_describe cannot be null."""
+    answer = cast(
+        dict[str, object],
+        api_autosuggest_page["answer"],
+    )
+    answer["not_listed"] = True
+    answer["self_describe"] = None
+
+    survey_definition["survey_pages"]["pages"].append(api_autosuggest_page)
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="answer.self_describe must be an object",
+    ):
+        load_survey_definition(survey_path)
