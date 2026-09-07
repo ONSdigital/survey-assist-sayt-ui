@@ -510,6 +510,25 @@ def _validate_question_placeholders(
             "source_question_name",
         )
 
+        value_map = placeholder_definition.get("value_map")
+
+        if value_map is not None:
+            if not isinstance(value_map, dict) or not value_map:
+                raise SurveyDefinitionInvalidError(
+                    "Question placeholder value_map must be a non-empty object"
+                )
+
+            for response_value, replacement in value_map.items():
+                if not isinstance(response_value, str) or not response_value.strip():
+                    raise SurveyDefinitionInvalidError(
+                        "Question placeholder value_map keys must be non-empty strings"
+                    )
+
+                if not isinstance(replacement, str) or not replacement.strip():
+                    raise SurveyDefinitionInvalidError(
+                        "Question placeholder value_map values must be non-empty strings"
+                    )
+
         if placeholder in placeholders:
             raise SurveyDefinitionInvalidError(f"Duplicate question placeholder: {placeholder!r}")
 

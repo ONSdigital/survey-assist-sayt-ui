@@ -664,3 +664,35 @@ def test_load_survey_definition_rejects_null_self_describe(
         match="answer.self_describe must be an object",
     ):
         load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_rejects_empty_placeholder_value_map_value(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+) -> None:
+    """Test that placeholder value map values must be non-empty strings."""
+    pages = survey_definition["survey_pages"]["pages"]
+    source_question = cast(QuestionPage, pages[0])
+    question = cast(QuestionPage, pages[1])["question"]
+
+    question["text"] = "Your answer was PLACEHOLDER_TEXT"
+    question["placeholders"] = [
+        {
+            "placeholder": "PLACEHOLDER_TEXT",
+            "source_question_name": source_question["question_name"],
+            "value_map": {
+                "employee": "",
+            },
+        }
+    ]
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="Question placeholder value_map values must be non-empty strings",
+    ):
+        load_survey_definition(survey_path)

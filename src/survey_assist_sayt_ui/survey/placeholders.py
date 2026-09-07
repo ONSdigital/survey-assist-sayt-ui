@@ -21,6 +21,24 @@ class MissingPlaceholderResponseError(ValueError):
         super().__init__(f"No response exists for question {question_name!r}")
 
 
+class MissingPlaceholderValueMappingError(ValueError):
+    """Raised when a placeholder response has no configured mapping."""
+
+    def __init__(
+        self,
+        question_name: str,
+        response_value: str,
+    ) -> None:
+        """Initialise the missing mapping error."""
+        self.question_name = question_name
+        self.response_value = response_value
+
+        super().__init__(
+            f"No placeholder value mapping exists for "
+            f"{question_name!r} response {response_value!r}"
+        )
+
+
 def resolve_question_text(
     page: QuestionPage,
     responses: SurveyResponses,
@@ -56,10 +74,23 @@ def resolve_question_text(
         placeholder = placeholder_definition["placeholder"]
         source_question_name = placeholder_definition["source_question_name"]
 
-        replacement = responses_by_question_name.get(source_question_name)
+        response_value = responses_by_question_name.get(source_question_name)
 
-        if replacement is None:
+        if response_value is None:
             raise MissingPlaceholderResponseError(source_question_name)
+
+        value_map = placeholder_definition.get("value_map")
+
+        if value_map is not None:
+            replacement = value_map.get(response_value)
+
+            if replacement is None:
+                raise MissingPlaceholderValueMappingError(
+                    source_question_name,
+                    response_value,
+                )
+        else:
+            replacement = response_value
 
         resolved_text = resolved_text.replace(
             placeholder,

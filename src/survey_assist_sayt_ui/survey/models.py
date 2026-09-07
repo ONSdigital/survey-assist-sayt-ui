@@ -160,6 +160,7 @@ class QuestionPlaceholder(TypedDict):
 
     placeholder: str
     source_question_name: str
+    value_map: NotRequired[dict[str, str]]
 
 
 class QuestionContent(TypedDict):
