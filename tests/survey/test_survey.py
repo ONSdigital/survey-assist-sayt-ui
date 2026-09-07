@@ -54,7 +54,7 @@ def test_first_question_renders(client: FlaskClient) -> None:
     """Test that the first configured question renders."""
     _authenticate(client)
 
-    response = client.get("/wireframe/questions/q0")
+    response = client.get("/survey/questions/q0")
     response_text = response.get_data(as_text=True)
 
     assert response.status_code == HTTPStatus.OK
@@ -69,7 +69,7 @@ def test_invalid_question_page_returns_not_found(
     """Test that an unknown question page returns not found."""
     _authenticate(client)
 
-    response = client.get("/wireframe/questions/missing")
+    response = client.get("/survey/questions/missing")
 
     assert response.status_code == HTTPStatus.NOT_FOUND
 
@@ -81,7 +81,7 @@ def test_required_response_returns_bad_request(
     _authenticate(client)
 
     response = client.post(
-        "/wireframe/questions/q0",
+        "/survey/questions/q0",
         data={},
     )
 
@@ -95,7 +95,7 @@ def test_radio_value_outside_configured_options_returns_bad_request(
     _authenticate(client)
 
     response = client.post(
-        "/wireframe/questions/q0",
+        "/survey/questions/q0",
         data={"age-range": "not-configured"},
     )
 
@@ -109,7 +109,7 @@ def test_response_is_saved_in_session(
     _authenticate(client)
 
     client.post(
-        "/wireframe/questions/q0",
+        "/survey/questions/q0",
         data={"age-range": "25-34"},
     )
 
@@ -133,12 +133,12 @@ def test_first_question_redirects_to_second_question(
     _authenticate(client)
 
     response = client.post(
-        "/wireframe/questions/q0",
+        "/survey/questions/q0",
         data={"age-range": "16-24"},
     )
 
     assert response.status_code == HTTPStatus.FOUND
-    assert response.headers["Location"].endswith("/wireframe/questions/q1")
+    assert response.headers["Location"].endswith("/survey/questions/q1")
 
 
 def test_final_question_redirects_to_completion(
@@ -157,12 +157,12 @@ def test_final_question_redirects_to_completion(
         }
 
     response = client.post(
-        "/wireframe/questions/q2",
+        "/survey/questions/q2",
         data={"job-description": ("I plan lessons and teach primary school pupils.")},
     )
 
     assert response.status_code == HTTPStatus.FOUND
-    assert response.headers["Location"].endswith("/wireframe/complete")
+    assert response.headers["Location"].endswith("/survey/complete")
 
 
 def test_saved_response_is_repopulated_when_revisiting_page(
@@ -180,7 +180,7 @@ def test_saved_response_is_repopulated_when_revisiting_page(
             }
         }
 
-    response = client.get("/wireframe/questions/q1")
+    response = client.get("/survey/questions/q1")
 
     assert response.status_code == HTTPStatus.OK
     assert "Primary school teacher" in response.get_data(as_text=True)
@@ -201,7 +201,7 @@ def test_question_renders_saved_response_in_placeholder(
             }
         }
 
-    response = client.get("/wireframe/questions/q2")
+    response = client.get("/survey/questions/q2")
     response_text = response.get_data(as_text=True)
 
     assert response.status_code == HTTPStatus.OK
@@ -215,10 +215,10 @@ def test_question_redirects_when_placeholder_response_is_missing(
     """Test that missing source answers redirect to their question."""
     _authenticate(client)
 
-    response = client.get("/wireframe/questions/q2")
+    response = client.get("/survey/questions/q2")
 
     assert response.status_code == HTTPStatus.FOUND
-    assert response.headers["Location"].endswith("/wireframe/questions/q1")
+    assert response.headers["Location"].endswith("/survey/questions/q1")
 
 
 def _enable_autosuggest_self_describe(
@@ -262,7 +262,7 @@ def test_api_autosuggest_question_renders(
     _authenticate(client)
     _insert_autosuggest_page(app, api_autosuggest_page)
 
-    response = client.get("/wireframe/questions/q-api-autosuggest")
+    response = client.get("/survey/questions/q-api-autosuggest")
     response_text = response.get_data(as_text=True)
 
     assert response.status_code == HTTPStatus.OK
@@ -281,12 +281,12 @@ def test_api_autosuggest_response_is_saved_and_progresses(
     _insert_autosuggest_page(app, api_autosuggest_page)
 
     response = client.post(
-        "/wireframe/questions/q-api-autosuggest",
+        "/survey/questions/q-api-autosuggest",
         data={"business-activity": ("Retail sale of clothing in specialised stores")},
     )
 
     assert response.status_code == HTTPStatus.FOUND
-    assert response.headers["Location"].endswith("/wireframe/questions/q1")
+    assert response.headers["Location"].endswith("/survey/questions/q1")
 
     with client.session_transaction() as flask_session:
         responses = flask_session[SURVEY_RESPONSES_KEY]
@@ -313,7 +313,7 @@ def test_api_autosuggest_renders_not_listed_when_enabled(
     answer["not_listed"] = True
     _insert_autosuggest_page(app, api_autosuggest_page)
 
-    response = client.get("/wireframe/questions/q-api-autosuggest")
+    response = client.get("/survey/questions/q-api-autosuggest")
     response_text = response.get_data(as_text=True)
 
     assert response.status_code == HTTPStatus.OK
@@ -330,7 +330,7 @@ def test_api_autosuggest_omits_not_listed_when_disabled(
     _authenticate(client)
     _insert_autosuggest_page(app, api_autosuggest_page)
 
-    response = client.get("/wireframe/questions/q-api-autosuggest")
+    response = client.get("/survey/questions/q-api-autosuggest")
     response_text = response.get_data(as_text=True)
 
     assert response.status_code == HTTPStatus.OK
@@ -352,7 +352,7 @@ def test_api_autosuggest_saves_self_described_response(
     )
 
     response = client.post(
-        "/wireframe/questions/q-api-autosuggest",
+        "/survey/questions/q-api-autosuggest",
         data={
             "business-activity": "",
             "business-activity-not-listed": "not-listed",
@@ -386,7 +386,7 @@ def test_api_autosuggest_requires_self_description(
     )
 
     response = client.post(
-        "/wireframe/questions/q-api-autosuggest",
+        "/survey/questions/q-api-autosuggest",
         data={
             "business-activity": "",
             "business-activity-not-listed": "not-listed",
@@ -423,7 +423,7 @@ def test_api_autosuggest_repopulates_self_description(
             }
         }
 
-    response = client.get("/wireframe/questions/q-api-autosuggest")
+    response = client.get("/survey/questions/q-api-autosuggest")
     response_text = response.get_data(as_text=True)
 
     assert response.status_code == HTTPStatus.OK
@@ -441,7 +441,7 @@ def test_api_autosuggest_rejects_empty_response_when_not_listed_disabled(
     _insert_autosuggest_page(app, api_autosuggest_page)
 
     response = client.post(
-        "/wireframe/questions/q-api-autosuggest",
+        "/survey/questions/q-api-autosuggest",
         data={
             "business-activity": "",
             "business-activity-not-listed": "not-listed",
@@ -474,14 +474,14 @@ def test_final_survey_page_redirects_to_feedback(
         }
 
     response = client.post(
-        "/wireframe/questions/q2",
+        "/survey/questions/q2",
         data={
             "job-description": "Teaching pupils",
         },
     )
 
     assert response.status_code == HTTPStatus.FOUND
-    assert response.headers["Location"].endswith("/wireframe/feedback/fq1")
+    assert response.headers["Location"].endswith("/survey/feedback/fq1")
 
 
 def test_feedback_response_is_stored_separately(
@@ -507,12 +507,12 @@ def test_feedback_response_is_stored_separately(
         }
 
     response = client.post(
-        "/wireframe/feedback/fq1",
+        "/survey/feedback/fq1",
         data={"survey-ease": "easy"},
     )
 
     assert response.status_code == HTTPStatus.FOUND
-    assert response.headers["Location"].endswith("/wireframe/feedback/fq2")
+    assert response.headers["Location"].endswith("/survey/feedback/fq2")
 
     with client.session_transaction() as flask_session:
         assert flask_session[SURVEY_RESPONSES_KEY]["q0"]["value"] == "25-34"
@@ -537,12 +537,12 @@ def test_optional_feedback_text_can_be_skipped(
     survey_definition["survey_feedback"] = survey_feedback
 
     response = client.post(
-        "/wireframe/feedback/fq2",
+        "/survey/feedback/fq2",
         data={"other-feedback": ""},
     )
 
     assert response.status_code == HTTPStatus.FOUND
-    assert response.headers["Location"].endswith("/wireframe/complete")
+    assert response.headers["Location"].endswith("/survey/complete")
 
     with client.session_transaction() as flask_session:
         feedback_responses = flask_session.get(
@@ -567,7 +567,7 @@ def test_optional_feedback_textarea_is_not_required(
     )
     survey_definition["survey_feedback"] = survey_feedback
 
-    response = client.get("/wireframe/feedback/fq2")
+    response = client.get("/survey/feedback/fq2")
     response_text = response.get_data(as_text=True)
 
     textarea_start = response_text.index("<textarea")
@@ -592,7 +592,7 @@ def test_guidance_page_renders(
         index=1,
     )
 
-    response = client.get("/wireframe/guidance/g1")
+    response = client.get("/survey/guidance/g1")
     response_text = response.get_data(as_text=True)
 
     assert response.status_code == HTTPStatus.OK
@@ -615,12 +615,12 @@ def test_question_redirects_to_following_guidance(
     )
 
     response = client.post(
-        "/wireframe/questions/q0",
+        "/survey/questions/q0",
         data={"age-range": "16-24"},
     )
 
     assert response.status_code == HTTPStatus.FOUND
-    assert response.headers["Location"].endswith("/wireframe/guidance/g1")
+    assert response.headers["Location"].endswith("/survey/guidance/g1")
 
 
 def test_guidance_links_to_following_question(
@@ -636,11 +636,11 @@ def test_guidance_links_to_following_question(
         index=1,
     )
 
-    response = client.get("/wireframe/guidance/g1")
+    response = client.get("/survey/guidance/g1")
     response_text = response.get_data(as_text=True)
 
     assert response.status_code == HTTPStatus.OK
-    assert "/wireframe/questions/q1" in response_text
+    assert "/survey/questions/q1" in response_text
 
 
 def test_final_guidance_links_to_feedback(
@@ -659,11 +659,11 @@ def test_final_guidance_links_to_feedback(
     survey_definition["survey_pages"]["pages"].append(guidance_page)
     survey_definition["survey_feedback"] = survey_feedback
 
-    response = client.get("/wireframe/guidance/g1")
+    response = client.get("/survey/guidance/g1")
     response_text = response.get_data(as_text=True)
 
     assert response.status_code == HTTPStatus.OK
-    assert "/wireframe/feedback/fq1" in response_text
+    assert "/survey/feedback/fq1" in response_text
 
 
 def test_final_guidance_links_to_completion(
@@ -680,11 +680,11 @@ def test_final_guidance_links_to_completion(
     )
     survey_definition["survey_pages"]["pages"].append(guidance_page)
 
-    response = client.get("/wireframe/guidance/g1")
+    response = client.get("/survey/guidance/g1")
     response_text = response.get_data(as_text=True)
 
     assert response.status_code == HTTPStatus.OK
-    assert "/wireframe/complete" in response_text
+    assert "/survey/complete" in response_text
 
 
 def test_paid_job_no_routes_to_survey_feedback_guidance(
@@ -743,12 +743,12 @@ def test_paid_job_no_routes_to_survey_feedback_guidance(
     )
 
     response = client.post(
-        "/wireframe/questions/q-paid-job",
+        "/survey/questions/q-paid-job",
         data={"paid-job": "no"},
     )
 
     assert response.status_code == HTTPStatus.FOUND
-    assert response.headers["Location"].endswith("/wireframe/guidance/g2")
+    assert response.headers["Location"].endswith("/survey/guidance/g2")
 
 
 def test_radio_response_routes_to_target_question(
@@ -776,12 +776,12 @@ def test_radio_response_routes_to_target_question(
     options[0]["target_page_id"] = "q2"
 
     response = client.post(
-        "/wireframe/questions/q0",
+        "/survey/questions/q0",
         data={"age-range": "16-24"},
     )
 
     assert response.status_code == HTTPStatus.FOUND
-    assert response.headers["Location"].endswith("/wireframe/questions/q2")
+    assert response.headers["Location"].endswith("/survey/questions/q2")
 
 
 def test_radio_response_routes_to_target_guidance(
@@ -813,12 +813,12 @@ def test_radio_response_routes_to_target_guidance(
     options[1]["target_page_id"] = "g1"
 
     response = client.post(
-        "/wireframe/questions/q0",
+        "/survey/questions/q0",
         data={"age-range": "25-34"},
     )
 
     assert response.status_code == HTTPStatus.FOUND
-    assert response.headers["Location"].endswith("/wireframe/guidance/g1")
+    assert response.headers["Location"].endswith("/survey/guidance/g1")
 
 
 def test_feedback_radio_routes_to_target_question(
@@ -878,9 +878,9 @@ def test_feedback_radio_routes_to_target_question(
     survey_definition["survey_feedback"] = survey_feedback
 
     response = client.post(
-        "/wireframe/feedback/fq1",
+        "/survey/feedback/fq1",
         data={"survey-ease": "easy"},
     )
 
     assert response.status_code == HTTPStatus.FOUND
-    assert response.headers["Location"].endswith("/wireframe/feedback/fq3")
+    assert response.headers["Location"].endswith("/survey/feedback/fq3")

@@ -39,13 +39,13 @@
             })
         }}
         {% endif %}
-        {% if wireframe_enabled %}
+        {% if survey_section_enabled %}
             <br>
             <br>
             {{
                 onsButton({
-                    "text": "Wireframe",
-                    "url": url_for("main.wireframe"),
+                    "text": "Cognitive Test",
+                    "url": url_for("main.survey"),
                 })
             }}
         {% endif %}
