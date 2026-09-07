@@ -227,28 +227,19 @@ def save_response() -> ResponseReturnValue:
 @main_blueprint.get("/survey")
 @login_required
 def survey() -> ResponseReturnValue:
-    """Render the configured survey introduction page.
+    """
+    Render the configured survey page, either the introduction or
+    the first page of the survey.
 
     Returns:
         ResponseReturnValue: Survey introduction template response.
 
-    Raises:
-        NotFound: If the survey introduction is disabled.
     """
     survey_definition = _get_survey_definition()
     survey_intro = survey_definition["survey_intro"]
-    logger.info("survey_intro=%s", survey_intro)
 
     if not survey_intro["enabled"]:
         first_page = survey_definition["survey_pages"]["pages"][0]
-        logger.info(
-            "Survey introduction is disabled, redirecting to first page",
-            extra={
-                "wave_id": survey_definition["wave_id"],
-                "first_page_id": first_page["page_id"],
-                "first_page_type": first_page["page_type"],
-            },
-        )
         return redirect(
             url_for(
                 ("survey.guidance" if first_page["page_type"] == "guidance" else "survey.question"),
