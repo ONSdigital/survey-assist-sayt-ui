@@ -922,3 +922,33 @@ def test_load_survey_definition_rejects_duplicate_multi_text_field_names(
         load_survey_definition(
             survey_path,
         )
+
+
+def test_load_survey_definition_rejects_multi_text_placeholder_source(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+    multi_text_page: QuestionPage,
+) -> None:
+    """Test that multi-text questions cannot directly supply placeholders."""
+    pages = survey_definition["survey_pages"]["pages"]
+    pages.insert(0, multi_text_page)
+
+    target_page = cast(QuestionPage, pages[1])
+    target_page["question"]["text"] = "Hello PLACEHOLDER_TEXT"
+    target_page["question"]["placeholders"] = [
+        {
+            "placeholder": "PLACEHOLDER_TEXT",
+            "source_question_name": "about_you_question",
+        }
+    ]
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="must not be a multi_text question",
+    ):
+        load_survey_definition(survey_path)

@@ -552,13 +552,18 @@ def _validate_question_placeholders(
                 "earlier question_name"
             )
 
-        if value_map is not None:
-            source_question = preceding_questions[source_question_name]
-            source_answer = _require_mapping(
-                source_question,
-                "answer",
+        source_question = preceding_questions[source_question_name]
+        source_answer = _require_mapping(
+            source_question,
+            "answer",
+        )
+
+        if source_answer.get("type") == "multi_text":
+            raise SurveyDefinitionInvalidError(
+                "Question placeholder source must not be a multi_text question"
             )
 
+        if value_map is not None:
             if source_answer.get("type") != "radio":
                 raise SurveyDefinitionInvalidError(
                     "Question placeholder value_map source must be a radio question"
@@ -687,6 +692,11 @@ def _validate_multi_text_answer(
     Raises:
         SurveyDefinitionInvalidError: If field definitions are invalid.
     """
+    _require_non_empty_string(
+        answer,
+        "name",
+    )
+
     fields = _require_list(answer, "fields")
 
     if not 1 <= len(fields) <= MAX_MULTI_TEXT_FIELDS:

@@ -391,6 +391,7 @@ def multi_text_page_fixture() -> QuestionPage:
         },
         "answer": {
             "type": "multi_text",
+            "name": "about-you",
             "fields": [
                 {
                     "name": "first-name",
