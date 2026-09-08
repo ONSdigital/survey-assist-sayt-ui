@@ -1,5 +1,7 @@
 """Tests for resolving survey question placeholders."""
 
+from typing import cast
+
 import pytest
 
 from survey_assist_sayt_ui.survey.models import (
@@ -41,3 +43,59 @@ def test_resolve_question_text_raises_when_response_is_missing(
         match="job_title_question",
     ):
         resolve_question_text(question_page, {})
+
+
+@pytest.mark.parametrize(
+    ("response_value", "expected_replacement"),
+    [
+        ("employee", "business or organisation"),
+        ("self-employed", "business or freelance work"),
+    ],
+)
+def test_resolve_question_text_uses_configured_value_map(
+    response_value: str,
+    expected_replacement: str,
+) -> None:
+    """Test that the placeholder is replaced according to the value map."""
+    page = cast(
+        QuestionPage,
+        {
+            "page_id": "q2",
+            "page_type": "question",
+            "page_title": "Business Activity",
+            "question_name": "business_activity_question",
+            "question": {
+                "text": "What is the main activity of the PLACEHOLDER_TEXT?",
+                "placeholders": [
+                    {
+                        "placeholder": "PLACEHOLDER_TEXT",
+                        "source_question_name": "emp_status_question",
+                        "value_map": {
+                            "employee": "business or organisation",
+                            "self-employed": "business or freelance work",
+                        },
+                    }
+                ],
+            },
+            "answer": {
+                "type": "text",
+                "name": "business-activity",
+                "required": True,
+            },
+            "submit_button": {
+                "text": "Save and continue",
+            },
+        },
+    )
+
+    responses: SurveyResponses = {
+        "q1": {
+            "question_name": "emp_status_question",
+            "response_name": "emp-status",
+            "value": response_value,
+        }
+    }
+
+    assert resolve_question_text(page, responses) == (
+        f"What is the main activity of the {expected_replacement}?"
+    )

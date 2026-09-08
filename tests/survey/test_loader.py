@@ -664,3 +664,163 @@ def test_load_survey_definition_rejects_null_self_describe(
         match="answer.self_describe must be an object",
     ):
         load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_rejects_empty_placeholder_value_map_value(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+) -> None:
+    """Test that placeholder value map values must be non-empty strings."""
+    pages = survey_definition["survey_pages"]["pages"]
+    source_question = cast(QuestionPage, pages[0])
+    question = cast(QuestionPage, pages[1])["question"]
+
+    question["text"] = "Your answer was PLACEHOLDER_TEXT"
+    question["placeholders"] = [
+        {
+            "placeholder": "PLACEHOLDER_TEXT",
+            "source_question_name": source_question["question_name"],
+            "value_map": {
+                "employee": "",
+            },
+        }
+    ]
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="Question placeholder value_map values must be non-empty strings",
+    ):
+        load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_rejects_incomplete_placeholder_value_map(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+) -> None:
+    """Test that placeholder value maps cover every source radio value."""
+    pages = survey_definition["survey_pages"]["pages"]
+
+    source_question = cast(QuestionPage, pages[0])
+    source_answer = cast(
+        dict[str, object],
+        source_question["answer"],
+    )
+    source_answer["type"] = "radio"
+    source_answer["options"] = [
+        {
+            "id": "employee",
+            "label": "Employee",
+            "value": "employee",
+        },
+        {
+            "id": "self-employed",
+            "label": "Self-employed",
+            "value": "self-employed",
+        },
+    ]
+
+    question = cast(QuestionPage, pages[1])["question"]
+    question["text"] = "What is the main activity of the PLACEHOLDER_TEXT?"
+    question["placeholders"] = [
+        {
+            "placeholder": "PLACEHOLDER_TEXT",
+            "source_question_name": source_question["question_name"],
+            "value_map": {
+                "employee": "business or organisation",
+            },
+        }
+    ]
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="is missing mappings for",
+    ):
+        load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_rejects_unknown_placeholder_value_map_key(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+) -> None:
+    """Test that placeholder value maps contain only source radio values."""
+    pages = survey_definition["survey_pages"]["pages"]
+
+    source_question = cast(QuestionPage, pages[0])
+    source_answer = cast(
+        dict[str, object],
+        source_question["answer"],
+    )
+    source_answer["type"] = "radio"
+    source_answer["options"] = [
+        {
+            "id": "employee",
+            "label": "Employee",
+            "value": "employee",
+        }
+    ]
+
+    question = cast(QuestionPage, pages[1])["question"]
+    question["text"] = "What is the main activity of the PLACEHOLDER_TEXT?"
+    question["placeholders"] = [
+        {
+            "placeholder": "PLACEHOLDER_TEXT",
+            "source_question_name": source_question["question_name"],
+            "value_map": {
+                "employee": "business or organisation",
+                "self-employed": "business or freelance work",
+            },
+        }
+    ]
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="contains unknown mappings for",
+    ):
+        load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_rejects_value_map_for_non_radio_source(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+) -> None:
+    """Test that placeholder value maps must reference radio questions."""
+    pages = survey_definition["survey_pages"]["pages"]
+    source_question = cast(QuestionPage, pages[1])
+
+    question = cast(QuestionPage, pages[2])["question"]
+    question["text"] = "Your answer was PLACEHOLDER_TEXT"
+    question["placeholders"] = [
+        {
+            "placeholder": "PLACEHOLDER_TEXT",
+            "source_question_name": source_question["question_name"],
+            "value_map": {
+                "example": "replacement",
+            },
+        }
+    ]
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="value_map source must be a radio question",
+    ):
+        load_survey_definition(survey_path)

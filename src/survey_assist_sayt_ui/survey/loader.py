@@ -1,4 +1,5 @@
 """Load and validate JSON survey definitions."""
+# pylint: disable=too-many-lines
 
 from __future__ import annotations
 
@@ -415,6 +416,7 @@ def _validate_survey_pages(
 
     page_ids: set[str] = set()
     question_names: set[str] = set()
+    preceding_questions: dict[str, dict[str, object]] = {}
 
     for page_index, page_value in enumerate(pages):
         page = _require_object_value(
@@ -444,9 +446,11 @@ def _validate_survey_pages(
             _validate_question_placeholders(
                 page,
                 preceding_question_names=question_names,
+                preceding_questions=preceding_questions,
             )
 
             question_names.add(question_name)
+            preceding_questions[question_name] = page
 
         elif page_type == "guidance":
             _validate_guidance_page(page)
@@ -470,16 +474,19 @@ def _validate_survey_pages(
 def _validate_question_placeholders(
     page: dict[str, object],
     preceding_question_names: set[str],
+    preceding_questions: dict[str, dict[str, object]],
 ) -> None:
     """Validate placeholders configured for a question.
 
     Args:
         page: Question page containing configurable text.
         preceding_question_names: Names of questions preceding this page.
+        preceding_questions: Question definitions preceding this page.
 
     Raises:
         SurveyDefinitionInvalidError: If placeholder configuration is invalid.
     """
+    # pylint: disable=too-many-locals, too-many-branches
     question = _require_mapping(page, "question")
     question_text = _require_non_empty_string(
         question,
@@ -510,6 +517,25 @@ def _validate_question_placeholders(
             "source_question_name",
         )
 
+        value_map = placeholder_definition.get("value_map")
+
+        if value_map is not None:
+            if not isinstance(value_map, dict) or not value_map:
+                raise SurveyDefinitionInvalidError(
+                    "Question placeholder value_map must be a non-empty object"
+                )
+
+            for response_value, replacement in value_map.items():
+                if not isinstance(response_value, str) or not response_value.strip():
+                    raise SurveyDefinitionInvalidError(
+                        "Question placeholder value_map keys must be non-empty strings"
+                    )
+
+                if not isinstance(replacement, str) or not replacement.strip():
+                    raise SurveyDefinitionInvalidError(
+                        "Question placeholder value_map values must be non-empty strings"
+                    )
+
         if placeholder in placeholders:
             raise SurveyDefinitionInvalidError(f"Duplicate question placeholder: {placeholder!r}")
 
@@ -524,6 +550,52 @@ def _validate_question_placeholders(
                 f"{source_question_name!r} must reference an "
                 "earlier question_name"
             )
+
+        if value_map is not None:
+            source_question = preceding_questions[source_question_name]
+            source_answer = _require_mapping(
+                source_question,
+                "answer",
+            )
+
+            if source_answer.get("type") != "radio":
+                raise SurveyDefinitionInvalidError(
+                    "Question placeholder value_map source must be a radio question"
+                )
+
+            source_options = _require_list(
+                source_answer,
+                "options",
+            )
+
+            source_values = {
+                _require_non_empty_string(
+                    _require_object_value(
+                        option,
+                        "Radio option",
+                    ),
+                    "value",
+                )
+                for option in source_options
+            }
+
+            mapped_values = set(value_map)
+
+            missing_values = source_values - mapped_values
+            if missing_values:
+                raise SurveyDefinitionInvalidError(
+                    f"Question placeholder value_map for "
+                    f"{source_question_name!r} is missing mappings for: "
+                    f"{sorted(missing_values)!r}"
+                )
+
+            unexpected_values = mapped_values - source_values
+            if unexpected_values:
+                raise SurveyDefinitionInvalidError(
+                    f"Question placeholder value_map for "
+                    f"{source_question_name!r} contains unknown mappings for: "
+                    f"{sorted(unexpected_values)!r}"
+                )
 
         placeholders.add(placeholder)
 
