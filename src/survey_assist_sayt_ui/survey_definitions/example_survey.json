@@ -367,6 +367,37 @@
       {
         "page_id": "q2",
         "page_type": "question",
+        "page_title": "Employee or Self-employed",
+        "question_name": "emp_status_question",
+        "question": {
+          "text": "Are you an employee or self-employed?"
+        },
+        "answer": {
+          "type": "radio",
+          "name": "emp-status",
+          "required": true,
+          "options": [
+            {
+              "id": "emp-status-employee",
+              "label": "Employee",
+              "value": "employee",
+              "target_page_id": "q3"
+            },
+            {
+              "id": "emp-status-self-employed",
+              "label": "Self-employed",
+              "value": "self-employed",
+              "target_page_id": "q3"
+            }
+          ]
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "q3",
+        "page_type": "question",
         "page_title": "Job Title",
         "question_name": "job_title_question",
         "question": {
@@ -387,7 +418,7 @@
         }
       },
       {
-        "page_id": "q3",
+        "page_id": "q4",
         "page_type": "question",
         "page_title": "Job Description",
         "question_name": "job_description_question",
@@ -415,7 +446,7 @@
         }
       },
       {
-        "page_id": "q4",
+        "page_id": "q5",
         "page_type": "question",
         "page_title": "Organisation Activity",
         "question_name": "organisation_activity_question",
@@ -467,18 +498,24 @@
         "page_title": "Business Activity",
         "question_name": "business_activity_question",
         "question": {
-          "text": "What is the main activity of the business or freelance work?"
+          "text": "What is the main activity of the PLACEHOLDER_TEXT?",
+          "placeholders": [
+            {
+              "placeholder": "PLACEHOLDER_TEXT",
+              "source_question_name": "emp_status_question",
+              "value_map": {
+                "employee": "business or organisation",
+                "self-employed": "business or freelance work"
+              }
+            }
+          ]
         },
         "answer": {
           "type": "api_autosuggest",
           "name": "business-activity",
           "required": true,
           "placeholder": "Type the main activity of the business",
-          "not_listed": true,
-          "self_describe": {
-            "label": "Describe the main activity of your organisation",
-            "required_error": "Enter a description of the main activity of your organisation"
-          }
+          "not_listed": true
         },
         "submit_button": {
           "text": "Save and continue"
