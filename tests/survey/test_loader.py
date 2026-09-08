@@ -14,6 +14,7 @@ from survey_assist_sayt_ui.survey.loader import (
 from survey_assist_sayt_ui.survey.models import (
     ApiAutosuggestAnswer,
     GuidancePage,
+    MultiTextAnswer,
     QuestionPage,
     SurveyDefinition,
     SurveyFeedback,
@@ -824,3 +825,100 @@ def test_load_survey_definition_rejects_value_map_for_non_radio_source(
         match="value_map source must be a radio question",
     ):
         load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_accepts_multi_text(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+    multi_text_page: QuestionPage,
+) -> None:
+    """Test that a valid multi-text question is accepted."""
+    survey_definition["survey_pages"]["pages"].append(
+        multi_text_page,
+    )
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    loaded_definition = load_survey_definition(
+        survey_path,
+    )
+
+    answer = cast(
+        MultiTextAnswer,
+        loaded_definition["survey_pages"]["pages"][-1]["answer"],
+    )
+
+    assert answer["type"] == "multi_text"
+    assert len(answer["fields"]) == 3
+
+
+def test_load_survey_definition_rejects_more_than_eight_multi_text_fields(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+    multi_text_page: QuestionPage,
+) -> None:
+    """Test that multi-text questions support at most eight fields."""
+    answer = cast(
+        MultiTextAnswer,
+        multi_text_page["answer"],
+    )
+
+    answer["fields"] = [
+        {
+            "name": f"field-{index}",
+            "label": f"Field {index}",
+            "required": False,
+        }
+        for index in range(9)
+    ]
+
+    survey_definition["survey_pages"]["pages"].append(
+        multi_text_page,
+    )
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="between 1 and 8 fields",
+    ):
+        load_survey_definition(
+            survey_path,
+        )
+
+
+def test_load_survey_definition_rejects_duplicate_multi_text_field_names(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+    multi_text_page: QuestionPage,
+) -> None:
+    """Test that multi-text field names must be unique."""
+    answer = cast(
+        MultiTextAnswer,
+        multi_text_page["answer"],
+    )
+
+    answer["fields"][1]["name"] = answer["fields"][0]["name"]
+
+    survey_definition["survey_pages"]["pages"].append(
+        multi_text_page,
+    )
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="Duplicate multi-text field name",
+    ):
+        load_survey_definition(
+            survey_path,
+        )

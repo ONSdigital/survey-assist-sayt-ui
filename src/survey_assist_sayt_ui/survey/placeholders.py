@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from survey_assist_sayt_ui.survey.models import (
     QuestionPage,
+    SingleValueSurveyResponse,
     SurveyResponses,
 )
 
@@ -39,6 +42,33 @@ class MissingPlaceholderValueMappingError(ValueError):
         )
 
 
+def _get_single_value_responses_by_question_name(
+    responses: SurveyResponses,
+) -> dict[str, str]:
+    """Return single-value responses indexed by question name.
+
+    Args:
+        responses: Saved survey responses.
+
+    Returns:
+        dict[str, str]: Single values keyed by question name.
+    """
+    response_values: dict[str, str] = {}
+
+    for response in responses.values():
+        if "value" not in response:
+            continue
+
+        single_response = cast(
+            SingleValueSurveyResponse,
+            response,
+        )
+
+        response_values[single_response["question_name"]] = single_response["value"]
+
+    return response_values
+
+
 def resolve_question_text(
     page: QuestionPage,
     responses: SurveyResponses,
@@ -60,9 +90,9 @@ def resolve_question_text(
     resolved_text = question["text"]
     placeholders = question.get("placeholders", [])
 
-    responses_by_question_name = {
-        response["question_name"]: response["value"] for response in responses.values()
-    }
+    responses_by_question_name = _get_single_value_responses_by_question_name(
+        responses,
+    )
 
     ordered_placeholders = sorted(
         placeholders,

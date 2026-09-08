@@ -48,7 +48,7 @@
                 "placeholder": page.answer.placeholder | default("")
             } %}
 
-            {% if page.answer.required %}
+            {% if page.answer.required | default(false) %}
                 {% set _ = text_attributes.update({
                     "required": true
                 }) %}
@@ -81,6 +81,59 @@
                         "radios": radio_options
                     })
                 }}
+
+            {% elif page.answer.type == "multi_text" %}
+                {% set multi_saved_values = saved_values | default({}) %}
+                {% set multi_field_errors = field_errors | default({}) %}
+
+                {% for field in page.answer.fields %}
+                    {% set input_options = {
+                        "id": field.name,
+                        "name": field.name,
+                        "type": "text",
+                        "label": {
+                            "text": field.label
+                        },
+                        "value": multi_saved_values.get(field.name, "")
+                    } %}
+
+                    {% if field.autocomplete %}
+                        {% set _ = input_options.update({
+                            "autocomplete": field.autocomplete
+                        }) %}
+                    {% endif %}
+
+                    {% set input_attributes = {} %}
+
+                    {% if field.placeholder %}
+                        {% set _ = input_attributes.update({
+                            "placeholder": field.placeholder
+                        }) %}
+                    {% endif %}
+
+                    {% if field.required %}
+                        {% set _ = input_attributes.update({
+                            "required": true
+                        }) %}
+                    {% endif %}
+
+                    {% if input_attributes %}
+                        {% set _ = input_options.update({
+                            "attributes": input_attributes
+                        }) %}
+                    {% endif %}
+
+                    {% if multi_field_errors.get(field.name) %}
+                        {% set _ = input_options.update({
+                            "error": {
+                                "id": field.name ~ "-error",
+                                "text": multi_field_errors[field.name]
+                            }
+                        }) %}
+                    {% endif %}
+
+                    {{ onsInput(input_options) }}
+                {% endfor %}
 
             {% elif page.answer.multiline %}
                 {{

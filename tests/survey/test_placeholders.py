@@ -1,4 +1,5 @@
 """Tests for resolving survey question placeholders."""
+# pylint: disable=duplicate-code
 
 from typing import cast
 
@@ -99,3 +100,31 @@ def test_resolve_question_text_uses_configured_value_map(
     assert resolve_question_text(page, responses) == (
         f"What is the main activity of the {expected_replacement}?"
     )
+
+
+def test_resolve_question_text_ignores_unrelated_multi_text_response(
+    question_page: QuestionPage,
+) -> None:
+    """Test that multi-text responses do not break placeholders."""
+    responses: SurveyResponses = {
+        "q-about-you": {
+            "question_name": "about_you_question",
+            "values": {
+                "first-name": "Ada",
+                "middle-names": "",
+                "surname": "Lovelace",
+            },
+        },
+        "q1": {
+            "question_name": "job_title_question",
+            "response_name": "job-title",
+            "value": "Teacher",
+        },
+    }
+
+    result = resolve_question_text(
+        question_page,
+        responses,
+    )
+
+    assert result == ("Describe what you do in that job or business as a teacher")
