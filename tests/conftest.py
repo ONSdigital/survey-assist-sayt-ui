@@ -372,3 +372,50 @@ def client_fixture(app: Flask) -> Iterator[FlaskClient]:
     """
     with app.test_client() as test_client:
         yield test_client
+
+
+@pytest.fixture(name="multi_text_page")
+def multi_text_page_fixture() -> QuestionPage:
+    """Provide an About you multi-text question.
+
+    Returns:
+        QuestionPage: Multi-text question containing three inputs.
+    """
+    return {
+        "page_id": "q-about-you",
+        "page_type": "question",
+        "page_title": "About you",
+        "question_name": "about_you_question",
+        "question": {
+            "text": "Enter your details",
+        },
+        "answer": {
+            "type": "multi_text",
+            "name": "about-you",
+            "fields": [
+                {
+                    "name": "first-name",
+                    "label": "My First or Given name",
+                    "required": True,
+                    "required_error": ("Enter your first or given name"),
+                    "autocomplete": "given-name",
+                },
+                {
+                    "name": "middle-names",
+                    "label": "My Middle Names",
+                    "required": False,
+                    "autocomplete": "additional-name",
+                },
+                {
+                    "name": "surname",
+                    "label": "My Surname or Family Name",
+                    "required": True,
+                    "required_error": ("Enter your surname or family name"),
+                    "autocomplete": "family-name",
+                },
+            ],
+        },
+        "submit_button": {
+            "text": "Save and continue",
+        },
+    }

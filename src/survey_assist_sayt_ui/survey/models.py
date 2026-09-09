@@ -139,7 +139,26 @@ class ApiAutosuggestAnswer(TypedDict):
     self_describe: NotRequired[ApiAutosuggestSelfDescribe]
 
 
-QuestionAnswer = RadioAnswer | TextAnswer | ApiAutosuggestAnswer
+class MultiTextField(TypedDict):
+    """One labelled input within a multi-text answer."""
+
+    name: str
+    label: str
+    required: bool
+    required_error: NotRequired[str]
+    placeholder: NotRequired[str]
+    autocomplete: NotRequired[str]
+
+
+class MultiTextAnswer(TypedDict):
+    """Question answered using multiple labelled text inputs."""
+
+    type: Literal["multi_text"]
+    name: str
+    fields: list[MultiTextField]
+
+
+QuestionAnswer = RadioAnswer | TextAnswer | ApiAutosuggestAnswer | MultiTextAnswer
 
 
 class QuestionGuidance(TypedDict):
@@ -242,13 +261,22 @@ class SurveyPages(TypedDict):
     pages: list[SurveyPage]
 
 
-class SurveyResponse(TypedDict):
-    """Response stored for one survey question."""
+class SingleValueSurveyResponse(TypedDict):
+    """Response stored for one single-value survey question."""
 
     question_name: str
     response_name: str
     value: str
 
 
+class MultiTextSurveyResponse(TypedDict):
+    """Responses stored for one multi-text survey question."""
+
+    question_name: str
+    values: dict[str, str]
+
+
+SurveyResponse = SingleValueSurveyResponse | MultiTextSurveyResponse
 SurveyResponses = dict[str, SurveyResponse]
-FeedbackResponses = dict[str, SurveyResponse]
+
+FeedbackResponses = dict[str, SingleValueSurveyResponse]

@@ -1,5 +1,6 @@
 """Tests for configurable survey routes."""
 
+# pylint: disable=too-many-lines, duplicate-code
 from http import HTTPStatus
 from typing import cast
 
@@ -884,3 +885,161 @@ def test_feedback_radio_routes_to_target_question(
 
     assert response.status_code == HTTPStatus.FOUND
     assert response.headers["Location"].endswith("/survey/feedback/fq3")
+
+
+def _insert_multi_text_page(
+    app: Flask,
+    page: QuestionPage,
+) -> None:
+    """Insert a multi-text question at the start of the survey.
+
+    Args:
+        app: Configured Flask application.
+        page: Multi-text page to insert.
+    """
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+
+    survey_definition["survey_pages"]["pages"].insert(
+        0,
+        page,
+    )
+
+
+def test_multi_text_question_renders_configured_fields(
+    app: Flask,
+    client: FlaskClient,
+    multi_text_page: QuestionPage,
+) -> None:
+    """Test that configured multi-text inputs are rendered."""
+    _authenticate(client)
+    _insert_multi_text_page(
+        app,
+        multi_text_page,
+    )
+
+    response = client.get(
+        "/survey/questions/q-about-you",
+    )
+    response_text = response.get_data(
+        as_text=True,
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Enter your details" in response_text
+
+    assert "My First or Given name" in response_text
+    assert 'name="first-name"' in response_text
+
+    assert "My Middle Names" in response_text
+    assert 'name="middle-names"' in response_text
+
+    assert "My Surname or Family Name" in response_text
+    assert 'name="surname"' in response_text
+
+
+def test_multi_text_response_is_saved_and_progresses(
+    app: Flask,
+    client: FlaskClient,
+    multi_text_page: QuestionPage,
+) -> None:
+    """Test that multi-text values are stored and journey continues."""
+    _authenticate(client)
+    _insert_multi_text_page(
+        app,
+        multi_text_page,
+    )
+
+    response = client.post(
+        "/survey/questions/q-about-you",
+        data={
+            "first-name": " Ada ",
+            "middle-names": "",
+            "surname": " Lovelace ",
+        },
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/survey/questions/q0")
+
+    with client.session_transaction() as flask_session:
+        responses = flask_session[SURVEY_RESPONSES_KEY]
+
+    assert responses["q-about-you"] == {
+        "question_name": "about_you_question",
+        "values": {
+            "first-name": "Ada",
+            "middle-names": "",
+            "surname": "Lovelace",
+        },
+    }
+
+
+def test_multi_text_required_field_returns_bad_request_and_repopulates(
+    app: Flask,
+    client: FlaskClient,
+    multi_text_page: QuestionPage,
+) -> None:
+    """Test required multi-text validation retains entered values."""
+    _authenticate(client)
+    _insert_multi_text_page(
+        app,
+        multi_text_page,
+    )
+
+    response = client.post(
+        "/survey/questions/q-about-you",
+        data={
+            "first-name": "",
+            "middle-names": "Augusta",
+            "surname": "Lovelace",
+        },
+    )
+
+    response_text = response.get_data(
+        as_text=True,
+    )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "Enter your first or given name" in response_text
+    assert 'value="Augusta"' in response_text
+    assert 'value="Lovelace"' in response_text
+
+
+def test_multi_text_saved_values_are_repopulated(
+    app: Flask,
+    client: FlaskClient,
+    multi_text_page: QuestionPage,
+) -> None:
+    """Test that saved multi-text values are rendered again."""
+    _authenticate(client)
+    _insert_multi_text_page(
+        app,
+        multi_text_page,
+    )
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q-about-you": {
+                "question_name": "about_you_question",
+                "values": {
+                    "first-name": "Ada",
+                    "middle-names": "Augusta",
+                    "surname": "Lovelace",
+                },
+            }
+        }
+
+    response = client.get(
+        "/survey/questions/q-about-you",
+    )
+    response_text = response.get_data(
+        as_text=True,
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert 'value="Ada"' in response_text
+    assert 'value="Augusta"' in response_text
+    assert 'value="Lovelace"' in response_text

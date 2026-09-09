@@ -1,5 +1,6 @@
 """Routes for configurable survey pages."""
 
+# pylint: disable=too-many-lines
 from __future__ import annotations
 
 from http import HTTPStatus
@@ -23,7 +24,10 @@ from survey_assist_sayt_ui.survey.models import (
     FeedbackPage,
     FeedbackResponses,
     GuidancePage,
+    MultiTextAnswer,
+    MultiTextSurveyResponse,
     QuestionPage,
+    SingleValueSurveyResponse,
     SurveyDefinition,
     SurveyFeedback,
     SurveyPage,
@@ -289,6 +293,167 @@ def _get_self_describe_config(
     )
 
 
+def _get_submitted_multi_text_values(
+    page: QuestionPage,
+) -> dict[str, str]:
+    """Return configured multi-text values from the submitted form.
+
+    Args:
+        page: Submitted multi-text question.
+
+    Returns:
+        dict[str, str]: Submitted values keyed by configured field name.
+    """
+    answer = cast(
+        MultiTextAnswer,
+        page["answer"],
+    )
+
+    return {
+        field["name"]: request.form.get(
+            field["name"],
+            "",
+        ).strip()
+        for field in answer["fields"]
+    }
+
+
+def _get_multi_text_field_errors(
+    answer: MultiTextAnswer,
+    values: dict[str, str],
+) -> dict[str, str]:
+    """Return validation errors for required multi-text fields.
+
+    Args:
+        answer: Configured multi-text answer.
+        values: Submitted values keyed by field name.
+
+    Returns:
+        dict[str, str]: Validation messages keyed by field name.
+    """
+    errors: dict[str, str] = {}
+
+    for field in answer["fields"]:
+        field_name = field["name"]
+
+        if not field["required"] or values[field_name]:
+            continue
+
+        errors[field_name] = field.get(
+            "required_error",
+            f"Enter {field['label'].lower()}",
+        )
+
+    return errors
+
+
+def _get_saved_multi_text_values(
+    page: QuestionPage,
+    responses: SurveyResponses,
+) -> dict[str, str]:
+    """Return saved values for a multi-text question.
+
+    Args:
+        page: Question being rendered.
+        responses: Survey responses from the current session.
+
+    Returns:
+        dict[str, str]: Previously saved multi-text values.
+    """
+    if page["answer"]["type"] != "multi_text":
+        return {}
+
+    saved_response = responses.get(
+        page["page_id"],
+    )
+
+    if saved_response is None or "values" not in saved_response:
+        return {}
+
+    multi_text_response = cast(
+        MultiTextSurveyResponse,
+        saved_response,
+    )
+
+    return dict(
+        multi_text_response["values"],
+    )
+
+
+def _save_multi_text_response(
+    page: QuestionPage,
+    responses: SurveyResponses,
+    question_text: str,
+) -> ResponseReturnValue:
+    """Validate and save a multi-text survey response.
+
+    Args:
+        page: Submitted multi-text question.
+        responses: Existing responses from the current session.
+        question_text: Resolved question text.
+
+    Returns:
+        ResponseReturnValue: Validation response or next-page redirect.
+    """
+    answer = cast(
+        MultiTextAnswer,
+        page["answer"],
+    )
+
+    values = _get_submitted_multi_text_values(
+        page,
+    )
+
+    field_errors = _get_multi_text_field_errors(
+        answer,
+        values,
+    )
+
+    if field_errors:
+        logger.warning(
+            "question text: %s page_id=%s missing required multi-text responses",
+            question_text,
+            page["page_id"],
+        )
+
+        return (
+            render_template(
+                _get_question_template(page),
+                page=page,
+                question_text=question_text,
+                saved_value="",
+                saved_values=values,
+                field_errors=field_errors,
+                not_listed_selected=False,
+                self_describe_value="",
+                self_describe_label="",
+                self_describe_error_message=None,
+                form_action=url_for(
+                    "survey.save_response",
+                    page_id=page["page_id"],
+                ),
+                error_message=None,
+            ),
+            HTTPStatus.BAD_REQUEST,
+        )
+
+    updated_responses = dict(responses)
+
+    response: MultiTextSurveyResponse = {
+        "question_name": page["question_name"],
+        "values": values,
+    }
+
+    updated_responses[page["page_id"]] = response
+    session[SURVEY_RESPONSES_KEY] = updated_responses
+
+    return redirect(
+        _get_next_survey_url(
+            page["page_id"],
+        )
+    )
+
+
 def _get_submitted_response(
     page: QuestionPage,
 ) -> tuple[str, bool, str]:
@@ -340,28 +505,37 @@ def _get_saved_response_state(
     page: QuestionPage,
     responses: SurveyResponses,
 ) -> tuple[str, bool, str]:
-    """Return the input state for a saved response.
+    """Return the input state for a saved single-value response.
 
     Args:
         page: Question page being rendered.
         responses: Responses currently stored in the session.
 
     Returns:
-        tuple[str, bool, str]: Autosuggest value, Not listed checked state,
+        tuple[str, bool, str]: Saved value, Not listed checked state,
             and self-description value.
     """
-    saved_response = responses.get(page["page_id"])
+    saved_response = responses.get(
+        page["page_id"],
+    )
 
-    if saved_response is None:
+    if saved_response is None or "value" not in saved_response:
         return "", False, ""
 
-    saved_value = saved_response["value"]
+    single_response = cast(
+        SingleValueSurveyResponse,
+        saved_response,
+    )
+
+    saved_value = single_response["value"]
     answer = page["answer"]
 
     if answer["type"] == "api_autosuggest" and answer.get("not_listed", False):
-        self_describe_field_name = _get_self_describe_field_name(page["page_id"])
+        self_describe_field_name = _get_self_describe_field_name(
+            page["page_id"],
+        )
 
-        if saved_response["response_name"] == self_describe_field_name:
+        if single_response["response_name"] == self_describe_field_name:
             return "", True, saved_value
 
     return saved_value, False, ""
@@ -569,11 +743,19 @@ def question(page_id: str) -> ResponseReturnValue:
         page=page,
         question_text=question_text,
         saved_value=saved_value,
+        saved_values=_get_saved_multi_text_values(
+            page,
+            responses,
+        ),
+        field_errors={},
         not_listed_selected=not_listed_selected,
         self_describe_value=self_describe_value,
         self_describe_label=self_describe_label,
         self_describe_error_message=None,
-        form_action=url_for("survey.save_response", page_id=page_id),
+        form_action=url_for(
+            "survey.save_response",
+            page_id=page_id,
+        ),
         error_message=None,
     )
 
@@ -615,6 +797,13 @@ def save_response(page_id: str) -> ResponseReturnValue:
                     exc.question_name,
                 ),
             )
+        )
+
+    if answer["type"] == "multi_text":
+        return _save_multi_text_response(
+            page,
+            responses,
+            question_text,
         )
 
     (

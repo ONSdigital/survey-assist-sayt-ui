@@ -15,6 +15,7 @@ SECTION_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SUPPORTED_BLOCK_TYPES = {"paragraph", "button", "panel"}
 SUPPORTED_INLINE_TYPES = {"text", "link"}
 SUPPORTED_PANEL_VARIANTS = {"info", "warn", "warn-branded", "pending"}
+MAX_MULTI_TEXT_FIELDS = 8
 
 
 class SurveyDefinitionError(ValueError):
@@ -551,13 +552,18 @@ def _validate_question_placeholders(
                 "earlier question_name"
             )
 
-        if value_map is not None:
-            source_question = preceding_questions[source_question_name]
-            source_answer = _require_mapping(
-                source_question,
-                "answer",
+        source_question = preceding_questions[source_question_name]
+        source_answer = _require_mapping(
+            source_question,
+            "answer",
+        )
+
+        if source_answer.get("type") == "multi_text":
+            raise SurveyDefinitionInvalidError(
+                "Question placeholder source must not be a multi_text question"
             )
 
+        if value_map is not None:
             if source_answer.get("type") != "radio":
                 raise SurveyDefinitionInvalidError(
                     "Question placeholder value_map source must be a radio question"
@@ -641,7 +647,7 @@ def _validate_question_page(page: dict[str, object]) -> None:
         page: Configured question page.
 
     Raises:
-        SurveyDefinitionInvalidError: If question content is invalid.
+        SurveyDefinitionInvalidError: If question configuration is invalid.
     """
     _require_non_empty_string(page, "page_title")
 
@@ -650,6 +656,10 @@ def _validate_question_page(page: dict[str, object]) -> None:
 
     answer = _require_mapping(page, "answer")
     answer_type = answer.get("type")
+
+    if answer_type == "multi_text":
+        _validate_multi_text_answer(answer)
+        return
 
     _require_non_empty_string(answer, "name")
 
@@ -669,6 +679,68 @@ def _validate_question_page(page: dict[str, object]) -> None:
         return
 
     raise SurveyDefinitionInvalidError(f"Unsupported answer type: {answer_type!r}")
+
+
+def _validate_multi_text_answer(
+    answer: dict[str, object],
+) -> None:
+    """Validate a multi-text answer.
+
+    Args:
+        answer: Configured multi-text answer.
+
+    Raises:
+        SurveyDefinitionInvalidError: If field definitions are invalid.
+    """
+    _require_non_empty_string(
+        answer,
+        "name",
+    )
+
+    fields = _require_list(answer, "fields")
+
+    if not 1 <= len(fields) <= MAX_MULTI_TEXT_FIELDS:
+        raise SurveyDefinitionInvalidError(
+            "Multi-text answers must define between " f"1 and {MAX_MULTI_TEXT_FIELDS} fields"
+        )
+
+    field_names: set[str] = set()
+
+    for index, field_value in enumerate(fields):
+        field = _require_object_value(
+            field_value,
+            f"Multi-text field {index}",
+        )
+
+        field_name = _require_non_empty_string(
+            field,
+            "name",
+        )
+        _require_non_empty_string(
+            field,
+            "label",
+        )
+
+        if field_name in field_names:
+            raise SurveyDefinitionInvalidError(f"Duplicate multi-text field name: {field_name!r}")
+
+        field_names.add(field_name)
+
+        if not isinstance(field.get("required"), bool):
+            raise SurveyDefinitionInvalidError(
+                f"Multi-text field {field_name!r} " "required must be a boolean"
+            )
+
+        for optional_field_name in (
+            "required_error",
+            "placeholder",
+            "autocomplete",
+        ):
+            if optional_field_name in field:
+                _require_non_empty_string(
+                    field,
+                    optional_field_name,
+                )
 
 
 def _require_object_value(

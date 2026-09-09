@@ -293,6 +293,44 @@
       {
         "page_id": "q0",
         "page_type": "question",
+        "page_title": "About you",
+        "question_name": "about_you_question",
+        "question": {
+          "text": "Enter your details"
+        },
+        "answer": {
+          "type": "multi_text",
+          "name": "about-you",
+          "fields": [
+            {
+              "name": "first-name",
+              "label": "My First or Given name",
+              "required": true,
+              "required_error": "Enter your first or given name",
+              "autocomplete": "given-name"
+            },
+            {
+              "name": "middle-names",
+              "label": "My Middle Names",
+              "required": false,
+              "autocomplete": "additional-name"
+            },
+            {
+              "name": "surname",
+              "label": "My Surname or Family Name",
+              "required": true,
+              "required_error": "Enter your surname or family name",
+              "autocomplete": "family-name"
+            }
+          ]
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "q1",
+        "page_type": "question",
         "page_title": "Age Range",
         "question_name": "age_range_question",
         "question": {
@@ -335,7 +373,7 @@
         }
       },
       {
-        "page_id": "q1",
+        "page_id": "q2",
         "page_type": "question",
         "page_title": "Paid Job",
         "question_name": "paid_job_question",
@@ -365,7 +403,7 @@
         }
       },
       {
-        "page_id": "q2",
+        "page_id": "q3",
         "page_type": "question",
         "page_title": "Employee or Self-employed",
         "question_name": "emp_status_question",
@@ -381,13 +419,13 @@
               "id": "emp-status-employee",
               "label": "Employee",
               "value": "employee",
-              "target_page_id": "q3"
+              "target_page_id": "q4"
             },
             {
               "id": "emp-status-self-employed",
               "label": "Self-employed",
               "value": "self-employed",
-              "target_page_id": "q3"
+              "target_page_id": "q4"
             }
           ]
         },
@@ -396,7 +434,7 @@
         }
       },
       {
-        "page_id": "q3",
+        "page_id": "q4",
         "page_type": "question",
         "page_title": "Job Title",
         "question_name": "job_title_question",
@@ -418,7 +456,7 @@
         }
       },
       {
-        "page_id": "q4",
+        "page_id": "q5",
         "page_type": "question",
         "page_title": "Job Description",
         "question_name": "job_description_question",
@@ -446,7 +484,7 @@
         }
       },
       {
-        "page_id": "q5",
+        "page_id": "q6",
         "page_type": "question",
         "page_title": "Organisation Activity",
         "question_name": "organisation_activity_question",
