@@ -87,7 +87,7 @@ function initialiseRemoteAutosuggest(container) {
     context: container,
     suggestionFunction: fetchSuggestions,
 
-    onSelect(result) {
+    async onSelect(result) {
       autosuggest.input.value = result.displayText
     },
   })
