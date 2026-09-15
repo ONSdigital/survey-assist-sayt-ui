@@ -537,6 +537,15 @@ def test_optional_feedback_text_can_be_skipped(
     )
     survey_definition["survey_feedback"] = survey_feedback
 
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_FEEDBACK_RESPONSES_KEY] = {
+            "fq2": {
+                "question_name": "other_feedback_question",
+                "response_name": "other-feedback",
+                "value": "Previously entered feedback",
+            }
+        }
+
     response = client.post(
         "/survey/feedback/fq2",
         data={"other-feedback": ""},
@@ -892,7 +901,7 @@ def _insert_multi_text_page(
     page: QuestionPage,
     index: int = 0,
 ) -> None:
-    """Insert a multi-text question at the start of the survey.
+    """Insert a multi-text question into the survey.
 
     Args:
         app: Configured Flask application.
@@ -1454,3 +1463,71 @@ def test_previous_question_discards_multi_text_response(
 
     assert "q0" in responses
     assert "q-about-you" not in responses
+
+
+def test_conditional_question_text_updates_after_navigating_back(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test conditional question text updates after changing a previous answer."""
+    _authenticate(client)
+
+    api_autosuggest_page["question"]["text"] = "What is the main activity of PLACEHOLDER_TEXT?"
+    api_autosuggest_page["question"]["placeholders"] = [
+        {
+            "placeholder": "PLACEHOLDER_TEXT",
+            "source_question_name": "age_range_question",
+            "value_map": {
+                "16-24": "the younger group",
+                "25-34": "the older group",
+            },
+        }
+    ]
+
+    _insert_autosuggest_page(
+        app,
+        api_autosuggest_page,
+    )
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q0": {
+                "question_name": "age_range_question",
+                "response_name": "age-range",
+                "value": "16-24",
+            },
+            "q-api-autosuggest": {
+                "question_name": "business_activity_question",
+                "response_name": "business-activity",
+                "value": "Software development",
+            },
+        }
+
+    response = client.get(
+        "/survey/questions/q-api-autosuggest/previous",
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith(
+        "/survey/questions/q0",
+    )
+
+    response = client.post(
+        "/survey/questions/q0",
+        data={"age-range": "25-34"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith(
+        "/survey/questions/q-api-autosuggest",
+    )
+
+    response = client.get(
+        "/survey/questions/q-api-autosuggest",
+    )
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "What is the main activity of the older group?" in response_text
+    assert "the younger group" not in response_text

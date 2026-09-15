@@ -328,3 +328,11 @@ make check-python-nofix
 Replace `src/survey_assist_sayt_ui/app_templates/index.html` and add new blueprints under `src/survey_assist_sayt_ui/routes/`.
 
 Use the `@login_required` decorator for routes that should only be available after sign-in.
+
+## Known Limitations
+
+Previous navigation is supported when respondents use the Previous link provided by the application.
+
+Navigating directly to an earlier question by changing or pasting a URL, or using the browser Back button to revisit previously answered questions, is not supported. Doing so may cause the application to infer the previous answered question incorrectly.
+
+The application does not currently maintain an explicit navigation-history list; Previous navigation is designed around the supported application journey.
