@@ -152,6 +152,21 @@ def _get_guidance_page(
     return page
 
 
+def _get_previous_response_page_id(
+    page_id: str,
+    responses: SurveyResponses | FeedbackResponses,
+) -> str | None:
+    """Return the most recently answered question before the current page."""
+    answered_page_ids = [
+        answered_page_id for answered_page_id in responses if answered_page_id != page_id
+    ]
+
+    if not answered_page_ids:
+        return None
+
+    return answered_page_ids[-1]
+
+
 def _get_next_survey_page(
     page_id: str,
 ) -> SurveyPage | None:
@@ -384,6 +399,7 @@ def _save_multi_text_response(
     page: QuestionPage,
     responses: SurveyResponses,
     question_text: str,
+    previous_url: str | None,
 ) -> ResponseReturnValue:
     """Validate and save a multi-text survey response.
 
@@ -391,6 +407,7 @@ def _save_multi_text_response(
         page: Submitted multi-text question.
         responses: Existing responses from the current session.
         question_text: Resolved question text.
+        previous_url: Previous-question URL, or None when unavailable.
 
     Returns:
         ResponseReturnValue: Validation response or next-page redirect.
@@ -432,12 +449,14 @@ def _save_multi_text_response(
                     "survey.save_response",
                     page_id=page["page_id"],
                 ),
+                previous_url=previous_url,
                 error_message=None,
             ),
             HTTPStatus.BAD_REQUEST,
         )
 
     updated_responses = dict(responses)
+    updated_responses.pop(page["page_id"], None)
 
     response: MultiTextSurveyResponse = {
         "question_name": page["question_name"],
@@ -614,6 +633,35 @@ def _get_next_survey_url(
     return url_for("survey.complete")
 
 
+def _get_previous_url(
+    page_id: str,
+    responses: SurveyResponses | FeedbackResponses,
+    endpoint: str,
+) -> str | None:
+    """Return the previous navigation URL when a prior response exists.
+
+    Args:
+        page_id: Current question page identifier.
+        responses: Responses stored for the current journey.
+        endpoint: Flask endpoint used for previous navigation.
+
+    Returns:
+        str | None: Previous navigation URL, or None for the first question.
+    """
+    previous_page_id = _get_previous_response_page_id(
+        page_id,
+        responses,
+    )
+
+    if previous_page_id is None:
+        return None
+
+    return url_for(
+        endpoint,
+        page_id=page_id,
+    )
+
+
 def _get_feedback_page(page_id: str) -> FeedbackPage:
     """Return a feedback page by identifier.
 
@@ -702,6 +750,12 @@ def question(page_id: str) -> ResponseReturnValue:
         session.get(SURVEY_RESPONSES_KEY, {}),
     )
 
+    previous_url = _get_previous_url(
+        page_id,
+        responses,
+        "survey.previous_question",
+    )
+
     try:
         question_text = _resolve_page_question_text(
             page,
@@ -756,7 +810,39 @@ def question(page_id: str) -> ResponseReturnValue:
             "survey.save_response",
             page_id=page_id,
         ),
+        previous_url=previous_url,
         error_message=None,
+    )
+
+
+@survey_blueprint.get("/questions/<page_id>/previous")
+@login_required
+def previous_question(page_id: str) -> ResponseReturnValue:
+    """Return to the previous survey question and discard the current answer."""
+    _get_question_page(page_id)
+
+    responses = cast(
+        SurveyResponses,
+        session.get(SURVEY_RESPONSES_KEY, {}),
+    )
+
+    previous_page_id = _get_previous_response_page_id(
+        page_id,
+        responses,
+    )
+
+    if previous_page_id is None:
+        abort(HTTPStatus.NOT_FOUND)
+
+    updated_responses = dict(responses)
+    updated_responses.pop(page_id, None)
+    session[SURVEY_RESPONSES_KEY] = updated_responses
+
+    return redirect(
+        url_for(
+            "survey.question",
+            page_id=previous_page_id,
+        )
     )
 
 
@@ -772,11 +858,18 @@ def save_response(page_id: str) -> ResponseReturnValue:
         ResponseReturnValue: Redirect to the next configured page or a
             validation error response.
     """
+    # pylint: disable=too-many-locals
     page = _get_question_page(page_id)
     answer = page["answer"]
     responses = cast(
         SurveyResponses,
         session.get(SURVEY_RESPONSES_KEY, {}),
+    )
+
+    previous_url = _get_previous_url(
+        page_id,
+        responses,
+        "survey.previous_question",
     )
 
     try:
@@ -804,6 +897,7 @@ def save_response(page_id: str) -> ResponseReturnValue:
             page,
             responses,
             question_text,
+            previous_url,
         )
 
     (
@@ -837,6 +931,7 @@ def save_response(page_id: str) -> ResponseReturnValue:
                     "survey.save_response",
                     page_id=page_id,
                 ),
+                previous_url=previous_url,
                 error_message=None,
             ),
             HTTPStatus.BAD_REQUEST,
@@ -859,6 +954,7 @@ def save_response(page_id: str) -> ResponseReturnValue:
                 self_describe_label=self_describe_label,
                 self_describe_error_message=None,
                 form_action=url_for("survey.save_response", page_id=page_id),
+                previous_url=previous_url,
                 error_message="Enter an answer",
             ),
             HTTPStatus.BAD_REQUEST,
@@ -871,6 +967,7 @@ def save_response(page_id: str) -> ResponseReturnValue:
             abort(HTTPStatus.BAD_REQUEST)
 
     updated_responses = dict(responses)
+    updated_responses.pop(page_id, None)
     updated_responses[page_id] = {
         "question_name": page["question_name"],
         "response_name": response_name,
@@ -911,6 +1008,13 @@ def feedback_question(
             {},
         ),
     )
+
+    previous_url = _get_previous_url(
+        page_id,
+        responses,
+        "survey.previous_feedback_question",
+    )
+
     saved_response = responses.get(page_id)
     saved_value = saved_response["value"] if saved_response is not None else ""
 
@@ -923,7 +1027,39 @@ def feedback_question(
             "survey.save_feedback_response",
             page_id=page_id,
         ),
+        previous_url=previous_url,
         error_message=None,
+    )
+
+
+@survey_blueprint.get("/feedback/<page_id>/previous")
+@login_required
+def previous_feedback_question(page_id: str) -> ResponseReturnValue:
+    """Return to the previous feedback question and discard the current answer."""
+    _get_feedback_page(page_id)
+
+    responses = cast(
+        FeedbackResponses,
+        session.get(SURVEY_FEEDBACK_RESPONSES_KEY, {}),
+    )
+
+    previous_page_id = _get_previous_response_page_id(
+        page_id,
+        responses,
+    )
+
+    if previous_page_id is None:
+        abort(HTTPStatus.NOT_FOUND)
+
+    updated_responses = dict(responses)
+    updated_responses.pop(page_id, None)
+    session[SURVEY_FEEDBACK_RESPONSES_KEY] = updated_responses
+
+    return redirect(
+        url_for(
+            "survey.feedback_question",
+            page_id=previous_page_id,
+        )
     )
 
 
@@ -944,6 +1080,20 @@ def save_feedback_response(
     """
     page = _get_feedback_page(page_id)
     answer = page["answer"]
+
+    responses = cast(
+        FeedbackResponses,
+        session.get(
+            SURVEY_FEEDBACK_RESPONSES_KEY,
+            {},
+        ),
+    )
+    previous_url = _get_previous_url(
+        page_id,
+        responses,
+        "survey.previous_feedback_question",
+    )
+
     value = request.form.get(
         answer["name"],
         "",
@@ -960,6 +1110,7 @@ def save_feedback_response(
                     "survey.save_feedback_response",
                     page_id=page_id,
                 ),
+                previous_url=previous_url,
                 error_message="Select an answer",
             ),
             HTTPStatus.BAD_REQUEST,
@@ -971,16 +1122,10 @@ def save_feedback_response(
         if value not in allowed_values:
             abort(HTTPStatus.BAD_REQUEST)
 
-    responses = cast(
-        FeedbackResponses,
-        session.get(
-            SURVEY_FEEDBACK_RESPONSES_KEY,
-            {},
-        ),
-    )
     updated_responses = dict(responses)
 
     if value:
+        updated_responses.pop(page_id, None)
         updated_responses[page_id] = {
             "question_name": page["question_name"],
             "response_name": answer["name"],

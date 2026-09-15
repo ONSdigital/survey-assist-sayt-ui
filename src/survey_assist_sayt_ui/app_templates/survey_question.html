@@ -7,6 +7,21 @@
 {% from "components/textarea/_macro.njk" import onsTextarea %}
 
 {% set page_title = page.page_title %}
+
+{% if previous_url %}
+    {% set breadcrumbs = {
+        "id": "breadcrumbs",
+        "ariaLabel": "Breadcrumbs",
+        "itemsList": [
+            {
+                "id": "previous",
+                "url": previous_url,
+                "text": "Previous"
+            }
+        ]
+    } %}
+{% endif %}
+
 {% set main_col_class = "ons-col-8@m" %}
 
 {% block main %}
