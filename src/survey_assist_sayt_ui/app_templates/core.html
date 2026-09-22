@@ -194,6 +194,18 @@
 
 {% block pageContent %}
     <div class="ons-page__container ons-container">
+        {% block preMain %}
+            {% if pageConfig.breadcrumbs %}
+                {% from "components/breadcrumbs/_macro.njk" import onsBreadcrumbs %}
+                {{
+                    onsBreadcrumbs({
+                        "id": pageConfig.breadcrumbs.id,
+                        "ariaLabel": pageConfig.breadcrumbs.ariaLabel,
+                        "itemsList": pageConfig.breadcrumbs.itemsList
+                    })
+                }}
+            {% endif %}
+        {% endblock %}
         <div class="ons-grid">
             <div class="ons-grid__col {{ main_col_class }}">
                 <main id="main-content" class="ons-page__main">

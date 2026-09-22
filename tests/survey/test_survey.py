@@ -537,6 +537,15 @@ def test_optional_feedback_text_can_be_skipped(
     )
     survey_definition["survey_feedback"] = survey_feedback
 
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_FEEDBACK_RESPONSES_KEY] = {
+            "fq2": {
+                "question_name": "other_feedback_question",
+                "response_name": "other-feedback",
+                "value": "Previously entered feedback",
+            }
+        }
+
     response = client.post(
         "/survey/feedback/fq2",
         data={"other-feedback": ""},
@@ -890,12 +899,14 @@ def test_feedback_radio_routes_to_target_question(
 def _insert_multi_text_page(
     app: Flask,
     page: QuestionPage,
+    index: int = 0,
 ) -> None:
-    """Insert a multi-text question at the start of the survey.
+    """Insert a multi-text question into the survey.
 
     Args:
         app: Configured Flask application.
         page: Multi-text page to insert.
+        index: Position at which to insert the page. Defaults to 0.
     """
     survey_definition = cast(
         SurveyDefinition,
@@ -903,7 +914,7 @@ def _insert_multi_text_page(
     )
 
     survey_definition["survey_pages"]["pages"].insert(
-        0,
+        index,
         page,
     )
 
@@ -1043,3 +1054,480 @@ def test_multi_text_saved_values_are_repopulated(
     assert 'value="Ada"' in response_text
     assert 'value="Augusta"' in response_text
     assert 'value="Lovelace"' in response_text
+
+
+def test_first_question_does_not_render_previous_link(
+    client: FlaskClient,
+) -> None:
+    """Test that the first survey question has no previous link."""
+    _authenticate(client)
+
+    response = client.get("/survey/questions/q0")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "/survey/questions/q0/previous" not in response_text
+
+
+def test_question_renders_previous_link(
+    client: FlaskClient,
+) -> None:
+    """Test that a later survey question has a previous link."""
+    _authenticate(client)
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q0": {
+                "question_name": "age_range_question",
+                "response_name": "age-range",
+                "value": "25-34",
+            }
+        }
+
+    response = client.get("/survey/questions/q1")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "/survey/questions/q1/previous" in response_text
+    assert "Previous" in response_text
+
+
+def test_previous_question_discards_current_response(
+    client: FlaskClient,
+) -> None:
+    """Test that going back discards the current survey response."""
+    _authenticate(client)
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q0": {
+                "question_name": "age_range_question",
+                "response_name": "age-range",
+                "value": "25-34",
+            },
+            "q1": {
+                "question_name": "job_title_question",
+                "response_name": "job-title",
+                "value": "Teacher",
+            },
+        }
+
+    response = client.get("/survey/questions/q1/previous")
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/survey/questions/q0")
+
+    with client.session_transaction() as flask_session:
+        responses = flask_session[SURVEY_RESPONSES_KEY]
+
+    assert "q0" in responses
+    assert "q1" not in responses
+
+
+def test_previous_link_remains_after_survey_validation_error(
+    client: FlaskClient,
+) -> None:
+    """Test that previous remains available after survey validation fails."""
+    _authenticate(client)
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q0": {
+                "question_name": "age_range_question",
+                "response_name": "age-range",
+                "value": "25-34",
+            }
+        }
+
+    response = client.post(
+        "/survey/questions/q1",
+        data={"job-title": ""},
+    )
+
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "/survey/questions/q1/previous" in response_text
+
+
+def test_previous_link_remains_after_feedback_validation_error(
+    app: Flask,
+    client: FlaskClient,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that previous remains available after feedback validation fails."""
+    _authenticate(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+
+    second_feedback_page = survey_feedback["pages"][1]
+    assert second_feedback_page["page_id"] == "fq2"
+    second_feedback_page["answer"]["required"] = True
+
+    survey_definition["survey_feedback"] = survey_feedback
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_FEEDBACK_RESPONSES_KEY] = {
+            "fq1": {
+                "question_name": "survey_ease_question",
+                "response_name": "survey-ease",
+                "value": "easy",
+            }
+        }
+
+    response = client.post(
+        "/survey/feedback/fq2",
+        data={"other-feedback": ""},
+    )
+
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "/survey/feedback/fq2/previous" in response_text
+
+
+def test_first_feedback_question_does_not_render_previous_link(
+    app: Flask,
+    client: FlaskClient,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that the first feedback question has no previous link."""
+    _authenticate(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_feedback"] = survey_feedback
+
+    response = client.get("/survey/feedback/fq1")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "/survey/feedback/fq1/previous" not in response_text
+
+
+def test_feedback_question_renders_previous_link(
+    app: Flask,
+    client: FlaskClient,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that a later feedback question renders a previous link."""
+    _authenticate(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_feedback"] = survey_feedback
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_FEEDBACK_RESPONSES_KEY] = {
+            "fq1": {
+                "question_name": "survey_ease_question",
+                "response_name": "survey-ease",
+                "value": "easy",
+            }
+        }
+
+    response = client.get("/survey/feedback/fq2")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "/survey/feedback/fq2/previous" in response_text
+    assert "Previous" in response_text
+
+
+def test_previous_feedback_question_discards_current_response(
+    app: Flask,
+    client: FlaskClient,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that previous discards the current feedback response."""
+    _authenticate(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_feedback"] = survey_feedback
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_FEEDBACK_RESPONSES_KEY] = {
+            "fq1": {
+                "question_name": "survey_ease_question",
+                "response_name": "survey-ease",
+                "value": "easy",
+            },
+            "fq2": {
+                "question_name": "other_feedback_question",
+                "response_name": "other-feedback",
+                "value": "More guidance would help",
+            },
+        }
+
+    response = client.get("/survey/feedback/fq2/previous")
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/survey/feedback/fq1")
+
+    with client.session_transaction() as flask_session:
+        feedback_responses = flask_session[SURVEY_FEEDBACK_RESPONSES_KEY]
+
+    assert "fq1" in feedback_responses
+    assert "fq2" not in feedback_responses
+
+
+def test_previous_question_returns_to_answered_question_after_skip(
+    app: Flask,
+    client: FlaskClient,
+) -> None:
+    """Test that previous follows the answered journey after a routing skip."""
+    _authenticate(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    first_page = cast(
+        dict[str, object],
+        survey_definition["survey_pages"]["pages"][0],
+    )
+    answer = cast(
+        dict[str, object],
+        first_page["answer"],
+    )
+    options = cast(
+        list[dict[str, object]],
+        answer["options"],
+    )
+    options[0]["target_page_id"] = "q2"
+
+    response = client.post(
+        "/survey/questions/q0",
+        data={"age-range": "16-24"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/survey/questions/q2")
+
+    response = client.get("/survey/questions/q2/previous")
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/survey/questions/q0")
+
+
+def test_api_autosuggest_renders_previous_link(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test that API autosuggest renders previous navigation."""
+    _authenticate(client)
+    _insert_autosuggest_page(
+        app,
+        api_autosuggest_page,
+    )
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q0": {
+                "question_name": "age_range_question",
+                "response_name": "age-range",
+                "value": "25-34",
+            }
+        }
+
+    response = client.get("/survey/questions/q-api-autosuggest")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "/survey/questions/q-api-autosuggest/previous" in response_text
+
+
+def test_api_autosuggest_previous_link_remains_after_self_describe_error(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test previous remains available after autosuggest validation fails."""
+    _authenticate(client)
+    _enable_autosuggest_self_describe(
+        api_autosuggest_page,
+    )
+    _insert_autosuggest_page(
+        app,
+        api_autosuggest_page,
+    )
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q0": {
+                "question_name": "age_range_question",
+                "response_name": "age-range",
+                "value": "25-34",
+            }
+        }
+
+    response = client.post(
+        "/survey/questions/q-api-autosuggest",
+        data={
+            "business-activity": "",
+            "business-activity-not-listed": "not-listed",
+            "q-api-autosuggest-self-describe": "",
+        },
+    )
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "/survey/questions/q-api-autosuggest/previous" in response_text
+
+
+def test_multi_text_validation_keeps_previous_link(
+    app: Flask,
+    client: FlaskClient,
+    multi_text_page: QuestionPage,
+) -> None:
+    """Test previous remains available after multi-text validation fails."""
+    _authenticate(client)
+    _insert_multi_text_page(
+        app,
+        multi_text_page,
+        index=1,
+    )
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q0": {
+                "question_name": "age_range_question",
+                "response_name": "age-range",
+                "value": "25-34",
+            }
+        }
+
+    response = client.post(
+        "/survey/questions/q-about-you",
+        data={
+            "first-name": "",
+            "middle-names": "Augusta",
+            "surname": "Lovelace",
+        },
+    )
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "/survey/questions/q-about-you/previous" in response_text
+
+
+def test_previous_question_discards_multi_text_response(
+    app: Flask,
+    client: FlaskClient,
+    multi_text_page: QuestionPage,
+) -> None:
+    """Test previous navigation discards a multi-text response."""
+    _authenticate(client)
+
+    _insert_multi_text_page(
+        app,
+        multi_text_page,
+        index=1,
+    )
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q0": {
+                "question_name": "age_range_question",
+                "response_name": "age-range",
+                "value": "25-34",
+            },
+            "q-about-you": {
+                "question_name": "about_you_question",
+                "values": {
+                    "first-name": "Ada",
+                    "middle-names": "Augusta",
+                    "surname": "Lovelace",
+                },
+            },
+        }
+
+    response = client.get("/survey/questions/q-about-you/previous")
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/survey/questions/q0")
+
+    with client.session_transaction() as flask_session:
+        responses = flask_session[SURVEY_RESPONSES_KEY]
+
+    assert "q0" in responses
+    assert "q-about-you" not in responses
+
+
+def test_conditional_question_text_updates_after_navigating_back(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test conditional question text updates after changing a previous answer."""
+    _authenticate(client)
+
+    api_autosuggest_page["question"]["text"] = "What is the main activity of PLACEHOLDER_TEXT?"
+    api_autosuggest_page["question"]["placeholders"] = [
+        {
+            "placeholder": "PLACEHOLDER_TEXT",
+            "source_question_name": "age_range_question",
+            "value_map": {
+                "16-24": "the younger group",
+                "25-34": "the older group",
+            },
+        }
+    ]
+
+    _insert_autosuggest_page(
+        app,
+        api_autosuggest_page,
+    )
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q0": {
+                "question_name": "age_range_question",
+                "response_name": "age-range",
+                "value": "16-24",
+            },
+            "q-api-autosuggest": {
+                "question_name": "business_activity_question",
+                "response_name": "business-activity",
+                "value": "Software development",
+            },
+        }
+
+    response = client.get(
+        "/survey/questions/q-api-autosuggest/previous",
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith(
+        "/survey/questions/q0",
+    )
+
+    response = client.post(
+        "/survey/questions/q0",
+        data={"age-range": "25-34"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith(
+        "/survey/questions/q-api-autosuggest",
+    )
+
+    response = client.get(
+        "/survey/questions/q-api-autosuggest",
+    )
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "What is the main activity of the older group?" in response_text
+    assert "the younger group" not in response_text
