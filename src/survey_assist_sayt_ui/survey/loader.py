@@ -1128,7 +1128,8 @@ def _validate_submit_result(
     Raises:
         SurveyDefinitionInvalidError: If submit_result is not a boolean.
     """
-    submit_result = page.get("submit_result")
+    if "submit_result" not in page:
+        return
 
-    if submit_result is not None and not isinstance(submit_result, bool):
+    if not isinstance(page["submit_result"], bool):
         raise SurveyDefinitionInvalidError("survey question submit_result must be a boolean")

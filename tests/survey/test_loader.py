@@ -1027,3 +1027,26 @@ def test_load_survey_definition_rejects_submit_result_on_feedback(
         match=("submit_result may only be configured " "on survey_pages questions"),
     ):
         load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_rejects_null_submit_result(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+) -> None:
+    """Test submit_result cannot explicitly be null."""
+    page = cast(
+        dict[str, object],
+        survey_definition["survey_pages"]["pages"][0],
+    )
+    page["submit_result"] = None
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="survey question submit_result must be a boolean",
+    ):
+        load_survey_definition(survey_path)
