@@ -63,9 +63,7 @@ class HttpSurveyResultSubmissionClient:  # pylint: disable=too-few-public-method
             raise ResultSubmissionError("Survey Assist result submission failed") from error
 
         if acknowledgement.result_id:
-            logger.info(
-                "Survey Assist result accepted result_id_present=true %s", acknowledgement.result_id
-            )
+            logger.info("Survey Assist result accepted result_id_present=true")
         else:
             logger.warning("Survey Assist result response did not include a result_id")
 

@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import cast
 
 from flask import Blueprint, current_app, redirect, render_template, request, session, url_for
 from flask.typing import ResponseReturnValue
 
-from .decorators import POST_LOGIN_REDIRECT_KEY, SESSION_USER_KEY
+from .decorators import (
+    POST_LOGIN_REDIRECT_KEY,
+    SESSION_LOGIN_TIME_KEY,
+    SESSION_RESULT_USER_KEY,
+    SESSION_USER_KEY,
+)
 from .service import AuthService
 
+TEST_RESULT_USER = "11-01"
 auth_blueprint = Blueprint("auth", __name__)
 
 
@@ -66,6 +73,9 @@ def check_login() -> ResponseReturnValue:
         )
 
     session[SESSION_USER_KEY] = username
+    session[SESSION_RESULT_USER_KEY] = TEST_RESULT_USER
+    session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
+
     redirect_target = session.pop(POST_LOGIN_REDIRECT_KEY, url_for("main.index"))
     return redirect(str(redirect_target))
 

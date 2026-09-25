@@ -1,5 +1,6 @@
 """Tests for authentication routes."""
 
+from datetime import datetime
 from http import HTTPStatus
 
 from flask import Flask
@@ -8,6 +9,8 @@ import pytest
 
 from survey_assist_sayt_ui.auth.decorators import (
     POST_LOGIN_REDIRECT_KEY,
+    SESSION_LOGIN_TIME_KEY,
+    SESSION_RESULT_USER_KEY,
     SESSION_USER_KEY,
 )
 from survey_assist_sayt_ui.auth.service import AuthService
@@ -104,6 +107,10 @@ def test_check_login_creates_session_and_redirects_to_index(
 
     with client.session_transaction() as flask_session:
         assert flask_session[SESSION_USER_KEY] == "person@example.com"
+        assert flask_session[SESSION_RESULT_USER_KEY] == "11-01"
+
+        login_time = datetime.fromisoformat(flask_session[SESSION_LOGIN_TIME_KEY])
+        assert login_time.tzinfo is not None
 
 
 def test_check_login_redirects_to_original_protected_page(

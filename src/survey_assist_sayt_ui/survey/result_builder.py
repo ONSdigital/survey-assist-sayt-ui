@@ -13,7 +13,8 @@ def build_empty_survey_result(  # pylint: disable=too-many-arguments
     case_id: str,
     user: str,
     person_id: str,
-    time_start: datetime,
+    survey_time_start: datetime,
+    response_time_start: datetime,
     time_end: datetime,
 ) -> SurveyAssistResult:
     """Build a result payload with no recorded Survey Assist interactions."""
@@ -28,14 +29,14 @@ def build_empty_survey_result(  # pylint: disable=too-many-arguments
         wave_id=survey_definition["wave_id"],
         case_id=case_id,
         user=user,
-        time_start=time_start,
+        time_start=survey_time_start,
         time_end=time_end,
         responses=[
             Response(
                 person_id=person_id,
-                time_start=time_start,
+                time_start=response_time_start,
                 time_end=time_end,
                 survey_assist_interactions=[],
-            )
+            ),
         ],
     )

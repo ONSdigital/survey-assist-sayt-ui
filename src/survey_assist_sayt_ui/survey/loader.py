@@ -444,6 +444,7 @@ def _validate_survey_pages(
                 raise SurveyDefinitionInvalidError(f"Duplicate question name: {question_name!r}")
 
             _validate_question_page(page)
+            _validate_submit_result(page)
             _validate_question_placeholders(
                 page,
                 preceding_question_names=question_names,
@@ -617,6 +618,11 @@ def _validate_guidance_page(
     Raises:
         SurveyDefinitionInvalidError: If guidance content is invalid.
     """
+    if "submit_result" in page:
+        raise SurveyDefinitionInvalidError(
+            "submit_result may only be configured on survey_pages questions"
+        )
+
     _require_non_empty_string(
         page,
         "page_title",
@@ -1024,6 +1030,12 @@ def _validate_feedback_page(
     Raises:
         SurveyDefinitionInvalidError: If feedback configuration is invalid.
     """
+
+    if "submit_result" in page:
+        raise SurveyDefinitionInvalidError(
+            "submit_result may only be configured on survey_pages questions"
+        )
+
     answer = _require_mapping(page, "answer")
     answer_type = answer.get("type")
 
@@ -1103,3 +1115,20 @@ def _validate_radio_routing(
                     f"{section_name} radio target_page_id must reference "
                     f"a later page: {target_page_id!r}"
                 )
+
+
+def _validate_submit_result(
+    page: dict[str, object],
+) -> None:
+    """Validate optional survey result submission configuration.
+
+    Args:
+        page: Configured survey question page.
+
+    Raises:
+        SurveyDefinitionInvalidError: If submit_result is not a boolean.
+    """
+    submit_result = page.get("submit_result")
+
+    if submit_result is not None and not isinstance(submit_result, bool):
+        raise SurveyDefinitionInvalidError("survey question submit_result must be a boolean")

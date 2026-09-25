@@ -10,6 +10,8 @@ from flask import redirect, request, session, url_for
 from flask.typing import ResponseReturnValue
 
 SESSION_USER_KEY = "authenticated_user"
+SESSION_RESULT_USER_KEY = "result_user"
+SESSION_LOGIN_TIME_KEY = "login_time"
 POST_LOGIN_REDIRECT_KEY = "post_login_redirect"
 
 P = ParamSpec("P")

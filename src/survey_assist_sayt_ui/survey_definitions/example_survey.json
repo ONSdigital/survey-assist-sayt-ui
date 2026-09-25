@@ -499,7 +499,8 @@
         },
         "submit_button": {
           "text": "Save and continue"
-        }
+        },
+        "submit_result": true
       },
       {
         "page_id": "g2",

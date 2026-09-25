@@ -3,6 +3,7 @@
 # pylint: disable=too-many-lines
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from http import HTTPStatus
 import logging
 from typing import cast
@@ -19,7 +20,15 @@ from flask import (
 )
 from flask.typing import ResponseReturnValue
 
-from survey_assist_sayt_ui.auth.decorators import login_required
+from survey_assist_sayt_ui.auth.decorators import (
+    SESSION_LOGIN_TIME_KEY,
+    SESSION_RESULT_USER_KEY,
+    login_required,
+)
+from survey_assist_sayt_ui.services.result_submission import (
+    ResultSubmissionError,
+    SurveyResultSubmissionClient,
+)
 from survey_assist_sayt_ui.survey.models import (
     FeedbackPage,
     FeedbackResponses,
@@ -37,8 +46,12 @@ from survey_assist_sayt_ui.survey.placeholders import (
     MissingPlaceholderResponseError,
     resolve_question_text,
 )
+from survey_assist_sayt_ui.survey.result_builder import (
+    build_empty_survey_result,
+)
 from survey_assist_sayt_ui.survey.session import (
     SURVEY_FEEDBACK_RESPONSES_KEY,
+    SURVEY_RESPONSE_START_TIME_KEY,
     SURVEY_RESPONSES_KEY,
 )
 
@@ -466,6 +479,8 @@ def _save_multi_text_response(
     updated_responses[page["page_id"]] = response
     session[SURVEY_RESPONSES_KEY] = updated_responses
 
+    _submit_result_if_configured(page)
+
     return redirect(
         _get_next_survey_url(
             page["page_id"],
@@ -711,6 +726,121 @@ def _get_next_feedback_page_id(
     return page_ids[current_index + 1]
 
 
+def _get_session_datetime(
+    key: str,
+) -> datetime:
+    """Return a required ISO-8601 datetime from the session.
+
+    Args:
+        key: Session key containing the datetime.
+
+    Returns:
+        datetime: Parsed timezone-aware datetime.
+
+    Raises:
+        RuntimeError: If the session value is missing or invalid.
+    """
+    value = session.get(key)
+
+    if not isinstance(value, str):
+        raise RuntimeError(f"Required survey session value is missing: {key}")
+
+    try:
+        timestamp = datetime.fromisoformat(value)
+    except ValueError as error:
+        raise RuntimeError(f"Invalid survey session datetime: {key}") from error
+
+    if timestamp.tzinfo is None:
+        raise RuntimeError(f"Survey session datetime must be timezone-aware: {key}")
+
+    return timestamp
+
+
+def _record_survey_response_start(
+    page_id: str,
+) -> None:
+    """Record when the respondent first enters the survey_pages journey."""
+    survey_pages = _get_survey_definition()["survey_pages"]
+
+    if page_id != survey_pages["start_page_id"]:
+        return
+
+    if SURVEY_RESPONSE_START_TIME_KEY in session:
+        return
+
+    session[SURVEY_RESPONSE_START_TIME_KEY] = datetime.now(UTC).isoformat()
+
+    logger.info(
+        "Recorded survey response start page_id=%s",
+        page_id,
+    )
+
+
+def _submit_result_if_configured(
+    page: QuestionPage,
+) -> None:
+    """Submit the current survey result when configured for the page."""
+    if not page.get("submit_result", False):
+        return
+
+    result_user = session.get(SESSION_RESULT_USER_KEY)
+
+    if not isinstance(result_user, str) or not result_user:
+        logger.error(
+            "Survey result user is missing page_id=%s",
+            page["page_id"],
+        )
+        return
+
+    case_id = result_user.split("-", maxsplit=1)[0]
+
+    try:
+        survey_time_start = _get_session_datetime(
+            SESSION_LOGIN_TIME_KEY,
+        )
+        response_time_start = _get_session_datetime(
+            SURVEY_RESPONSE_START_TIME_KEY,
+        )
+    except RuntimeError:
+        logger.exception(
+            "Survey result timestamps are unavailable page_id=%s",
+            page["page_id"],
+        )
+        return
+
+    time_end = datetime.now(UTC)
+
+    result = build_empty_survey_result(
+        _get_survey_definition(),
+        case_id=case_id,
+        user=result_user,
+        person_id=result_user,
+        survey_time_start=survey_time_start,
+        response_time_start=response_time_start,
+        time_end=time_end,
+    )
+
+    client = cast(
+        SurveyResultSubmissionClient,
+        current_app.extensions["result_submission_client"],
+    )
+
+    try:
+        acknowledgement = client.submit(result)
+    except ResultSubmissionError:
+        logger.exception(
+            "Survey result submission failed page_id=%s",
+            page["page_id"],
+        )
+        return
+
+    logger.info(
+        "Survey result submitted page_id=%s result_id=%s",
+        page["page_id"],
+        acknowledgement.result_id,
+    )
+
+
 @survey_blueprint.get("/guidance/<page_id>")
 @login_required
 def guidance(
@@ -725,6 +855,7 @@ def guidance(
         ResponseReturnValue: Rendered guidance page.
     """
     page = _get_guidance_page(page_id)
+    _record_survey_response_start(page_id)
 
     return render_template(
         "survey_guidance.html",
@@ -745,6 +876,8 @@ def question(page_id: str) -> ResponseReturnValue:
         ResponseReturnValue: Rendered ONS question page.
     """
     page = _get_question_page(page_id)
+    _record_survey_response_start(page_id)
+
     responses = cast(
         SurveyResponses,
         session.get(SURVEY_RESPONSES_KEY, {}),
@@ -974,6 +1107,8 @@ def save_response(page_id: str) -> ResponseReturnValue:
         "value": value,
     }
     session[SURVEY_RESPONSES_KEY] = updated_responses
+
+    _submit_result_if_configured(page)
 
     target_page_id = _get_radio_target_page_id(
         page,

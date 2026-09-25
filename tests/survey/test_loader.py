@@ -1,5 +1,6 @@
 """Tests for loading JSON survey definitions."""
 
+# pylint: disable=too-many-lines
 import json
 from pathlib import Path
 from typing import cast
@@ -950,5 +951,79 @@ def test_load_survey_definition_rejects_multi_text_placeholder_source(
     with pytest.raises(
         SurveyDefinitionInvalidError,
         match="must not be a multi_text question",
+    ):
+        load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_accepts_submit_result_on_survey_question(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+) -> None:
+    """Test submit_result is supported on survey question pages."""
+    page = cast(
+        QuestionPage,
+        survey_definition["survey_pages"]["pages"][0],
+    )
+    page["submit_result"] = True
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    loaded_definition = load_survey_definition(survey_path)
+
+    loaded_page = cast(
+        QuestionPage,
+        loaded_definition["survey_pages"]["pages"][0],
+    )
+    assert loaded_page["submit_result"] is True
+
+
+def test_load_survey_definition_rejects_non_boolean_submit_result(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+) -> None:
+    """Test submit_result must be a boolean."""
+    page = cast(
+        dict[str, object],
+        survey_definition["survey_pages"]["pages"][0],
+    )
+    page["submit_result"] = "true"
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match="survey question submit_result must be a boolean",
+    ):
+        load_survey_definition(survey_path)
+
+
+def test_load_survey_definition_rejects_submit_result_on_feedback(
+    tmp_path: Path,
+    survey_definition: SurveyDefinition,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test result submission cannot be configured on feedback."""
+    survey_definition["survey_feedback"] = survey_feedback
+
+    feedback_page = cast(
+        dict[str, object],
+        survey_feedback["pages"][0],
+    )
+    feedback_page["submit_result"] = True
+
+    survey_path = _write_survey_definition(
+        tmp_path,
+        survey_definition,
+    )
+
+    with pytest.raises(
+        SurveyDefinitionInvalidError,
+        match=("submit_result may only be configured " "on survey_pages questions"),
     ):
         load_survey_definition(survey_path)
