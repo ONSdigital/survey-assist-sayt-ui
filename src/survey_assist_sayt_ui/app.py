@@ -13,6 +13,9 @@ from jinja2 import ChainableUndefined, ChoiceLoader, FileSystemLoader
 from survey_assist_utils.api_token.jwt_utils import check_and_refresh_token
 
 from survey_assist_sayt_ui.services.business_activity import HttpBusinessActivitySearchClient
+from survey_assist_sayt_ui.services.result_submission import (
+    HttpSurveyResultSubmissionClient,
+)
 from survey_assist_sayt_ui.services.survey_assist_api import (
     SurveyAssistApiClient,
 )
@@ -152,8 +155,13 @@ def create_app(  # pylint: disable=too-many-locals
         api_client=survey_assist_api_client,
     )
 
+    result_submission_client = HttpSurveyResultSubmissionClient(
+        api_client=survey_assist_api_client,
+    )
+
     app.extensions["survey_assist_api_client"] = survey_assist_api_client
     app.extensions["business_activity_search_client"] = business_activity_client
+    app.extensions["result_submission_client"] = result_submission_client
 
     app.register_blueprint(auth_blueprint)
     app.register_blueprint(main_blueprint)

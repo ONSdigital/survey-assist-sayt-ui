@@ -1,5 +1,6 @@
 """Test the business activity search service."""
 
+# pylint: disable=duplicate-code
 from __future__ import annotations
 
 from http import HTTPStatus

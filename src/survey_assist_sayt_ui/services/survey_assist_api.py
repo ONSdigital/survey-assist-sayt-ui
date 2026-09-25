@@ -73,9 +73,15 @@ class SurveyAssistApiClient:
         endpoint: str,
         *,
         body: JsonObject,
+        retry_on_timeout: bool = True,
     ) -> httpx.Response:
         """Send an authenticated POST request to the Survey Assist API."""
-        return self._request("POST", endpoint, body=body)
+        return self._request(
+            "POST",
+            endpoint,
+            body=body,
+            retry_on_timeout=retry_on_timeout,
+        )
 
     def _request(
         self,
@@ -84,6 +90,7 @@ class SurveyAssistApiClient:
         *,
         params: QueryParameters | None = None,
         body: JsonObject | None = None,
+        retry_on_timeout: bool = True,
     ) -> httpx.Response:
         """
         Send a request, retrying after request and gateway timeout and
@@ -98,7 +105,15 @@ class SurveyAssistApiClient:
                     body=body,
                 )
             except httpx.TimeoutException:
-                logger.info("Survey Assist API request timed out; retrying once")
+                if not retry_on_timeout:
+                    raise
+
+                logger.info(
+                    "Survey Assist API request timed out; retrying once method=%s endpoint=%s",
+                    method,
+                    endpoint,
+                )
+
                 response = self._send_request(
                     method,
                     endpoint,
@@ -106,8 +121,12 @@ class SurveyAssistApiClient:
                     body=body,
                 )
 
-            if response.status_code == HTTPStatus.GATEWAY_TIMEOUT:
-                logger.info("SAYT API returned 504; retrying once")
+            if response.status_code == HTTPStatus.GATEWAY_TIMEOUT and retry_on_timeout:
+                logger.info(
+                    "SAYT API returned 504; retrying once method=%s endpoint=%s",
+                    method,
+                    endpoint,
+                )
                 response = self._send_request(
                     method,
                     endpoint,
@@ -139,8 +158,10 @@ class SurveyAssistApiClient:
             return response
 
         except httpx.TimeoutException as error:
+            logger.error("TimeoutException request failed method=%s endpoint=%s", method, endpoint)
             raise SurveyAssistApiTimeoutError("Survey Assist API request timed out") from error
         except httpx.HTTPError as error:
+            logger.error("HTTP Error request failed method=%s endpoint=%s", method, endpoint)
             raise SurveyAssistApiError("Survey Assist API request failed") from error
 
     def _send_request(
