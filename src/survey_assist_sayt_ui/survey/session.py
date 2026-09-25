@@ -6,11 +6,13 @@ from flask import session
 
 SURVEY_RESPONSES_KEY = "survey_responses"
 SURVEY_FEEDBACK_RESPONSES_KEY = "survey_feedback_responses"
+SURVEY_RESPONSE_START_TIME_KEY = "survey_response_start_time"
 
 SURVEY_SESSION_KEYS = frozenset(
     {
         SURVEY_RESPONSES_KEY,
         SURVEY_FEEDBACK_RESPONSES_KEY,
+        SURVEY_RESPONSE_START_TIME_KEY,
     }
 )
 

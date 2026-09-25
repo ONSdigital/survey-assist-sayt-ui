@@ -4,6 +4,7 @@ from flask import Flask, session
 
 from survey_assist_sayt_ui.survey.session import (
     SURVEY_FEEDBACK_RESPONSES_KEY,
+    SURVEY_RESPONSE_START_TIME_KEY,
     SURVEY_RESPONSES_KEY,
     clear_survey_session_data,
 )
@@ -24,13 +25,19 @@ def test_clear_survey_session_data_removes_survey_values(
                 "value": "Some feedback",
             }
         }
+        session[SURVEY_RESPONSE_START_TIME_KEY] = "2026-09-25T10:00:00+00:00"
         session["unrelated-key"] = "keep-me"
 
         removed_keys = clear_survey_session_data()
 
-        assert removed_keys == {SURVEY_RESPONSES_KEY, SURVEY_FEEDBACK_RESPONSES_KEY}
+        assert removed_keys == {
+            SURVEY_RESPONSES_KEY,
+            SURVEY_FEEDBACK_RESPONSES_KEY,
+            SURVEY_RESPONSE_START_TIME_KEY,
+        }
         assert SURVEY_RESPONSES_KEY not in session
         assert SURVEY_FEEDBACK_RESPONSES_KEY not in session
+        assert SURVEY_RESPONSE_START_TIME_KEY not in session
         assert session["unrelated-key"] == "keep-me"
 
 

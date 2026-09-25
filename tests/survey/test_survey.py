@@ -1,13 +1,22 @@
 """Tests for configurable survey routes."""
 
 # pylint: disable=too-many-lines, duplicate-code
+from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import cast
 
 from flask import Flask
 from flask.testing import FlaskClient
 
-from survey_assist_sayt_ui.auth.decorators import SESSION_USER_KEY
+from survey_assist_sayt_ui.auth.decorators import (
+    SESSION_LOGIN_TIME_KEY,
+    SESSION_RESULT_USER_KEY,
+    SESSION_USER_KEY,
+)
+from survey_assist_sayt_ui.models.result import (
+    ResultResponse,
+    SurveyAssistResult,
+)
 from survey_assist_sayt_ui.routes.survey import SURVEY_RESPONSES_KEY
 from survey_assist_sayt_ui.survey.models import (
     ApiAutosuggestAnswer,
@@ -16,7 +25,39 @@ from survey_assist_sayt_ui.survey.models import (
     SurveyDefinition,
     SurveyFeedback,
 )
-from survey_assist_sayt_ui.survey.session import SURVEY_FEEDBACK_RESPONSES_KEY
+from survey_assist_sayt_ui.survey.session import (
+    SURVEY_FEEDBACK_RESPONSES_KEY,
+    SURVEY_RESPONSE_START_TIME_KEY,
+)
+
+
+class StubSurveyResultSubmissionClient:  # pylint: disable=too-few-public-methods
+    """Capture submitted survey results for tests."""
+
+    def __init__(self) -> None:
+        self.submitted_results: list[SurveyAssistResult] = []
+
+    def submit(
+        self,
+        result: SurveyAssistResult,
+    ) -> ResultResponse:
+        """Capture and acknowledge a submitted result."""
+        self.submitted_results.append(result)
+
+        return ResultResponse(
+            message="Result stored successfully",
+            result_id="result-123",
+        )
+
+
+def _set_result_session(
+    client: FlaskClient,
+) -> None:
+    """Configure result metadata in the test session."""
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_RESULT_USER_KEY] = "11-01"
+        flask_session[SESSION_LOGIN_TIME_KEY] = "2026-09-25T09:00:00+00:00"
+        flask_session[SURVEY_RESPONSE_START_TIME_KEY] = "2026-09-25T09:05:00+00:00"
 
 
 def _authenticate(client: FlaskClient) -> None:
@@ -1531,3 +1572,104 @@ def test_conditional_question_text_updates_after_navigating_back(
     assert response.status_code == HTTPStatus.OK
     assert "What is the main activity of the older group?" in response_text
     assert "the younger group" not in response_text
+
+
+def test_submit_result_question_sends_result_before_continuing(
+    client: FlaskClient,
+    app: Flask,
+) -> None:
+    """Test a configured question submits a survey result."""
+    _authenticate(client)
+    _set_result_session(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+
+    page = cast(
+        QuestionPage,
+        survey_definition["survey_pages"]["pages"][2],
+    )
+    page["submit_result"] = True
+
+    result_client = StubSurveyResultSubmissionClient()
+    app.extensions["result_submission_client"] = result_client
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q1": {
+                "question_name": "job_title_question",
+                "response_name": "job-title",
+                "value": "Primary school teacher",
+            }
+        }
+
+    response = client.post(
+        "/survey/questions/q2",
+        data={"job-description": ("I plan lessons and teach primary school pupils.")},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert len(result_client.submitted_results) == 1
+
+    result = result_client.submitted_results[0]
+
+    assert result.survey_id == "test_survey"
+    assert result.wave_id == "test-wave"
+    assert result.user == "11-01"
+    assert result.case_id == "11"
+
+    assert result.time_start == datetime(
+        2026,
+        9,
+        25,
+        9,
+        0,
+        tzinfo=UTC,
+    )
+
+    assert result.responses[0].person_id == "11-01"
+    assert result.responses[0].time_start == datetime(
+        2026,
+        9,
+        25,
+        9,
+        5,
+        tzinfo=UTC,
+    )
+
+    assert result.responses[0].time_end == result.time_end
+
+
+def test_question_without_submit_result_does_not_send_result(
+    client: FlaskClient,
+    app: Flask,
+) -> None:
+    """Test normal questions do not submit survey results."""
+    _authenticate(client)
+    _set_result_session(client)
+
+    result_client = StubSurveyResultSubmissionClient()
+    app.extensions["result_submission_client"] = result_client
+
+    client.post(
+        "/survey/questions/q0",
+        data={"age-range": "25-34"},
+    )
+
+    assert not result_client.submitted_results
+
+
+def test_first_survey_page_records_response_start_time(
+    client: FlaskClient,
+) -> None:
+    """Test entering survey_pages records its start timestamp."""
+    _authenticate(client)
+
+    client.get("/survey/questions/q0")
+
+    with client.session_transaction() as flask_session:
+        timestamp = datetime.fromisoformat(flask_session[SURVEY_RESPONSE_START_TIME_KEY])
+
+    assert timestamp.tzinfo is not None

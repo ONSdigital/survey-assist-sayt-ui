@@ -208,6 +208,7 @@ class QuestionPage(TypedDict):
     question: QuestionContent
     answer: QuestionAnswer
     submit_button: SubmitButton
+    submit_result: NotRequired[bool]
 
 
 class ContinueButton(TypedDict):
