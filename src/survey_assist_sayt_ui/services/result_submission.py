@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Protocol
 
 from pydantic import ValidationError
 
@@ -24,6 +25,16 @@ class ResultSubmissionTimeoutError(ResultSubmissionError):
     """Raised when survey result submission times out."""
 
 
+class SurveyResultSubmissionClient(Protocol):  # pylint: disable=too-few-public-methods
+    """Interface for survey result submission implementations."""
+
+    def submit(self, result: SurveyAssistResult) -> ResultResponse:
+        """Submit a survey result."""
+
+
+RESULT_ENDPOINT = "result"
+
+
 class HttpSurveyResultSubmissionClient:  # pylint: disable=too-few-public-methods
     """Submit a result using the shared Survey Assist API client."""
 
@@ -34,7 +45,7 @@ class HttpSurveyResultSubmissionClient:  # pylint: disable=too-few-public-method
         """POST a result once and validate the API acknowledgement."""
         try:
             response = self._api_client.post(
-                "result",
+                RESULT_ENDPOINT,
                 body=result.model_dump(mode="json"),
                 retry_on_timeout=False,
             )
