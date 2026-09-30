@@ -130,6 +130,10 @@ The application configuration is read from environment variables at startup.
 | `GCP_AUTH_BLOB_NAME`             | No                            | `users.json`                                     | GCS object name containing the users file.                                                                                                                                          |
 | `SESSION_COOKIE_SECURE`          | No                            | `false`                                          | Whether the session cookie is HTTPS-only. Use `false` for local HTTP development and `true` in Cloud Run.                                                                           |
 | `GOOGLE_APPLICATION_CREDENTIALS` | No                            | Google ADC discovery                             | Optional path to Google credentials. Normally unnecessary locally after `gcloud auth application-default login`; the container Make targets set it when mounting a credential file. |
+| `SESSION_BACKEND`                | No                            | `client`                                         | Whether the session is stored `client` side in the browser or server side in `redis`|
+| `REDIS_PORT`                | No        | `6379`                                                     | Used when `SESSION_BACKEND` is set as `redis`|
+| `REDIS_MAX_CONNECTIONS`                | No                            |   `32`                                       | When `SESSION_BACKEND` is set to `redis` this variable defines the maximum number of connections|
+
 
 ### Example local environment
 
@@ -143,6 +147,7 @@ SA_EMAIL=<service-account>@<your-project>.iam.gserviceaccount.com
 AUTH_MODE=local
 LOCAL_USERS_FILE=users.json
 SESSION_COOKIE_SECURE=false
+SESSION_BACKEND=client
 ```
 
 `SURVEY_ASSIST_API_BASE_URL` and `SA_EMAIL` must be replaced with values for an API environment you can access.
