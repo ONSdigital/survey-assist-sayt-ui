@@ -21,6 +21,7 @@ survey-assist-utils = {git = "https://github.com/ONSdigital/survey-assist-utils.
 pydantic = "^2.13.5"
 flask-session = "^0.8.0"
 redis = "^8.1.0"
+msgspec = "^0.22.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.6.8"
