@@ -132,7 +132,7 @@ The application configuration is read from environment variables at startup.
 | `SESSION_COOKIE_SECURE`          | No                            | `false`                                          | Whether the session cookie is HTTPS-only. Use `false` for local HTTP development and `true` in Cloud Run.                                                                           |
 | `GOOGLE_APPLICATION_CREDENTIALS` | No                            | Google ADC discovery                             | Optional path to Google credentials. Normally unnecessary locally after `gcloud auth application-default login`; the container Make targets set it when mounting a credential file. |
 | `SESSION_BACKEND`                | No                            | `client`                                         | Whether the session is stored `client` side in the browser or server side in `redis`|
-| `REDIS_HOST`                | Yes (when SESSION_BACKEND is redis)                            |                                         | When `SESSION_BACKEND` is `redis` the redis host is the address of the redis database e.g `127.0.0.1` when running locally|
+| `REDIS_HOST` | Required when `SESSION_BACKEND=redis` | None | Redis hostname: `127.0.0.1` for a UI running locally; `redis` for the UI container in Podman Compose. |
 | `REDIS_PORT`                | No        | `6379`                                                     | Used when `SESSION_BACKEND` is set as `redis`|
 | `REDIS_MAX_CONNECTIONS`                | No                            |   `32`                                       | When `SESSION_BACKEND` is set to `redis` this variable defines the maximum number of connections|
 
@@ -292,6 +292,94 @@ make podman-run
 
 The Podman target uses the same `.env`, users-file mount, credential-file mount, and port as the Docker target.
 
+### Run the UI and Redis together with Podman Compose
+
+Start the Podman machine if necessary:
+
+```bash
+podman machine list
+podman machine init   # Only if no machine exists
+podman machine start  # Only if the existing machine is stopped
+```
+
+`podman compose` requires an installed Compose provider (`docker-compose` or `podman-compose`).
+It is a Podman command that delegates Compose file handling to that provider; check `podman compose --help` before proceeding.
+
+Create `.env` from `.env.example` and configure `SURVEY_ASSIST_API_BASE_URL`, `SA_EMAIL` and `FLASK_SECRET_KEY`.
+
+Create `users.json` using the local-user instructions above.
+
+Make sure the Google credentials file configured by
+`CRED_FILE` exists and can sign API tokens for `SA_EMAIL`.
+
+By default the Makefile expects `~/gcp-project-creds-ui.json`; you can override `CRED_FILE` with an absolute file path if yours is elsewhere.
+
+The API URL must be reachable **from inside the UI container**.
+
+Start both containers while keeping the existing client-side Flask sessions:
+
+```bash
+make podman-compose-up
+```
+
+Open `http://127.0.0.1:8000`
+
+`make podman-compose-up` uses `SESSION_BACKEND=client`, regardless of the Redis service being present. The UI has no Redis startup dependency in this mode.
+
+To exercise server-side sessions instead, use the specific redis compose command:
+
+```bash
+make podman-compose-redis-up
+```
+
+The UI waits for Redis to become healthy before starting. Within the Compose network its Redis host is `redis`, not `localhost`.
+
+To view the logs of the UI you can run:
+
+```bash
+make podman-compose-logs
+```
+
+To inspect the Compose setup and verify Redis:
+
+```bash
+export CRED_FILE="${HOME}/gcp-project-creds-ui.json"
+podman compose -f docker-compose.yaml exec redis redis-cli PING
+```
+
+Replace the exported `CRED_FILE` path if needed. If Redis is running you should see `PONG`.
+
+Sign in to the ui, answer a survey question.
+
+Inspect the browser's `session` cookie to check it does not increase as you navigate the survey.
+
+Check that a corresponding Redis key exists:
+
+```bash
+podman compose -f docker-compose.yaml exec redis \
+  redis-cli --scan --pattern 'sayt-ui:session:*'
+```
+
+The existing inspection script can read that local test record:
+
+```bash
+REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
+  poetry run python scripts/inspect_redis_session.py
+```
+
+Pass `--show-values` only for test responses; it prints personal and survey
+data. Do not share the session ID or decoded record.
+
+Stop and remove the local stack when finished:
+
+```bash
+make podman-compose-down
+```
+
+For local development, the Redis data is disposable and is not retained when its container is
+removed.
+
+
 ## Deploy to Cloud Run
 
 Example:
@@ -341,6 +429,11 @@ make check-python-nofix
 ```
 
 ## Running with Redis session management
+
+The [Podman Compose setup](#run-the-ui-and-redis-together-with-podman-compose)
+is the recommended way to run both services together.
+
+The following instructions allow you to start the UI against a separate local Redis container
 
 ### Check podman is running
 
