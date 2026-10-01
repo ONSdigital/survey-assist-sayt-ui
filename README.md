@@ -400,7 +400,7 @@ sayt-ui:session:lbIaNIf0gGAyR-5wI5H--XB0cj_9bUZK-_pYE6WjJ1o
 
 ### Inspect the data in Redis
 
-When you **complete the survey questions**, you can inspect a saved session displaying it's values using the script ```inspect_redis_session.py```:
+When you **complete the survey questions**, you can inspect a saved session displaying its values using the script ```inspect_redis_session.py```:
 
 ```bash
 REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
