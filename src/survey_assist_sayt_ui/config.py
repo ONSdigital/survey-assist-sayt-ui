@@ -26,6 +26,10 @@ class Settings:  # pylint: disable=too-many-instance-attributes
         gcp_auth_bucket_name: Optional GCS bucket name for users JSON.
         gcp_auth_blob_name: Blob name within the configured bucket.
         session_cookie_secure: Whether session cookies are HTTPS-only.
+        session_backend: Session backend type (e.g., "client" or "redis").
+        redis_host: Redis server host (if using Redis backend).
+        redis_port: Redis server port.
+        redis_max_connections: Maximum number of Redis connections.
     """
 
     secret_key: str
@@ -38,6 +42,10 @@ class Settings:  # pylint: disable=too-many-instance-attributes
     gcp_auth_bucket_name: str | None = None
     gcp_auth_blob_name: str = "users.json"
     session_cookie_secure: bool = False
+    session_backend: str = "client"
+    redis_host: str | None = None
+    redis_port: str = "6379"
+    redis_max_connections: str = "32"
 
 
 def _bool_from_env(name: str, default: bool = False) -> bool:
@@ -75,6 +83,10 @@ def load_settings() -> Settings:
         gcp_auth_bucket_name=os.getenv("GCP_AUTH_BUCKET_NAME"),
         gcp_auth_blob_name=os.getenv("GCP_AUTH_BLOB_NAME", "users.json"),
         session_cookie_secure=_bool_from_env("SESSION_COOKIE_SECURE", False),
+        session_backend=os.getenv("SESSION_BACKEND", "client").strip().lower(),
+        redis_host=os.getenv("REDIS_HOST"),
+        redis_port=os.getenv("REDIS_PORT", "6379"),
+        redis_max_connections=os.getenv("REDIS_MAX_CONNECTIONS", "32"),
     )
 
 

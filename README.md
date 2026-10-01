@@ -113,6 +113,7 @@ http://127.0.0.1:5000
 
 You should be redirected to `/login`.
 
+
 ## Environment variables
 
 The application configuration is read from environment variables at startup.
@@ -130,6 +131,11 @@ The application configuration is read from environment variables at startup.
 | `GCP_AUTH_BLOB_NAME`             | No                            | `users.json`                                     | GCS object name containing the users file.                                                                                                                                          |
 | `SESSION_COOKIE_SECURE`          | No                            | `false`                                          | Whether the session cookie is HTTPS-only. Use `false` for local HTTP development and `true` in Cloud Run.                                                                           |
 | `GOOGLE_APPLICATION_CREDENTIALS` | No                            | Google ADC discovery                             | Optional path to Google credentials. Normally unnecessary locally after `gcloud auth application-default login`; the container Make targets set it when mounting a credential file. |
+| `SESSION_BACKEND`                | No                            | `client`                                         | Whether the session is stored `client` side in the browser or server side in `redis`|
+| `REDIS_HOST`                | Yes (when SESSION_BACKEND is redis)                            |                                         | When `SESSION_BACKEND` is `redis` the redis host is the address of the redis database e.g `127.0.0.1` when running locally|
+| `REDIS_PORT`                | No        | `6379`                                                     | Used when `SESSION_BACKEND` is set as `redis`|
+| `REDIS_MAX_CONNECTIONS`                | No                            |   `32`                                       | When `SESSION_BACKEND` is set to `redis` this variable defines the maximum number of connections|
+
 
 ### Example local environment
 
@@ -143,9 +149,20 @@ SA_EMAIL=<service-account>@<your-project>.iam.gserviceaccount.com
 AUTH_MODE=local
 LOCAL_USERS_FILE=users.json
 SESSION_COOKIE_SECURE=false
+SESSION_BACKEND=client
 ```
 
 `SURVEY_ASSIST_API_BASE_URL` and `SA_EMAIL` must be replaced with values for an API environment you can access.
+
+### Inspect a local Redis session
+
+When testing with `SESSION_BACKEND=redis`, you can inspect a saved session
+without displaying its values by default:
+
+```bash
+REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
+  poetry run python scripts/inspect_redis_session.py
+```
 
 ## Manage local users
 
@@ -322,6 +339,77 @@ To run the checks without applying Ruff fixes or formatting changes:
 ```bash
 make check-python-nofix
 ```
+
+## Running with Redis session management
+
+### Check podman is running
+
+Podman runs containers inside a Podman machine.
+
+```bash
+podman machine list
+podman machine init   # Only if no machine exists
+podman machine start  # Only if the machine is stopped
+```
+
+### Run Redis locally
+
+In a separate terminal, run Redis with its port exposed on localhost
+
+```bash
+podman run --rm --name sayt-ui-redis \
+  -p 127.0.0.1:6379:6379 \
+  docker.io/library/redis:7-alpine
+```
+
+Check Redis responds, in another terminal execute:
+
+```bash
+podman exec sayt-ui-redis redis-cli PING
+```
+
+The Redis instance should respond ```PONG```
+
+### Start the UI with Redis config
+
+Ensure the following env vars are set:
+
+```
+SESSION_BACKEND=redis
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+```
+
+Start the UI
+
+```make run```
+
+### Check a session is stored in Redis
+
+Check that a server-side session key was created without displaying its contents
+
+```
+podman exec sayt-ui-redis redis-cli --scan --pattern 'sayt-ui:session:*'
+```
+
+When you are **signed in** to the UI you should see a session id like:
+
+```
+sayt-ui:session:lbIaNIf0gGAyR-5wI5H--XB0cj_9bUZK-_pYE6WjJ1o
+```
+
+### Inspect the data in Redis
+
+When you **complete the survey questions**, you can inspect a saved session displaying its values using the script ```inspect_redis_session.py```:
+
+```bash
+REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
+  poetry run python scripts/inspect_redis_session.py --show-values
+```
+
+
+You will need to provide the session-id that you want to inspect e.g ```lbIaNIf0gGAyR-5wI5H--XB0cj_9bUZK-_pYE6WjJ1o```, the output should show a session structure including the stored values.
+
 
 ## Extending the code
 

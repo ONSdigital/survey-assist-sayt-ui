@@ -19,6 +19,7 @@ from survey_assist_sayt_ui.services.result_submission import (
 from survey_assist_sayt_ui.services.survey_assist_api import (
     SurveyAssistApiClient,
 )
+from survey_assist_sayt_ui.session_handler import configure_session
 from survey_assist_sayt_ui.survey.loader import (
     SurveyDefinitionError,
     load_survey_definition,
@@ -135,6 +136,9 @@ def create_app(  # pylint: disable=too-many-locals
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=resolved_settings.session_cookie_secure,
     )
+
+    # Configure session handling for Redis if the session backend is set accordingly
+    configure_session(app, resolved_settings)
 
     app.extensions["survey_definition"] = resolved_survey_definition
 
