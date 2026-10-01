@@ -162,7 +162,7 @@ without displaying its values by default:
 ```bash
 REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
   poetry run python scripts/inspect_redis_session.py
-
+```
 
 ## Manage local users
 
