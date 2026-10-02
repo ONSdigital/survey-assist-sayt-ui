@@ -624,3 +624,53 @@ def test_redis_logout_only_clears_current_respondent_session(
     with second_client.session_transaction() as flask_session:
         assert flask_session[SESSION_USER_KEY] == "second@example.com"
         assert flask_session[SURVEY_RESPONSES_KEY]["q0"]["value"] == "35-44"
+
+
+def test_redis_logout_prevents_replay_of_old_session_cookie(
+    redis_app: Flask,
+    redis_store: dict[str, bytes],
+) -> None:
+    """A Redis session cannot be restored by replaying its old session cookie."""
+    client = redis_app.test_client()
+
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q0": {
+                "question_name": "age_range_question",
+                "response_name": "age-range",
+                "value": "25-34",
+            }
+        }
+
+    cookie_name = redis_app.config["SESSION_COOKIE_NAME"]
+    original_cookie = client.get_cookie(cookie_name)
+    assert original_cookie is not None
+
+    original_session_id = original_cookie.value
+    redis_key = f"sayt-ui:session:{original_session_id}"
+
+    assert redis_key in redis_store
+
+    logout_response = client.get("/logout")
+
+    assert logout_response.status_code == HTTPStatus.FOUND
+    assert logout_response.headers["Location"].endswith("/login")
+    assert redis_key not in redis_store
+    assert client.get_cookie(cookie_name) is None
+
+    replay_client = redis_app.test_client()
+    replay_client.set_cookie(
+        cookie_name,
+        original_session_id,
+    )
+
+    response = replay_client.get("/survey/questions/q0")
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/login")
+
+    with replay_client.session_transaction() as flask_session:
+        assert SESSION_USER_KEY not in flask_session
+        assert SURVEY_RESPONSES_KEY not in flask_session
