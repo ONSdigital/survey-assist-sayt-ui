@@ -526,3 +526,101 @@ def test_redis_completion_deletes_record_and_cookie(
     assert key not in redis_store
     assert client.get_cookie(redis_app.config["SESSION_COOKIE_NAME"]) is None
     assert client.get("/survey/complete").status_code == HTTPStatus.FOUND
+
+
+def test_redis_logout_deletes_record_and_cookie(
+    redis_app: Flask,
+    redis_store: dict[str, bytes],
+) -> None:
+    """Remove the respondent's Redis session and browser cookie on logout."""
+    client = redis_app.test_client()
+
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q0": {
+                "question_name": "age_range_question",
+                "response_name": "age-range",
+                "value": "25-34",
+            }
+        }
+
+    cookie_name = redis_app.config["SESSION_COOKIE_NAME"]
+    cookie = client.get_cookie(cookie_name)
+    assert cookie is not None
+
+    key = f"sayt-ui:session:{cookie.value}"
+    assert key in redis_store
+
+    response = client.get("/logout")
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/login")
+    assert key not in redis_store
+    assert client.get_cookie(cookie_name) is None
+
+
+def test_redis_logout_only_clears_current_respondent_session(
+    redis_app: Flask,
+    redis_store: dict[str, bytes],
+) -> None:
+    """Clearing one Redis session must not affect another respondent."""
+    first_client = redis_app.test_client()
+    second_client = redis_app.test_client()
+
+    with first_client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "first@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q0": {
+                "question_name": "age_range_question",
+                "response_name": "age-range",
+                "value": "25-34",
+            }
+        }
+
+    with second_client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "second@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q0": {
+                "question_name": "age_range_question",
+                "response_name": "age-range",
+                "value": "35-44",
+            }
+        }
+
+    cookie_name = redis_app.config["SESSION_COOKIE_NAME"]
+
+    first_cookie = first_client.get_cookie(cookie_name)
+    second_cookie = second_client.get_cookie(cookie_name)
+
+    assert first_cookie is not None
+    assert second_cookie is not None
+    assert first_cookie.value != second_cookie.value
+
+    first_key = f"sayt-ui:session:{first_cookie.value}"
+    second_key = f"sayt-ui:session:{second_cookie.value}"
+
+    assert first_key in redis_store
+    assert second_key in redis_store
+
+    response = first_client.get("/logout")
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/login")
+
+    assert first_key not in redis_store
+    assert first_client.get_cookie(cookie_name) is None
+
+    assert second_key in redis_store
+    assert second_client.get_cookie(cookie_name) is not None
+
+    response = second_client.get("/survey/questions/q0")
+
+    assert response.status_code == HTTPStatus.OK
+
+    with second_client.session_transaction() as flask_session:
+        assert flask_session[SESSION_USER_KEY] == "second@example.com"
+        assert flask_session[SURVEY_RESPONSES_KEY]["q0"]["value"] == "35-44"
