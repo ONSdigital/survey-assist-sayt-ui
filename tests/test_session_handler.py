@@ -2,11 +2,14 @@
 
 from collections.abc import Callable
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 import logging
+from math import ceil
 
 from flask import Flask
 from flask.sessions import SecureCookieSessionInterface
+from flask.testing import FlaskClient
 from flask_session.redis import RedisSessionInterface
 import msgspec
 import pytest
@@ -20,6 +23,7 @@ from survey_assist_sayt_ui.auth.decorators import (
     SESSION_RESULT_USER_KEY,
     SESSION_USER_KEY,
 )
+from survey_assist_sayt_ui.auth.session_lifetime import login_deadline
 from survey_assist_sayt_ui.config import Settings, load_settings
 from survey_assist_sayt_ui.survey.session import (
     SURVEY_FEEDBACK_RESPONSES_KEY,
@@ -49,10 +53,15 @@ def redis_store_fixture(
         _client: Redis,
         name: str,
         value: bytes,
-        ex: int,
+        ex: int | None = None,
+        exat: int | None = None,
     ) -> bool:
-        """Store a serialized session with a positive expiry."""
-        assert ex > 0
+        """Store a session with either a relative or absolute expiry."""
+        assert (ex is None) != (exat is None)
+        if ex is not None:
+            assert ex > 0
+        if exat is not None:
+            assert exat > 0
         stored_values[name] = value
         return True
 
@@ -337,11 +346,11 @@ def test_redis_session_round_trip_preserves_existing_survey_data(
 ) -> None:
     """Save and reload authentication, survey and feedback via flask.session."""
     client = redis_app.test_client()
-
+    login_time = datetime.now(UTC).isoformat()
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
         flask_session[SESSION_RESULT_USER_KEY] = "11-01"
-        flask_session[SESSION_LOGIN_TIME_KEY] = "2026-09-25T09:00:00+00:00"
+        flask_session[SESSION_LOGIN_TIME_KEY] = login_time
         flask_session[SURVEY_RESPONSE_START_TIME_KEY] = "2026-09-25T09:05:00+00:00"
         flask_session[SURVEY_RESPONSES_KEY] = {
             "q-about-you": {
@@ -379,7 +388,7 @@ def test_redis_session_round_trip_preserves_existing_survey_data(
     stored = msgspec.msgpack.decode(redis_store[store_key])
     assert stored[SESSION_USER_KEY] == "person@example.com"
     assert stored[SESSION_RESULT_USER_KEY] == "11-01"
-    assert stored[SESSION_LOGIN_TIME_KEY] == "2026-09-25T09:00:00+00:00"
+    assert stored[SESSION_LOGIN_TIME_KEY] == login_time
     assert stored[SURVEY_RESPONSE_START_TIME_KEY] == "2026-09-25T09:05:00+00:00"
     assert stored[SURVEY_RESPONSES_KEY]["q0"] == {
         "question_name": "age_range_question",
@@ -404,3 +413,116 @@ def test_redis_session_round_trip_preserves_existing_survey_data(
         assert flask_session[SURVEY_RESPONSES_KEY]["q0"]["value"] == "25-34"
         assert flask_session[SURVEY_RESPONSES_KEY]["q-about-you"]["values"]["first-name"] == "Alex"
         assert flask_session[SURVEY_FEEDBACK_RESPONSES_KEY]["fq1"]["value"] == "easy"
+
+
+def test_login_deadline_is_fixed_at_exactly_fifteen_days() -> None:
+    """Do not extend the deadline when later requests occur."""
+    started = datetime(2026, 10, 1, 10, 0, tzinfo=UTC)
+
+    assert login_deadline(
+        started.isoformat(),
+        timedelta(days=15),
+    ) == datetime(2026, 10, 16, 10, 0, tzinfo=UTC)
+
+
+@pytest.mark.parametrize("login_time", [None, "", "invalid", "2026-10-01T10:00:00"])
+def test_login_deadline_rejects_invalid_timestamps(login_time: object) -> None:
+    """Reject incomplete authenticated sessions."""
+    with pytest.raises(ValueError):
+        login_deadline(login_time, timedelta(days=15))
+
+
+@pytest.mark.parametrize("days", ["0", "-1", "invalid"])
+def test_session_lifetime_rejects_invalid_days(
+    app: Flask,
+    days: str,
+) -> None:
+    """Validate lifetime in client mode as well as Redis mode."""
+    settings = app.config["settings"]
+    assert isinstance(settings, Settings)
+
+    with pytest.raises(ValueError, match="SESSION_LIFETIME_DAYS"):
+        session_handler.configure_session(
+            Flask(__name__),
+            replace(settings, session_lifetime_days=days),
+        )
+
+
+def test_client_session_expires_at_login_deadline(client: FlaskClient) -> None:
+    """Remove an expired signed client session before serving protected content."""
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = (datetime.now(UTC) - timedelta(days=16)).isoformat()
+        flask_session[SURVEY_RESPONSES_KEY] = {"q0": {"value": "old answer"}}
+
+    response = client.get("/survey/questions/q0")
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/login")
+    with client.session_transaction() as flask_session:
+        assert SESSION_USER_KEY not in flask_session
+        assert SURVEY_RESPONSES_KEY not in flask_session
+
+
+def test_redis_writes_keep_original_absolute_deadline(
+    redis_app: Flask,
+    redis_store: dict[str, bytes],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Saving another answer must not renew the Redis record's expiry."""
+    deadlines: list[int] = []
+    original_set = Redis.set
+
+    def record_set(
+        redis_client: Redis,
+        name: str,
+        value: bytes,
+        ex: int | None = None,
+        exat: int | None = None,
+    ) -> bool:
+        """Record an absolute expiry and pass the write to the stub store."""
+        if exat is not None:
+            deadlines.append(exat)
+        return original_set(redis_client, name, value, ex=ex, exat=exat)
+
+    monkeypatch.setattr(Redis, "set", record_set)
+    client = redis_app.test_client()
+    started = datetime.now(UTC) - timedelta(days=14)
+
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = started.isoformat()
+
+    first = client.post("/survey/questions/q0", data={"age-range": "25-34"})
+    assert first.status_code == HTTPStatus.FOUND
+    second = client.post("/survey/questions/q1", data={"job-title": "Teacher"})
+    assert second.status_code == HTTPStatus.FOUND
+
+    assert len(deadlines) >= 3
+    assert set(deadlines) == {ceil((started + timedelta(days=15)).timestamp())}
+    assert redis_store
+
+
+def test_redis_completion_deletes_record_and_cookie(
+    redis_app: Flask,
+    redis_store: dict[str, bytes],
+) -> None:
+    """Render completion before removing the respondent's Redis session."""
+    client = redis_app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
+        flask_session[SURVEY_RESPONSES_KEY] = {"q0": {"value": "25-34"}}
+
+    cookie = client.get_cookie(redis_app.config["SESSION_COOKIE_NAME"])
+    assert cookie is not None
+    key = f"sayt-ui:session:{cookie.value}"
+    assert key in redis_store
+
+    response = client.get("/survey/complete")
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Survey complete" in response.get_data(as_text=True)
+    assert key not in redis_store
+    assert client.get_cookie(redis_app.config["SESSION_COOKIE_NAME"]) is None
+    assert client.get("/survey/complete").status_code == HTTPStatus.FOUND

@@ -1,5 +1,6 @@
 """Tests for the main UI routes."""
 
+from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import cast
 
@@ -9,6 +10,7 @@ import pytest
 
 from survey_assist_sayt_ui.auth.decorators import (
     POST_LOGIN_REDIRECT_KEY,
+    SESSION_LOGIN_TIME_KEY,
     SESSION_USER_KEY,
 )
 from survey_assist_sayt_ui.services.business_activity import BusinessActivitySuggestion
@@ -57,6 +59,7 @@ def test_index_renders_for_authenticated_user(
     """Test rendering the landing page for an authenticated user."""
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
 
     response = client.get("/")
 
@@ -104,6 +107,7 @@ def test_survey_section_renders_configured_intro(
     """Test that the configured introduction is rendered."""
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
 
     response = client.get("/survey")
     response_text = response.get_data(as_text=True)
@@ -126,6 +130,7 @@ def test_index_shows_survey_section_when_intro_is_disabled(
 
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
 
     response = client.get("/")
 
@@ -139,6 +144,7 @@ def test_business_activity_suggestions_rejects_query_over_maximum_length(
     """Test that autosuggest queries longer than 100 characters are rejected."""
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
 
     response = client.get(
         "/api/business-activity-suggestions",
@@ -160,6 +166,7 @@ def test_business_activity_suggestions_returns_search_results(
 
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
 
     response = client.get(
         "/api/business-activity-suggestions",
@@ -183,6 +190,7 @@ def test_api_autosuggest_renders_self_describe_input(
     """Test API autosuggest renders the self-description control."""
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
 
     response = client.get("/api-autosuggest")
     response_text = response.get_data(as_text=True)
@@ -200,6 +208,7 @@ def test_api_autosuggest_requires_self_description_for_not_listed(
     """Test Not listed requires a free-text description."""
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
 
     response = client.post(
         "/api-autosuggest",
@@ -223,6 +232,7 @@ def test_api_autosuggest_uses_self_description_for_not_listed(
     """Test Not listed uses the supplied free-text description."""
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
 
     response = client.post(
         "/api-autosuggest",
@@ -245,6 +255,7 @@ def test_api_autosuggest_uses_selected_suggestion_when_not_listed_not_selected(
     """Test the selected suggestion is used normally."""
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
 
     response = client.post(
         "/api-autosuggest",
@@ -266,6 +277,7 @@ def test_api_autosuggest_rejects_invalid_not_listed_value(
     """Test an invalid Not listed value is rejected."""
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
 
     response = client.post(
         "/api-autosuggest",

@@ -1294,7 +1294,7 @@ def save_feedback_response(
 @survey_blueprint.get("/complete")
 @login_required
 def complete() -> ResponseReturnValue:
-    """Render the temporary survey completion page.
+    """Render the survey completion page.
 
     Returns:
         ResponseReturnValue: Completion page response.
@@ -1314,8 +1314,12 @@ def complete() -> ResponseReturnValue:
         feedback_responses,
     )
 
-    return render_template(
+    response = render_template(
         "survey_complete.html",
         responses=survey_responses,
         feedback_responses=feedback_responses,
     )
+
+    # Remove the session data on final page of exercise
+    session.clear()
+    return response
