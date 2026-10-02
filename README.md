@@ -135,6 +135,7 @@ The application configuration is read from environment variables at startup.
 | `REDIS_HOST` | Required when `SESSION_BACKEND=redis` | None | Redis hostname: `127.0.0.1` for a UI running locally; `redis` for the UI container in Podman Compose. |
 | `REDIS_PORT`                | No        | `6379`                                                     | Used when `SESSION_BACKEND` is set as `redis`|
 | `REDIS_MAX_CONNECTIONS`                | No                            |   `32`                                       | When `SESSION_BACKEND` is set to `redis` this variable defines the maximum number of connections|
+| `SESSION_LIFETIME_DAYS` | No | `15` | Positive number of days from successful login until authentication expires; applies to client and Redis sessions. Redis writes do not extend this deadline. |
 
 
 ### Example local environment
@@ -378,6 +379,12 @@ make podman-compose-down
 
 For local development, the Redis data is disposable and is not retained when its container is
 removed.
+
+When running in production, authenticated sessions expire 15 days after login, regardless of activity.
+Redis session keys receive that absolute expiry, and an expired client-side
+cookie is rejected at request time. Rendering `/survey/complete` clears the
+session after producing the page; refreshing completion requires signing in
+again. `/logout` also clears the session.
 
 
 ## Deploy to Cloud Run

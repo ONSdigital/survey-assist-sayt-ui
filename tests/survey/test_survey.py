@@ -1,7 +1,7 @@
 """Tests for configurable survey routes."""
 
 # pylint: disable=too-many-lines, duplicate-code
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import cast
 
@@ -54,10 +54,13 @@ def _set_result_session(
     client: FlaskClient,
 ) -> None:
     """Configure result metadata in the test session."""
+    login_time = datetime.now(UTC)
     with client.session_transaction() as flask_session:
         flask_session[SESSION_RESULT_USER_KEY] = "11-01"
-        flask_session[SESSION_LOGIN_TIME_KEY] = "2026-09-25T09:00:00+00:00"
-        flask_session[SURVEY_RESPONSE_START_TIME_KEY] = "2026-09-25T09:05:00+00:00"
+        flask_session[SESSION_LOGIN_TIME_KEY] = login_time.isoformat()
+        flask_session[SURVEY_RESPONSE_START_TIME_KEY] = (
+            login_time + timedelta(minutes=5)
+        ).isoformat()
 
 
 def _authenticate(client: FlaskClient) -> None:
@@ -68,6 +71,7 @@ def _authenticate(client: FlaskClient) -> None:
     """
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
 
 
 def _insert_guidance_page(
@@ -1604,6 +1608,10 @@ def test_submit_result_question_sends_result_before_continuing(
                 "value": "Primary school teacher",
             }
         }
+        expected_login_time = datetime.fromisoformat(flask_session[SESSION_LOGIN_TIME_KEY])
+        expected_response_start = datetime.fromisoformat(
+            flask_session[SURVEY_RESPONSE_START_TIME_KEY]
+        )
 
     response = client.post(
         "/survey/questions/q2",
@@ -1620,24 +1628,10 @@ def test_submit_result_question_sends_result_before_continuing(
     assert result.user == "11-01"
     assert result.case_id == "11"
 
-    assert result.time_start == datetime(
-        2026,
-        9,
-        25,
-        9,
-        0,
-        tzinfo=UTC,
-    )
+    assert result.time_start == expected_login_time
 
     assert result.responses[0].person_id == "11-01"
-    assert result.responses[0].time_start == datetime(
-        2026,
-        9,
-        25,
-        9,
-        5,
-        tzinfo=UTC,
-    )
+    assert result.responses[0].time_start == expected_response_start
 
     assert result.responses[0].time_end == result.time_end
 

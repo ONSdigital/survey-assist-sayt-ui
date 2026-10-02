@@ -1,30 +1,38 @@
-"""Configure the Flask session storage backend."""
+"""Configure client-side or Redis-backed Flask sessions."""
 
+from datetime import timedelta
 import logging
+from math import ceil
 
 from flask import Flask
-from flask_session import Session
+from flask_session.base import ServerSideSession
+from flask_session.redis.redis import RedisSessionInterface
 from redis import ConnectionPool, Redis
 from redis.exceptions import RedisError
 
+from survey_assist_sayt_ui.auth.decorators import (
+    SESSION_LOGIN_TIME_KEY,
+    SESSION_USER_KEY,
+)
+from survey_assist_sayt_ui.auth.session_lifetime import login_deadline
 from survey_assist_sayt_ui.config import Settings
 
 logger = logging.getLogger(__name__)
 
 
 def _positive_int(name: str, raw: str, *, maximum: int | None = None) -> int:
-    """Parse and validate a positive integer configuration value.
+    """Parse a positive integer configuration value.
 
     Args:
-        name: Configuration setting name, used in validation errors.
-        raw: String value to parse as an integer.
-        maximum: Optional inclusive upper bound for the parsed value.
+        name: Environment variable name for an error message.
+        raw: Unparsed value.
+        maximum: Optional inclusive upper bound.
 
     Returns:
-        The parsed positive integer.
+        Validated positive integer.
 
     Raises:
-        ValueError: If ``raw`` is not an integer or is outside the allowed range.
+        ValueError: If the value is invalid or outside its allowed range.
     """
     try:
         value = int(raw)
@@ -37,21 +45,63 @@ def _positive_int(name: str, raw: str, *, maximum: int | None = None) -> int:
     return value
 
 
-def configure_session(app: Flask, settings: Settings) -> None:
-    """Configure the Flask session backend from application settings.
+class AbsoluteExpiryRedisSessionInterface(RedisSessionInterface):
+    """Save authenticated Redis sessions with an expiry fixed at login."""
 
-    Client-side sessions are left unchanged. For Redis sessions, this validates
-    the connection settings, verifies Redis availability, and initializes
-    Flask-Session with the configured Redis client.
+    def _upsert_session(
+        self,
+        session_lifetime: timedelta,
+        session: ServerSideSession,
+        store_id: str,
+    ) -> None:
+        """Write a session without extending an authenticated login.
+
+        Args:
+            session_lifetime: Configured maximum lifetime.
+            session: Session being saved by Flask-Session.
+            store_id: Redis key assigned to this session.
+
+        Raises:
+            ValueError: If an authenticated session has an invalid login time.
+            RedisError: If Redis cannot save the session.
+        """
+        if not session.get(SESSION_USER_KEY):
+            super()._upsert_session(session_lifetime, session, store_id)
+            return
+
+        deadline = login_deadline(
+            session.get(SESSION_LOGIN_TIME_KEY),
+            session_lifetime,
+        )
+
+        serializer = self.serializer
+        if serializer is None:
+            raise RuntimeError("Redis session serializer is not configured")
+
+        self.client.set(
+            name=store_id,
+            value=serializer.encode(session),
+            exat=ceil(deadline.timestamp()),
+        )
+
+
+def configure_session(app: Flask, settings: Settings) -> None:
+    """Configure the session backend and the maximum login lifetime.
 
     Args:
-        app: Flask application whose session configuration will be updated.
-        settings: Application settings containing session backend details.
+        app: Flask application to configure.
+        settings: Runtime application settings.
 
     Raises:
-        ValueError: If the backend or its required Redis settings are invalid.
-        RuntimeError: If Redis is unavailable or does not acknowledge the ping.
+        ValueError: If session or Redis configuration is invalid.
+        RuntimeError: If the configured Redis store is unavailable at startup.
     """
+    lifetime_days = _positive_int(
+        "SESSION_LIFETIME_DAYS",
+        settings.session_lifetime_days,
+    )
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=lifetime_days)
+
     backend = settings.session_backend.strip().lower()
 
     if backend == "client":
@@ -64,7 +114,10 @@ def configure_session(app: Flask, settings: Settings) -> None:
         raise ValueError("REDIS_HOST is required when SESSION_BACKEND=redis")
 
     port = _positive_int("REDIS_PORT", settings.redis_port, maximum=65535)
-    max_connections = _positive_int("REDIS_MAX_CONNECTIONS", settings.redis_max_connections)
+    max_connections = _positive_int(
+        "REDIS_MAX_CONNECTIONS",
+        settings.redis_max_connections,
+    )
 
     pool = ConnectionPool(
         host=host.strip(),
@@ -93,4 +146,11 @@ def configure_session(app: Flask, settings: Settings) -> None:
         SESSION_PERMANENT=False,
         SESSION_REFRESH_EACH_REQUEST=False,
     )
-    Session(app)  # type: ignore[no-untyped-call]
+
+    app.session_interface = AbsoluteExpiryRedisSessionInterface(
+        app=app,
+        client=redis_client,
+        key_prefix=app.config["SESSION_KEY_PREFIX"],
+        permanent=app.config["SESSION_PERMANENT"],
+        serialization_format=app.config["SESSION_SERIALIZATION_FORMAT"],
+    )
