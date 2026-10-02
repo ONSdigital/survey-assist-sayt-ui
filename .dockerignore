@@ -1,0 +1,15 @@
+.git
+.gitignore
+.venv
+.env
+.env.*
+!.env.example
+*users.json
+node_modules
+__pycache__
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+.DS_Store

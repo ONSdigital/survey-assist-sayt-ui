@@ -1,0 +1,7 @@
+services:
+  ui:
+    environment:
+      SESSION_BACKEND: redis
+    depends_on:
+      redis:
+        condition: service_healthy

@@ -18,6 +18,7 @@ CONTAINER_BUILD_ARGS = \
 .PHONY: help all clean install templates run run-docs all-tests test lint format \
 	check-python check-python-nofix \
 	docker-build docker-run podman-build podman-run \
+	podman-compose-up podman-compose-redis-up podman-compose-down podman-compose-logs \
 	manage-users pre-commit-install pre-commit-run pre-push-run \
 	secrets-baseline show-build-metadata
 
@@ -98,6 +99,18 @@ podman-run:  ## Run the Podman container.
 		-e GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-key.json \
 		--env-file .env \
 		$(IMAGE_NAME)
+
+podman-compose-up: ## Build and start the local UI (client sessions) and Redis.
+	CRED_FILE="$(CRED_FILE)" podman compose -f docker-compose.yaml up --build -d
+
+podman-compose-redis-up: ## Build and start the local UI with Redis sessions.
+	CRED_FILE="$(CRED_FILE)" podman compose -f docker-compose.yaml -f docker-compose.redis.yaml up --build -d
+
+podman-compose-down: ## Stop and remove the local UI and Redis containers.
+	CRED_FILE="$(CRED_FILE)" podman compose -f docker-compose.yaml down
+
+podman-compose-logs: ## Follow logs from the local Compose UI.
+	CRED_FILE="$(CRED_FILE)" podman compose -f docker-compose.yaml logs -f ui
 
 manage-users:  ## Show user management commands
 	poetry run python scripts/provision_users.py --help
