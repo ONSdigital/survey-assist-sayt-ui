@@ -5,7 +5,7 @@ SHELL := /bin/bash
 PY ?= python
 PKG ?= survey_assist_sayt_ui
 IMAGE_NAME ?= survey-assist-sayt-ui
-CRED_FILE ?= $(HOME)/gcp-project-creds-ui.json
+CRED_FILE ?= $(HOME)/.config/gcloud/application_default_credentials.json
 VERSION ?= $(shell poetry version -s 2>/dev/null || echo 0.0.0+unknown)
 GIT_SHA ?= $(shell git rev-parse --short=7 HEAD 2>/dev/null || echo unknown)
 BUILD_DATE ?= $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
