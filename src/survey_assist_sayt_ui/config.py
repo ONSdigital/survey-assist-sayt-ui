@@ -30,6 +30,7 @@ class Settings:  # pylint: disable=too-many-instance-attributes
         redis_host: Redis server host (if using Redis backend).
         redis_port: Redis server port.
         redis_max_connections: Maximum number of Redis connections.
+        session_lifetime_days: Fixed lifetime, in days, from successful login.
     """
 
     secret_key: str
@@ -46,6 +47,7 @@ class Settings:  # pylint: disable=too-many-instance-attributes
     redis_host: str | None = None
     redis_port: str = "6379"
     redis_max_connections: str = "32"
+    session_lifetime_days: str = "15"
 
 
 def _bool_from_env(name: str, default: bool = False) -> bool:
@@ -87,6 +89,7 @@ def load_settings() -> Settings:
         redis_host=os.getenv("REDIS_HOST"),
         redis_port=os.getenv("REDIS_PORT", "6379"),
         redis_max_connections=os.getenv("REDIS_MAX_CONNECTIONS", "32"),
+        session_lifetime_days=os.getenv("SESSION_LIFETIME_DAYS", "15"),
     )
 
 

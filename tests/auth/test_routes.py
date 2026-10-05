@@ -1,6 +1,6 @@
 """Tests for authentication routes."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from http import HTTPStatus
 
 from flask import Flask
@@ -28,6 +28,7 @@ def test_login_redirects_authenticated_user(client: FlaskClient) -> None:
     """Test that an authenticated user is redirected from the login page."""
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
 
     response = client.get("/login")
 
@@ -108,6 +109,7 @@ def test_check_login_creates_session_and_redirects_to_index(
     with client.session_transaction() as flask_session:
         assert flask_session[SESSION_USER_KEY] == "person@example.com"
         assert flask_session[SESSION_RESULT_USER_KEY] == "11-01"
+        assert SESSION_LOGIN_TIME_KEY in flask_session
 
         login_time = datetime.fromisoformat(flask_session[SESSION_LOGIN_TIME_KEY])
         assert login_time.tzinfo is not None
@@ -152,6 +154,7 @@ def test_logout_clears_session_and_redirects_to_login(
     """Test that logout clears authentication session data."""
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
         flask_session["other-value"] = "value"
 
     response = client.get("/logout")
@@ -161,4 +164,5 @@ def test_logout_clears_session_and_redirects_to_login(
 
     with client.session_transaction() as flask_session:
         assert SESSION_USER_KEY not in flask_session
+        assert SESSION_LOGIN_TIME_KEY not in flask_session
         assert "other-value" not in flask_session

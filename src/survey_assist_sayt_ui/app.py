@@ -4,14 +4,21 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 import logging
 from pathlib import Path
 from urllib.parse import urlparse
 
-from flask import Flask, request
+from flask import Flask, redirect, request, session, url_for
+from flask.typing import ResponseReturnValue
 from jinja2 import ChainableUndefined, ChoiceLoader, FileSystemLoader
 from survey_assist_utils.api_token.jwt_utils import check_and_refresh_token
 
+from survey_assist_sayt_ui.auth.decorators import (
+    SESSION_LOGIN_TIME_KEY,
+    SESSION_USER_KEY,
+)
+from survey_assist_sayt_ui.auth.session_lifetime import login_deadline
 from survey_assist_sayt_ui.services.business_activity import HttpBusinessActivitySearchClient
 from survey_assist_sayt_ui.services.result_submission import (
     HttpSurveyResultSubmissionClient,
@@ -56,7 +63,7 @@ def _get_api_gateway_hostname(api_url: str) -> str:
     return hostname
 
 
-def create_app(  # pylint: disable=too-many-locals
+def create_app(  # pylint: disable=too-many-locals, too-many-statements
     settings: Settings | None = None,
     auth_service: AuthService | None = None,
     survey_definition: SurveyDefinition | None = None,
@@ -140,6 +147,8 @@ def create_app(  # pylint: disable=too-many-locals
     # Configure session handling for Redis if the session backend is set accordingly
     configure_session(app, resolved_settings)
 
+    logger.info("Configured session backend=%s", resolved_settings.session_backend)
+
     app.extensions["survey_definition"] = resolved_survey_definition
 
     # Setup the shared Survey Assist API client with a short-lived JWT token
@@ -171,6 +180,33 @@ def create_app(  # pylint: disable=too-many-locals
     app.register_blueprint(main_blueprint)
     app.register_blueprint(meta_blueprint)
     app.register_blueprint(survey_blueprint)
+
+    @app.before_request
+    def expire_authenticated_session() -> ResponseReturnValue | None:
+        """Reject an authenticated session at its fixed login deadline.
+
+        Returns:
+            A login redirect for an expired or invalid session, otherwise None.
+        """
+        if not session.get(SESSION_USER_KEY):
+            return None
+
+        try:
+            deadline = login_deadline(
+                session.get(SESSION_LOGIN_TIME_KEY),
+                app.permanent_session_lifetime,
+            )
+        except ValueError:
+            logger.warning("Clearing authenticated session with invalid login time")
+            session.clear()
+            return redirect(url_for("auth.login"))
+
+        if datetime.now(UTC) >= deadline:
+            logger.info("Clearing expired authenticated session")
+            session.clear()
+            return redirect(url_for("auth.login"))
+
+        return None
 
     @app.context_processor
     def inject_settings() -> dict[str, Settings]:
