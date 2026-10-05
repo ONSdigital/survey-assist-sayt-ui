@@ -135,6 +135,9 @@ The application configuration is read from environment variables at startup.
 | `REDIS_HOST` | Required when `SESSION_BACKEND=redis` | None | Redis hostname: `127.0.0.1` for a UI running locally; `redis` for the UI container in Podman Compose. |
 | `REDIS_PORT`                | No        | `6379`                                                     | Used when `SESSION_BACKEND` is set as `redis`|
 | `REDIS_MAX_CONNECTIONS`                | No                            |   `32`                                       | When `SESSION_BACKEND` is set to `redis` this variable defines the maximum number of connections|
+| `REDIS_PASSWORD` | No | None | Redis authentication password. Configure for local password testing and for Memorystore when Redis is enabled. |
+| `REDIS_USE_TLS` | No | `false` | Enables TLS for the Redis connection. Set to `true` for the GCP deployment, set to `false` for local dev testing  |
+| `REDIS_CA_CERT_DATA` | Required when `REDIS_USE_TLS=true` | None | PEM encoded CA certificate used to verify the TLS certificate presented by Memorystore. |
 | `SESSION_LIFETIME_DAYS` | No | `15` | Positive number of days from successful login until authentication expires; applies to client and Redis sessions. Redis writes do not extend this deadline. |
 
 
@@ -457,15 +460,16 @@ podman machine start  # Only if the machine is stopped
 In a separate terminal, run Redis with its port exposed on localhost
 
 ```bash
+export REDIS_PASSWORD="not-a-real-password"  # pragma: allowlist secret
 podman run --rm --name sayt-ui-redis \
   -p 127.0.0.1:6379:6379 \
-  docker.io/library/redis:7-alpine
+  docker.io/library/redis:7-alpine redis-server --requirepass "${REDIS_PASSWORD}"
 ```
 
 Check Redis responds, in another terminal execute:
 
 ```bash
-podman exec sayt-ui-redis redis-cli PING
+podman exec -e REDISCLI_AUTH="${REDIS_PASSWORD}" sayt-ui-redis redis-cli PING
 ```
 
 The Redis instance should respond ```PONG```
@@ -478,6 +482,8 @@ Ensure the following env vars are set:
 SESSION_BACKEND=redis
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
+REDIS_PASSWORD=not-a-real-password
+REDIS_USE_TLS=false
 ```
 
 Start the UI
@@ -510,6 +516,17 @@ REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
 
 You will need to provide the session-id that you want to inspect e.g ```lbIaNIf0gGAyR-5wI5H--XB0cj_9bUZK-_pYE6WjJ1o```, the output should show a session structure including the stored values.
 
+
+### Environment variables for Cloud Run / Memorystore
+
+```bash
+SESSION_BACKEND=redis
+REDIS_HOST=<memorystore-ip>
+REDIS_PORT=<memorystore-tls-port>
+REDIS_PASSWORD=<from-secret-manager>
+REDIS_USE_TLS=true
+REDIS_CA_CERT_DATA=<memorystore-ca-pem>
+```
 
 ## Extending the code
 

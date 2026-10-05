@@ -14,6 +14,8 @@ services:
       SESSION_COOKIE_SECURE: "false"
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_USE_TLS: "false"
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
@@ -28,11 +30,23 @@ services:
 
   redis:
     image: docker.io/library/redis:7-alpine
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    command:
+      [
+        "redis-server",
+        "--save",
+        "",
+        "--appendonly",
+        "no",
+        "--requirepass",
+        "${REDIS_PASSWORD}",
+      ]
     ports:
       - "127.0.0.1:6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [
+        "CMD-SHELL",
+        "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep PONG",
+      ]
       interval: 5s
       timeout: 3s
       retries: 10
