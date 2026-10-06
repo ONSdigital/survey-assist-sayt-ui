@@ -30,7 +30,7 @@ gcloud auth application-default login
 This creates a credentials file at `~/.config/gcloud/application_default_credentials.json`.
 The container Make targets use `~/gcp-project-creds-ui.json` as the default `CRED_FILE` value.
 
-If you want to override the default, set `CRED_FILE` to use the Application Default Credentials file:
+If you want to override the default, you can set `CRED_FILE` to use an alternative path i.e:
 
 ```
 export CRED_FILE="${HOME}/.config/gcloud/application_default_credentials.json"
@@ -140,9 +140,7 @@ You should be redirected to `/login`. Use the login information for a user added
 Ensure you have completed the [local setup steps](#install-and-run-locally) first.
 
 Docker and Podman use equivalent Make targets.
-The image build does not use `.env`, `users.json`, or Google credentials.
-The container run targets load `.env` and mount `users.json` and the credentials file.
-Use `LOCAL_USERS_FILE=users.json` for local and container execution.
+The container run targets load `.env` and mount `users.json` and the credentials file `CRED_FILE`.
 
 The default `CRED_FILE` value is `~/gcp-project-creds-ui.json`.
 Override it when necessary:
@@ -392,12 +390,6 @@ SESSION_COOKIE_SECURE=true
 
 The Cloud Run service account needs permission to read the object, for example `roles/storage.objectViewer` scoped to the bucket.
 
-## Session lifetime
-
-Authenticated sessions expire after `SESSION_LIFETIME_DAYS`, regardless of activity.
-Redis writes do not extend this deadline.
-The app clears the session after it renders `/survey/complete` and after `/logout`.
-
 ## Deploy to Cloud Run
 
 Create a Secret Manager secret that contains a strong Flask secret key before you deploy:
@@ -460,6 +452,12 @@ Provide the session ID from the previous step. The output shows the session stru
 
 **Warning:** Pass `--show-values` only for test responses; it prints personal and survey data. Do not share the session ID or decoded record.
 
+## Session lifetime
+
+Authenticated sessions expire after `SESSION_LIFETIME_DAYS`, regardless of activity.
+Redis writes do not extend this deadline.
+The app clears the session after it renders `/survey/complete` and after `/logout`.
+
 ## Routes
 
 | Route            | Purpose                             |
@@ -493,8 +491,6 @@ To run the checks without applying Ruff fixes or formatting changes:
 ```bash
 make check-python-nofix
 ```
-
-
 
 ## Extending the code
 
