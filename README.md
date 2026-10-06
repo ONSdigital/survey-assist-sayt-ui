@@ -137,7 +137,7 @@ The application configuration is read from environment variables at startup.
 | `REDIS_MAX_CONNECTIONS`                | No                            |   `32`                                       | When `SESSION_BACKEND` is set to `redis` this variable defines the maximum number of connections|
 | `REDIS_PASSWORD` | No | None | Redis authentication password. Configure for local password testing and for Memorystore when Redis is enabled. |
 | `REDIS_USE_TLS` | No | `false` | Enables TLS for the Redis connection. Set to `true` for the GCP deployment, set to `false` for local dev testing  |
-| `REDIS_CA_CERT_DATA` | Required when `REDIS_USE_TLS=true` | None | PEM encoded CA certificate used to verify the TLS certificate presented by Memorystore. |
+| `REDIS_CA_CERT_DATA` | Required when `REDIS_USE_TLS=true` | None | PEM encoded CA certificate used to verify the TLS certificate presented by Memorystore. Memorystore is accessed using its instance IP address rather than a DNS hostname. Hostname verification is therefore disabled, while certificate verification remains required against the configured Memorystore CA.|
 | `SESSION_LIFETIME_DAYS` | No | `15` | Positive number of days from successful login until authentication expires; applies to client and Redis sessions. Redis writes do not extend this deadline. |
 
 
