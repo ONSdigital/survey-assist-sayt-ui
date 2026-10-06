@@ -265,7 +265,7 @@ The application configuration is read from environment variables at startup.
 | `LOCAL_USERS_FILE` | No | `users.json` | Path to the users file when `AUTH_MODE=local`. The supplied container commands mount it at `/app/users.json`. |
 | `GCP_AUTH_BUCKET_NAME` | Required when `AUTH_MODE=gcs` | None | GCS bucket that contains the users file. |
 | `GCP_AUTH_BLOB_NAME` | No | `users.json` | GCS object name for the users file. |
-| `SESSION_COOKIE_SECURE` | No | `false` | Set `false` for local HTTP development. Set `true` in Cloud Run. |
+| `SESSION_COOKIE_SECURE` | No | `false` | Whether the session cookie is HTTPS-only. Set `false` for local HTTP development. Set `true` in Cloud Run. |
 | `GOOGLE_APPLICATION_CREDENTIALS` | No | Google ADC discovery | Optional Google credentials path. Container Make targets set it for the mounted credentials file. |
 | `SESSION_BACKEND` | No | `client` | Session storage backend. Use `client` or `redis`. |
 | `REDIS_HOST` | Required when `SESSION_BACKEND=redis` | None | Redis hostname. Use `127.0.0.1` for a local UI or `redis` in Podman Compose. |
