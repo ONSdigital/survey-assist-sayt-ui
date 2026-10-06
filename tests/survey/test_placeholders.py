@@ -32,7 +32,7 @@ def test_resolve_question_text_replaces_saved_response(
         responses,
     )
 
-    assert result == ("Describe what you do in that job or business as a " "primary school teacher")
+    assert result == ("Describe what you do in that job or business as a primary school teacher")
 
 
 def test_resolve_question_text_raises_when_response_is_missing(

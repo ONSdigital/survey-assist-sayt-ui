@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from functools import wraps
-from typing import ParamSpec, TypeVar, cast
+from typing import cast
 
 from flask import redirect, request, session, url_for
 from flask.typing import ResponseReturnValue
@@ -14,23 +14,22 @@ SESSION_RESULT_USER_KEY = "result_user"
 SESSION_LOGIN_TIME_KEY = "login_time"
 POST_LOGIN_REDIRECT_KEY = "post_login_redirect"
 
-P = ParamSpec("P")
-R = TypeVar("R", bound=ResponseReturnValue)
 
-
-def login_required(view: Callable[P, R]) -> Callable[P, ResponseReturnValue]:
+def login_required[**Params, R: ResponseReturnValue](
+    view: Callable[Params, R],
+) -> Callable[Params, ResponseReturnValue]:
     """Require an authenticated user for the wrapped route.
 
     Args:
         view: Route handler to guard.
 
     Returns:
-        Callable[P, ResponseReturnValue]: Wrapped handler that redirects
+        Callable[Params, ResponseReturnValue]: Wrapped handler that redirects
         unauthenticated requests to sign in.
     """
 
     @wraps(view)
-    def wrapped_view(*args: P.args, **kwargs: P.kwargs) -> ResponseReturnValue:
+    def wrapped_view(*args: Params.args, **kwargs: Params.kwargs) -> ResponseReturnValue:
         """Execute the wrapped view when authenticated.
 
         Args:

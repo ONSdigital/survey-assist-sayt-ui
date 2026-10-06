@@ -3,11 +3,11 @@
     "build:js": "esbuild frontend/js/remote-autosuggest.js --bundle --minify --format=iife --target=es2020 --outfile=src/survey_assist_sayt_ui/static/js/remote-autosuggest.bundle.js"
   },
   "dependencies": {
-    "@ons/design-system": "73.7.0",
+    "@ons/design-system": "73.13.1",
     "dompurify": "3.4.16",
-    "fuse.js": "7.0.0"
+    "fuse.js": "7.5.0"
   },
   "devDependencies": {
-    "esbuild": "0.25.5"
+    "esbuild": "0.28.2"
   }
 }

@@ -1,11 +1,11 @@
 """Request and response models for Survey Assist suggestions."""
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class SuggestionType(str, Enum):
+class SuggestionType(StrEnum):
     """Supported suggestion sources."""
 
     SIC = "sic"

@@ -366,7 +366,7 @@ def _validate_inline_content(items: list[object]) -> None:
 
         if item_type not in SUPPORTED_INLINE_TYPES:
             raise SurveyDefinitionInvalidError(
-                f"Unsupported inline content type {item_type!r} " f"at position {index}"
+                f"Unsupported inline content type {item_type!r} at position {index}"
             )
 
         _require_non_empty_string(item, "text")
@@ -464,7 +464,7 @@ def _validate_survey_pages(
 
     if start_page_id not in page_ids:
         raise SurveyDefinitionInvalidError(
-            "start_page_id does not match a survey page: " f"{start_page_id!r}"
+            f"start_page_id does not match a survey page: {start_page_id!r}"
         )
 
     _validate_radio_routing(
@@ -543,7 +543,7 @@ def _validate_question_placeholders(
 
         if placeholder not in question_text:
             raise SurveyDefinitionInvalidError(
-                f"Question placeholder {placeholder!r} does not " "appear in question.text"
+                f"Question placeholder {placeholder!r} does not appear in question.text"
             )
 
         if source_question_name not in preceding_question_names:
@@ -707,7 +707,7 @@ def _validate_multi_text_answer(
 
     if not 1 <= len(fields) <= MAX_MULTI_TEXT_FIELDS:
         raise SurveyDefinitionInvalidError(
-            "Multi-text answers must define between " f"1 and {MAX_MULTI_TEXT_FIELDS} fields"
+            f"Multi-text answers must define between 1 and {MAX_MULTI_TEXT_FIELDS} fields"
         )
 
     field_names: set[str] = set()
@@ -734,7 +734,7 @@ def _validate_multi_text_answer(
 
         if not isinstance(field.get("required"), bool):
             raise SurveyDefinitionInvalidError(
-                f"Multi-text field {field_name!r} " "required must be a boolean"
+                f"Multi-text field {field_name!r} required must be a boolean"
             )
 
         for optional_field_name in (
@@ -899,7 +899,7 @@ def _validate_api_autosuggest_answer(
 
         if value is not None and (not isinstance(value, str) or not value.strip()):
             raise SurveyDefinitionInvalidError(
-                f"answer.self_describe.{field_name} " "must be a non-empty string"
+                f"answer.self_describe.{field_name} must be a non-empty string"
             )
 
 
@@ -992,7 +992,7 @@ def _validate_survey_feedback(
 
         if question_name in question_names:
             raise SurveyDefinitionInvalidError(
-                f"Duplicate survey feedback question name: " f"{question_name!r}"
+                f"Duplicate survey feedback question name: {question_name!r}"
             )
 
         if page.get("page_type") != "question":
@@ -1007,7 +1007,7 @@ def _validate_survey_feedback(
 
     if start_page_id not in page_ids:
         raise SurveyDefinitionInvalidError(
-            "survey_feedback.start_page_id does not match " f"a feedback page: {start_page_id!r}"
+            f"survey_feedback.start_page_id does not match a feedback page: {start_page_id!r}"
         )
 
     _validate_radio_routing(

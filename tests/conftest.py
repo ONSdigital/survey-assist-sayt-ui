@@ -133,7 +133,7 @@ def survey_definition_fixture() -> SurveyDefinition:
                     "page_title": "Job Title",
                     "question_name": "job_title_question",
                     "question": {
-                        "text": ("What is the exact job title for your main " "job or business?"),
+                        "text": ("What is the exact job title for your main job or business?"),
                     },
                     "answer": {
                         "type": "text",
@@ -154,7 +154,7 @@ def survey_definition_fixture() -> SurveyDefinition:
                     "question_name": "job_description_question",
                     "question": {
                         "text": (
-                            "Describe what you do in that job or business as a " "PLACEHOLDER_TEXT"
+                            "Describe what you do in that job or business as a PLACEHOLDER_TEXT"
                         ),
                         "placeholders": [
                             {
@@ -194,7 +194,7 @@ def question_page_fixture() -> QuestionPage:
         "page_title": "Job Description",
         "question_name": "job_description_question",
         "question": {
-            "text": ("Describe what you do in that job or business as a " "PLACEHOLDER_TEXT"),
+            "text": ("Describe what you do in that job or business as a PLACEHOLDER_TEXT"),
             "placeholders": [
                 {
                     "placeholder": "PLACEHOLDER_TEXT",
@@ -229,7 +229,7 @@ def api_autosuggest_page_fixture() -> QuestionPage:
         "page_title": "Business Activity",
         "question_name": "business_activity_question",
         "question": {
-            "text": ("What is the main activity of the business " "or freelance work?"),
+            "text": ("What is the main activity of the business or freelance work?"),
         },
         "answer": {
             "type": "api_autosuggest",
@@ -260,7 +260,7 @@ def survey_feedback_fixture() -> SurveyFeedback:
                 "page_title": "Survey Ease",
                 "question_name": "survey_ease_question",
                 "question": {
-                    "text": ("In general, how easy or difficult " "did you find this survey?"),
+                    "text": ("In general, how easy or difficult did you find this survey?"),
                 },
                 "answer": {
                     "type": "radio",
@@ -289,7 +289,7 @@ def survey_feedback_fixture() -> SurveyFeedback:
                 "page_title": "Other Feedback",
                 "question_name": "other_feedback_question",
                 "question": {
-                    "text": ("Do you have any other feedback " "about this survey?"),
+                    "text": ("Do you have any other feedback about this survey?"),
                 },
                 "answer": {
                     "type": "text",
