@@ -114,7 +114,7 @@ def main() -> int:
         print("Error: REDIS_HOST must be configured", file=sys.stderr)
         return 1
 
-    password = os.getenv("REDIS_PASSWORD", "").strip()
+    password = os.getenv("REDIS_PASSWORD", "")
     if not password:
         print("Error: REDIS_PASSWORD must be configured", file=sys.stderr)
         return 1
