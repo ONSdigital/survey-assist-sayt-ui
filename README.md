@@ -164,7 +164,7 @@ When testing with `SESSION_BACKEND=redis`, you can inspect a saved session
 without displaying its values by default:
 
 ```bash
-REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
+REDIS_PASSWORD=<redis password> REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
   poetry run python scripts/inspect_redis_session.py
 ```
 
@@ -309,7 +309,10 @@ podman machine start  # Only if the existing machine is stopped
 `podman compose` requires an installed Compose provider (`docker-compose` or `podman-compose`).
 It is a Podman command that delegates Compose file handling to that provider; check `podman compose --help` before proceeding.
 
-Create `.env` from `.env.example` and configure `SURVEY_ASSIST_API_BASE_URL`, `SA_EMAIL` and `FLASK_SECRET_KEY`.
+Create `.env` from `.env.example` and configure `SURVEY_ASSIST_API_BASE_URL`, `SA_EMAIL`, `FLASK_SECRET_KEY` and `REDIS_PASSWORD`.
+
+`REDIS_PASSWORD` is used by both the local Redis container and the UI.
+Local Compose Redis does not use TLS; `REDIS_USE_TLS` is forced to `false`.
 
 Create `users.json` using the local-user instructions above.
 
@@ -348,7 +351,8 @@ To inspect the Compose setup and verify Redis:
 
 ```bash
 export CRED_FILE="${HOME}/gcp-project-creds-ui.json"
-podman compose -f docker-compose.yaml exec redis redis-cli PING
+podman compose -f docker-compose.yaml exec redis \
+  sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli PING'
 ```
 
 Replace the exported `CRED_FILE` path if needed. If Redis is running you should see `PONG`.
@@ -361,13 +365,13 @@ Check that a corresponding Redis key exists:
 
 ```bash
 podman compose -f docker-compose.yaml exec redis \
-  redis-cli --scan --pattern 'sayt-ui:session:*'
+  sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli --scan --pattern "sayt-ui:session:*"'
 ```
 
 The existing inspection script can read that local test record:
 
 ```bash
-REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
+REDIS_PASSWORD=<redis password> REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
   poetry run python scripts/inspect_redis_session.py
 ```
 
@@ -495,7 +499,10 @@ Start the UI
 Check that a server-side session key was created without displaying its contents
 
 ```
-podman exec sayt-ui-redis redis-cli --scan --pattern 'sayt-ui:session:*'
+podman exec \
+  -e REDISCLI_AUTH="${REDIS_PASSWORD}" \
+  sayt-ui-redis \
+  redis-cli --scan --pattern 'sayt-ui:session:*'
 ```
 
 When you are **signed in** to the UI you should see a session id like:
@@ -509,7 +516,7 @@ sayt-ui:session:lbIaNIf0gGAyR-5wI5H--XB0cj_9bUZK-_pYE6WjJ1o
 When you **complete the survey questions**, you can inspect a saved session displaying its values using the script ```inspect_redis_session.py```:
 
 ```bash
-REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
+REDIS_PASSWORD=<redis password> REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
   poetry run python scripts/inspect_redis_session.py --show-values
 ```
 

@@ -14,7 +14,7 @@ services:
       SESSION_COOKIE_SECURE: "false"
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
       REDIS_USE_TLS: "false"
     ports:
       - "127.0.0.1:8000:8000"
@@ -30,6 +30,8 @@ services:
 
   redis:
     image: docker.io/library/redis:7-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
     command:
       [
         "redis-server",
