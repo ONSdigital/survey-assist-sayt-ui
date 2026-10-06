@@ -22,6 +22,9 @@ pydantic = "^2.13.5"
 flask-session = "^0.8.0"
 redis = "^8.1.0"
 msgspec = "^0.22.0"
+anyio = "^4.14.2"
+cryptography = "^50.0.0"
+pyasn1 = "^0.6.4"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.6.8"
@@ -32,6 +35,7 @@ bandit = "^1.7.9"
 pre-commit = "^3.7.0"
 pylint = "^4.0.6"
 mkdocs-material = "^9.7.6"
+pymdown-extensions = "^11.0.1"
 detect-secrets = "^1.5.0"
 deptry = "^0.25.1"
 
