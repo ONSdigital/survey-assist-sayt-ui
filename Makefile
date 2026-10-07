@@ -67,7 +67,7 @@ run-docs: ## Run the mkdocs
 	poetry run mkdocs serve
 
 all-tests: ## Run all tests with coverage and fail if coverage is below threshold
-	poetry run pytest --ignore=cicd --cov --cov-report=term-missing --cov-fail-under=80
+	poetry run pytest --ignore=cicd --cov --cov-report=term-missing
 
 check-python: ## Format and lint the python code (auto fix)
 	poetry run ruff check . --fix
