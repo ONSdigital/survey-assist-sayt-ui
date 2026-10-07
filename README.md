@@ -269,10 +269,12 @@ make docker-build
 make docker-run
 ```
 
-By default `CRED_FILE` is `~/gcp-project-creds-ui.json`. Override it when necessary, for example:
+By default, the Makefile uses
+`~/.config/gcloud/application_default_credentials.json`, where `gcloud auth
+application-default login` writes Application Default Credentials. Override it when necessary, for example with a file in your home directory.
 
 ```bash
-make docker-run CRED_FILE=/path/to/credentials.json
+make docker-run CRED_FILE="${HOME}/gcp-project-creds-ui.json"
 ```
 
 The container is available at:
@@ -319,8 +321,6 @@ Create `users.json` using the local-user instructions above.
 Make sure the Google credentials file configured by
 `CRED_FILE` exists and can sign API tokens for `SA_EMAIL`.
 
-By default the Makefile expects `~/gcp-project-creds-ui.json`; you can override `CRED_FILE` with an absolute file path if yours is elsewhere.
-
 The API URL must be reachable **from inside the UI container**.
 
 Start both containers while keeping the existing client-side Flask sessions:
@@ -350,7 +350,7 @@ make podman-compose-logs
 To inspect the Compose setup and verify Redis:
 
 ```bash
-export CRED_FILE="${HOME}/gcp-project-creds-ui.json"
+export CRED_FILE="${HOME}/.config/gcloud/application_default_credentials.json"
 podman compose -f docker-compose.yaml exec redis redis-cli PING
 ```
 
