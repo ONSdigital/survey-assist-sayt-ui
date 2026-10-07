@@ -4,7 +4,7 @@
   },
   "dependencies": {
     "@ons/design-system": "73.7.0",
-    "dompurify": "3.2.6",
+    "dompurify": "3.4.16",
     "fuse.js": "7.0.0"
   },
   "devDependencies": {
