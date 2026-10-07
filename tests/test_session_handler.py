@@ -236,28 +236,26 @@ def test_redis_backend_configures_flask_session(
 
 
 def test_redis_backend_configures_password(
-    app: Flask,
-    redis_store: dict[str, bytes],
+    redis_app: Flask,
 ) -> None:
     """Pass the configured Redis password to the connection pool."""
-    assert redis_store == {}
-
-    settings = app.config["settings"]
+    settings = redis_app.config["settings"]
     assert isinstance(settings, Settings)
 
     session_handler.configure_session(
-        app,
+        redis_app,
         replace(
             settings,
-            session_backend="redis",
-            redis_host="localhost",
             redis_password=TEST_REDIS_PASSWORD,
         ),
     )
 
-    redis_client = app.config["SESSION_REDIS"]
-    assert isinstance(redis_client, Redis)
-    assert redis_client.connection_pool.connection_kwargs["password"] == TEST_REDIS_PASSWORD
+    session_interface = redis_app.session_interface
+    assert isinstance(session_interface, RedisSessionInterface)
+
+    pool = session_interface.client.connection_pool
+
+    assert pool.connection_kwargs["password"] == TEST_REDIS_PASSWORD
 
 
 def test_redis_backend_configures_tls(
