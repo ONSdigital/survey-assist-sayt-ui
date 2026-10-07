@@ -35,10 +35,6 @@ mkdocs-material = "^9.7.6"
 detect-secrets = "^1.5.0"
 deptry = "^0.25.1"
 
-[tool.black]
-line-length = 100
-target-version = ["py312"]
-
 [tool.ruff]
 target-version = "py312"
 line-length = 100
