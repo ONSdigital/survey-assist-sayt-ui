@@ -84,13 +84,10 @@ def redis_store_fixture(
 @pytest.fixture(name="redis_app")
 def redis_app_fixture(
     app: Flask,
-    redis_store: dict[str, bytes],
+    redis_store: dict[str, bytes],  # pylint: disable=W0613
     static_token_refresher: TokenRefresher,
 ) -> Flask:
     """Create the existing application with Redis session storage."""
-
-    # Request redis_store to install the Redis command stubs for this fixture.
-    _ = redis_store
 
     settings = app.config["settings"]
     assert isinstance(settings, Settings)
@@ -403,15 +400,12 @@ def test_redis_backend_rejects_invalid_connection_settings(
 
 def test_redis_backend_fails_app_startup_when_ping_raises(
     app: Flask,
-    redis_store: dict[str, bytes],
+    redis_store: dict[str, bytes],  # pylint: disable=W0613
     static_token_refresher: TokenRefresher,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Abort application creation when the Redis store cannot be reached."""
-
-    # Request redis_store to install the Redis command stubs for this fixture.
-    _ = redis_store
 
     settings = app.config["settings"]
     assert isinstance(settings, Settings)
@@ -443,13 +437,11 @@ def test_redis_backend_fails_app_startup_when_ping_raises(
 
 def test_redis_backend_fails_when_ping_is_not_acknowledged(
     app: Flask,
-    redis_store: dict[str, bytes],
+    redis_store: dict[str, bytes],  # pylint: disable=W0613
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Do not start when Redis does not acknowledge its health check."""
 
-    # Request redis_store to install the Redis command stubs for this fixture.
-    _ = redis_store
     settings = app.config["settings"]
     assert isinstance(settings, Settings)
 
