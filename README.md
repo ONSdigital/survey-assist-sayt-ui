@@ -27,23 +27,14 @@ The UI creates a short-lived JWT for the Survey Assist API when the application 
 gcloud auth application-default login
 ```
 
-This creates a credentials file at `~/.config/gcloud/application_default_credentials.json`.
-The container Make targets use `~/gcp-project-creds-ui.json` as the default `CRED_FILE` value.
-
-If you want to override the default, you can set `CRED_FILE` to use an alternative path i.e:
-
-```
-export CRED_FILE="${HOME}/.config/gcloud/application_default_credentials.json"
-```
-
-The authenticated identity must have permission to sign JWTs for the service account configured by `SA_EMAIL`.
+The credentials used by the UI need permission to sign JWTs for the API service account. The signed identity also needs access to the Survey Assist API.
 
 ## Install and run locally
 
 ### 1. Install dependencies
 
 ```bash
-make install
+poetry install
 ```
 
 ### 2. Fetch the ONS Design System templates
@@ -69,6 +60,8 @@ src/survey_assist_sayt_ui/templates/layout/
 
 ### 3. Configure the environment
 
+Complete [Google Cloud authentication](#google-cloud-authentication-for-local-development) first.
+
 Copy the example environment file:
 
 ```bash
@@ -87,10 +80,11 @@ Update at least the required values in `.env`:
 FLASK_SECRET_KEY=<use the generated secret from above>
 SURVEY_ASSIST_API_BASE_URL=https://your-gateway-host/v1/survey-assist
 SA_EMAIL=<service-account>@<your-project>.iam.gserviceaccount.com
-AUTH_MODE=local
-LOCAL_USERS_FILE=users.json
-SESSION_COOKIE_SECURE=false
 ```
+
+Set `SURVEY_ASSIST_API_BASE_URL` to the base URL of a Survey Assist API environment you can access.
+
+Set `SA_EMAIL` to the email address of the service account for that environment. Your Google Cloud user must have `iam.serviceAccounts.signJwt` permission on the service account specified by `SA_EMAIL` to sign JWTs on its behalf.
 
 `make run` does not load `.env` itself, so export the file into your current shell before starting the application:
 
@@ -100,25 +94,22 @@ source .env
 set +a
 ```
 
-See [Configuration reference](#configuration-reference) for all supported settings and defaults.
+See [Configuration reference](#configuration-reference) for all supported settings, documentation and defaults.
 
 ### 4. Create a local user
 
-When you run the UI locally, users are stored in `users.json`.
+The local UI reads sign-in users from `users.json`.
 
-To add a user before running locally:
+Add a user before you run the UI. The script creates `users.json` if it does not exist.
 
 ```bash
 poetry run python scripts/provision_users.py add \
-  --username "user@example.com" \
-  --output users.json
+  --username "user@example.com"
 ```
 
 You will be prompted for the user's password. The password is hashed before being written to `users.json`.
 
-If `users.json` does not exist, it will be created.
-
-See [Manage local users](#manage-local-users) to update local users.
+See [Manage local users](#manage-local-users) for other commands and options.
 
 ### 5. Run the UI
 
@@ -137,24 +128,25 @@ You should be redirected to `/login`. Use the login information for a user added
 
 ## Build and run with containers
 
-Ensure you have completed the [local setup steps](#install-and-run-locally) first.
+Before you run a container, complete [Google Cloud authentication](#google-cloud-authentication-for-local-development), [environment configuration](#3-configure-the-environment), and [local user setup](#4-create-a-local-user).
 
 Docker and Podman use equivalent Make targets.
-The container run targets load `.env` and mount `users.json` and the credentials file `CRED_FILE`.
+The run commands read `.env`. They mount `users.json` and the file specified by `CRED_FILE` into the container.
 
-The default `CRED_FILE` value is `~/gcp-project-creds-ui.json`.
-Override it when necessary:
+The default `CRED_FILE` is `$HOME/gcp-project-creds-ui.json`. If your credentials are at another path, pass it to the run command, for example `make docker-run CRED_FILE=/path/to/credentials.json`. A new `gcloud auth application-default login` usually stores credentials at `~/.config/gcloud/application_default_credentials.json`.
+
+Run with Docker:
 
 ```bash
 make docker-build
-make docker-run CRED_FILE=/path/to/credentials.json
+make docker-run
 ```
 
 Or with Podman:
 
 ```bash
 make podman-build
-make podman-run CRED_FILE=/path/to/credentials.json
+make podman-run
 ```
 
 The container is available at:
@@ -165,7 +157,7 @@ http://127.0.0.1:8000
 
 ### Run with Podman Compose
 
-Start both containers with client-side Flask sessions:
+Start the UI
 
 ```bash
 make podman-compose-up
@@ -238,8 +230,7 @@ make podman-compose-logs
 Verify Redis is running:
 
 ```bash
-export CRED_FILE="${HOME}/gcp-project-creds-ui.json"
-podman compose -f docker-compose.yaml exec redis redis-cli PING
+CRED_FILE="${HOME}/gcp-project-creds-ui.json" podman compose exec redis redis-cli PING
 ```
 
 Test sessions as described in [Testing Redis sessions](#testing-redis-sessions). Stop and remove the stack:
@@ -273,37 +264,11 @@ The application configuration is read from environment variables at startup.
 | `REDIS_MAX_CONNECTIONS` | No | `32` | Maximum Redis connections when `SESSION_BACKEND=redis`. |
 | `SESSION_LIFETIME_DAYS` | No | `15` | Positive number of days from successful login until authentication expires; applies to client and Redis sessions. Redis writes do not extend this deadline. |
 
-
-### Example local environment
-
-A typical local configuration is:
-
-```text
-FLASK_SECRET_KEY=replace-with-a-long-random-secret
-SERVICE_NAME=Survey Assist SAYT UI
-SURVEY_ASSIST_API_BASE_URL=https://your-gateway-host/v1/survey-assist
-SA_EMAIL=<service-account>@<your-project>.iam.gserviceaccount.com
-AUTH_MODE=local
-LOCAL_USERS_FILE=users.json
-SESSION_COOKIE_SECURE=false
-SESSION_BACKEND=client
-```
-
-`SURVEY_ASSIST_API_BASE_URL` and `SA_EMAIL` must be replaced with values for an API environment you can access.
-
-### Inspect a local Redis session
-
-When testing with `SESSION_BACKEND=redis`, you can inspect a saved session
-without displaying its values by default:
-
-```bash
-REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
-  poetry run python scripts/inspect_redis_session.py
-```
-
 ## Manage local users
 
-Authentication users are stored in `users.json`. The management script can add, update, or delete individual users while preserving all other user records.
+By default, `scripts/provision_users` stores users in `users.json`. This can be changed by using `--output` parameter.
+
+The script can add, update, or delete individual users while preserving all other user records.
 
 To show the available management commands:
 
@@ -315,8 +280,7 @@ make manage-users
 
 ```bash
 poetry run python scripts/provision_users.py add \
-  --username "user@example.com" \
-  --output users.json
+  --username "user@example.com"
 ```
 
 Attempting to add a username that already exists will fail. Use `update` to change an existing user's password.
@@ -326,16 +290,14 @@ Use interactive password entry where possible. The `--password` option stores th
 
 ```bash
 poetry run python scripts/provision_users.py update \
-  --username "user@example.com" \
-  --output users.json
+  --username "user@example.com"
 ```
 
 ### Delete a user
 
 ```bash
 poetry run python scripts/provision_users.py delete \
-  --username "user@example.com" \
-  --output users.json
+  --username "user@example.com"
 ```
 
 ### Users.json
@@ -479,6 +441,10 @@ Run all tests:
 ```bash
 make all-tests
 ```
+
+## Development checks
+
+**Prerequisite:** Complete [Install dependencies](#1-install-dependencies) and [Fetch ONS Design System templates](#2-fetch-the-ons-design-system-templates) before running development checks.
 
 Run formatting, linting, type checking, and security checks:
 
