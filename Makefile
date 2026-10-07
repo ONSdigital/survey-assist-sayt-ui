@@ -30,12 +30,6 @@ help: ## Show the available make targets.
 
 all: help
 
-all: ## Show the available make targets.
-	@echo "Usage: make <target>"
-	@echo ""
-	@echo "Targets:"
-	@fgrep "##" Makefile | fgrep -v fgrep
-
 clean: ## Clean the temporary files.
 	rm -rf .mypy_cache
 	rm -rf .ruff_cache
