@@ -7,6 +7,9 @@
       pull_request:
         branches: [main]
 
+    permissions:
+      contents: read
+
     concurrency:
       group: "${{ github.head_ref || github.ref }}-${{ github.workflow }}"
       cancel-in-progress: true
@@ -20,10 +23,10 @@
                 python-version: ["3.12"]
 
             steps:
-                - uses: actions/checkout@v4
+                - uses: actions/checkout@v7
 
                 - name: Set up Python
-                  uses: actions/setup-python@v5
+                  uses: actions/setup-python@v7
                   with:
                     python-version: ${{ matrix.python-version }}
 
@@ -59,7 +62,7 @@
 
                 - name: Restore mypy cache
                   id: restore-mypy-cache
-                  uses: actions/cache/restore@v5
+                  uses: actions/cache/restore@v6
                   with:
                     path: .mypy_cache
                     key: ${{ runner.os }}-py${{ matrix.python-version }}-mypy-${{ hashFiles('poetry.lock', 'pyproject.toml', 'Makefile') }}-${{ github.sha }}
@@ -71,7 +74,7 @@
 
                 - name: Save mypy cache
                   if: ${{ always() && hashFiles('.mypy_cache/**') != '' }}
-                  uses: actions/cache/save@v5
+                  uses: actions/cache/save@v6
                   with:
                     path: .mypy_cache
                     key: ${{ steps.restore-mypy-cache.outputs.cache-primary-key }}
