@@ -133,7 +133,7 @@ Before you run a container, complete [Google Cloud authentication](#google-cloud
 Docker and Podman use equivalent Make targets.
 The run commands read `.env`. They mount `users.json` and the file specified by `CRED_FILE` into the container.
 
-The default `CRED_FILE` is `$HOME/gcp-project-creds-ui.json`. If your credentials are at another path, pass it to the run command, for example `make docker-run CRED_FILE=/path/to/credentials.json`. A new `gcloud auth application-default login` usually stores credentials at `~/.config/gcloud/application_default_credentials.json`.
+The default `CRED_FILE` is `$HOME/.config/gcloud/application_default_credentials.json`, where `gcloud auth application-default login` stores credentials. If your credentials are at another path, pass it to the run command, for example `make docker-run CRED_FILE=/path/to/credentials.json`.
 
 Run with Docker:
 
@@ -238,7 +238,7 @@ make podman-compose-logs
 Verify Redis is running:
 
 ```bash
-CRED_FILE="${HOME}/gcp-project-creds-ui.json" podman compose -f docker-compose.yaml exec redis redis-cli PING
+CRED_FILE="${HOME}/.config/gcloud/application_default_credentials.json" podman compose -f docker-compose.yaml exec redis redis-cli PING
 ```
 
 Test sessions as described in [Testing Redis sessions](#testing-redis-sessions). Stop and remove the stack:
