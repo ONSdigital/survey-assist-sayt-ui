@@ -8,7 +8,6 @@ services:
       - .env
     environment:
       AUTH_MODE: local
-      LOCAL_USERS_FILE: /app/users.json
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-key.json
       SESSION_BACKEND: client
       SESSION_COOKIE_SECURE: "false"
