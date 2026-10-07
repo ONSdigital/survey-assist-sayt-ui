@@ -157,7 +157,10 @@ http://127.0.0.1:8000
 
 ### Run with Podman Compose
 
-Start the UI
+Set `REDIS_PASSWORD` in `.env`; the Redis container and UI use the same password.
+The API URL must be reachable from inside the UI container.
+
+Start the UI with client-side sessions:
 
 ```bash
 make podman-compose-up
@@ -165,6 +168,7 @@ make podman-compose-up
 
 Open `http://127.0.0.1:8000`
 
+The Redis container starts, but the UI does not depend on it in client mode.
 To exercise server-side sessions with Redis, see [Running with Redis server-side sessions](#running-with-redis-server-side-sessions).
 
 Stop and remove the local stack when finished:
@@ -185,20 +189,23 @@ Set these environment variables:
 SESSION_BACKEND=redis
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
+REDIS_PASSWORD=not-a-real-password
+REDIS_USE_TLS=false
 ```
 
 Then run Redis in a separate terminal:
 
 ```bash
+export REDIS_PASSWORD="not-a-real-password"  # pragma: allowlist secret
 podman run --rm --name sayt-ui-redis \
   -p 127.0.0.1:6379:6379 \
-  docker.io/library/redis:7-alpine
+  docker.io/library/redis:7-alpine redis-server --requirepass "${REDIS_PASSWORD}"
 ```
 
 Verify Redis responds:
 
 ```bash
-podman exec sayt-ui-redis redis-cli PING
+podman exec -e REDISCLI_AUTH="${REDIS_PASSWORD}" sayt-ui-redis redis-cli PING
 ```
 
 You should see `PONG`.
@@ -220,6 +227,7 @@ make podman-compose-redis-up
 ```
 
 Within the Compose network, the Redis host is `redis`, not `localhost`.
+Compose sets `REDIS_USE_TLS=false` for local Redis.
 
 The UI waits for Redis to become healthy before starting. View logs:
 
@@ -230,7 +238,7 @@ make podman-compose-logs
 Verify Redis is running:
 
 ```bash
-CRED_FILE="${HOME}/gcp-project-creds-ui.json" podman compose exec redis redis-cli PING
+CRED_FILE="${HOME}/gcp-project-creds-ui.json" podman compose -f docker-compose.yaml exec redis redis-cli PING
 ```
 
 Test sessions as described in [Testing Redis sessions](#testing-redis-sessions). Stop and remove the stack:
@@ -262,6 +270,9 @@ The application configuration is read from environment variables at startup.
 | `REDIS_HOST` | Required when `SESSION_BACKEND=redis` | None | Redis hostname. Use `127.0.0.1` for a local UI or `redis` in Podman Compose. |
 | `REDIS_PORT` | No | `6379` | Redis port when `SESSION_BACKEND=redis`. |
 | `REDIS_MAX_CONNECTIONS` | No | `32` | Maximum Redis connections when `SESSION_BACKEND=redis`. |
+| `REDIS_PASSWORD` | No | None | Redis authentication password. Set it for local password testing and Memorystore. |
+| `REDIS_USE_TLS` | No | `false` | Enable TLS for Redis. Set `true` for Memorystore and `false` for local Redis. |
+| `REDIS_CA_CERT_DATA` | Required when `REDIS_USE_TLS=true` | None | PEM-encoded CA certificate for Redis TLS verification. Memorystore uses an IP address, so hostname verification is disabled while CA verification remains required. |
 | `SESSION_LIFETIME_DAYS` | No | `15` | Positive number of days from successful login until authentication expires; applies to client and Redis sessions. Redis writes do not extend this deadline. |
 
 ## Manage local users
@@ -377,6 +388,19 @@ gcloud run deploy survey-assist-sayt-ui \
 Replace `YOUR_AUTH_BUCKET`, `SERVICE_ACCOUNT_EMAIL`, and the Survey Assist API URL with deployed environment values.
 Grant the Cloud Run service account access to the secret.
 
+To use Memorystore sessions in Cloud Run, also configure:
+
+```text
+SESSION_BACKEND=redis
+REDIS_HOST=<memorystore-ip>
+REDIS_PORT=<memorystore-tls-port>
+REDIS_PASSWORD=<from-secret-manager>
+REDIS_USE_TLS=true
+REDIS_CA_CERT_DATA=<memorystore-ca-pem>
+```
+
+Store the Redis password and CA certificate securely. The Redis connection verifies the certificate against the configured CA.
+
 ## Testing Redis sessions
 
 When configured to use Redis for session storage, you can verify the session backend is working correctly.
@@ -386,7 +410,7 @@ Sign in and answer survey questions. Then list the server-side session keys.
 If you started Redis in a separate terminal, run:
 
 ```bash
-podman exec sayt-ui-redis \
+podman exec -e REDISCLI_AUTH="${REDIS_PASSWORD}" sayt-ui-redis \
   redis-cli --scan --pattern 'sayt-ui:session:*'
 ```
 
@@ -406,7 +430,7 @@ sayt-ui:session:lbIaNIf0gGAyR-5wI5H--XB0cj_9bUZK-_pYE6WjJ1o
 Inspect the session data:
 
 ```bash
-REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
+REDIS_PASSWORD="${REDIS_PASSWORD}" REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
   poetry run python scripts/inspect_redis_session.py --show-values
 ```
 
@@ -417,8 +441,10 @@ Provide the session ID from the previous step. The output shows the session stru
 ## Session lifetime
 
 Authenticated sessions expire after `SESSION_LIFETIME_DAYS`, regardless of activity.
-Redis writes do not extend this deadline.
+Redis keys receive that absolute expiry; Redis writes do not extend the deadline.
+The app rejects expired client-side cookies at request time.
 The app clears the session after it renders `/survey/complete` and after `/logout`.
+Refreshing the completion page requires another sign-in.
 
 ## Routes
 
