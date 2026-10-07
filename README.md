@@ -351,8 +351,7 @@ To inspect the Compose setup and verify Redis:
 
 ```bash
 export CRED_FILE="${HOME}/gcp-project-creds-ui.json"
-podman compose -f docker-compose.yaml exec redis \
-  sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli PING'
+podman compose -f docker-compose.yaml exec redis redis-cli PING
 ```
 
 Replace the exported `CRED_FILE` path if needed. If Redis is running you should see `PONG`.
@@ -364,8 +363,7 @@ Inspect the browser's `session` cookie to check it does not increase as you navi
 Check that a corresponding Redis key exists:
 
 ```bash
-podman compose -f docker-compose.yaml exec redis \
-  sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli --scan --pattern "sayt-ui:session:*"'
+podman compose -f docker-compose.yaml exec redis redis-cli --scan --pattern "sayt-ui:session:*"
 ```
 
 The existing inspection script can read that local test record:

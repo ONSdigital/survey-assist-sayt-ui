@@ -32,6 +32,7 @@ services:
     image: docker.io/library/redis:7-alpine
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
     command:
       [
         "redis-server",
@@ -47,7 +48,7 @@ services:
     healthcheck:
       test: [
         "CMD-SHELL",
-        "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep PONG",
+        "redis-cli ping | grep PONG",
       ]
       interval: 5s
       timeout: 3s
