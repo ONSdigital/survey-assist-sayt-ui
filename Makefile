@@ -15,6 +15,21 @@ CONTAINER_BUILD_ARGS = \
 	--build-arg GIT_SHA=$(GIT_SHA) \
 	--build-arg BUILD_DATE=$(BUILD_DATE)
 
+define container-build
+	$(1) build $(CONTAINER_BUILD_ARGS) -t $(IMAGE_NAME) .
+endef
+
+define container-run
+	$(1) run \
+		--rm \
+		-p 8000:8000 \
+		-v $(PWD)/users.json:/app/users.json:ro \
+		--mount type=bind,src=$(CRED_FILE),target=/run/secrets/gcp-key.json,readonly \
+		-e GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-key.json \
+		--env-file .env \
+		$(IMAGE_NAME)
+endef
+
 .PHONY: help all clean install templates run run-docs all-tests test lint format \
 	check-python check-python-nofix \
 	docker-build docker-run podman-build podman-run \
@@ -69,30 +84,16 @@ check-python-nofix: ## Format and lint the python code (no fix)
 	poetry run bandit -r src/survey_assist_sayt_ui
 
 docker-build:  ## Build the Docker image.
-	docker build $(CONTAINER_BUILD_ARGS) -t $(IMAGE_NAME) .
+	$(call container-build,docker)
 
 docker-run:  ## Run the Docker container.
-	docker run \
-		--rm \
-		-p 8000:8000 \
-		-v $(PWD)/users.json:/app/users.json:ro \
-		--mount type=bind,src=$(CRED_FILE),target=/run/secrets/gcp-key.json,readonly \
-		-e GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-key.json \
-		--env-file .env \
-		$(IMAGE_NAME)
+	$(call container-run,docker)
 
 podman-build:  ## Build the Podman image.
-	podman build $(CONTAINER_BUILD_ARGS) -t $(IMAGE_NAME) .
+	$(call container-build,podman)
 
 podman-run:  ## Run the Podman container.
-	podman run \
-		--rm \
-		-p 8000:8000 \
-		-v $(PWD)/users.json:/app/users.json:ro \
-		--mount type=bind,src=$(CRED_FILE),target=/run/secrets/gcp-key.json,readonly \
-		-e GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-key.json \
-		--env-file .env \
-		$(IMAGE_NAME)
+	$(call container-run,podman)
 
 podman-compose-up: ## Build and start the local UI (client sessions) and Redis.
 	CRED_FILE="$(CRED_FILE)" podman compose -f docker-compose.yaml up --build -d
