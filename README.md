@@ -45,11 +45,7 @@ make templates
 
 The ONS Design System uses Nunjucks templates. The ONS guidance for Jinja apps is to use `ChainableUndefined` (which this application does), and when using the release zip, copy the `components` and `layout` folders into the Flask templates path.
 
-The template fetch script reads `.design-system-version`. By default it is set to `latest`. To pin a release, replace the file contents with a tag such as:
-
-```text
-v72.0.0
-```
+The template fetch script reads the version pinned in `.design-system-version`.
 
 The downloaded folders are ignored by git:
 
@@ -86,7 +82,7 @@ Set `SURVEY_ASSIST_API_BASE_URL` to the base URL of a Survey Assist API environm
 
 Set `SA_EMAIL` to the email address of the service account for that environment. Your Google Cloud user must have `iam.serviceAccounts.signJwt` permission on the service account specified by `SA_EMAIL` to sign JWTs on its behalf.
 
-`make run` does not load `.env` itself, so export the file into your current shell before starting the application:
+`make run` does not load `.env`. Export the values into your current shell before you start the application:
 
 ```bash
 set -a
@@ -238,7 +234,7 @@ make podman-compose-logs
 Verify Redis is running:
 
 ```bash
-CRED_FILE="${HOME}/.config/gcloud/application_default_credentials.json" podman compose -f docker-compose.yaml exec redis redis-cli PING
+CRED_FILE="${HOME}/.config/gcloud/application_default_credentials.json" podman compose exec redis redis-cli PING
 ```
 
 Test sessions as described in [Testing Redis sessions](#testing-redis-sessions). Stop and remove the stack:
@@ -417,7 +413,7 @@ podman exec -e REDISCLI_AUTH="${REDIS_PASSWORD}" sayt-ui-redis \
 If you started the Redis session stack with Podman Compose, run:
 
 ```bash
-podman compose -f docker-compose.yaml -f docker-compose.redis.yaml exec redis \
+CRED_FILE="${HOME}/.config/gcloud/application_default_credentials.json" podman compose exec redis \
   redis-cli --scan --pattern 'sayt-ui:session:*'
 ```
 
@@ -462,15 +458,13 @@ Refreshing the completion page requires another sign-in.
 
 ## Development checks
 
+**Prerequisite:** Complete [Install dependencies](#1-install-dependencies) and [Fetch ONS Design System templates](#2-fetch-the-ons-design-system-templates) before running development checks.
+
 Run all tests:
 
 ```bash
 make all-tests
 ```
-
-## Development checks
-
-**Prerequisite:** Complete [Install dependencies](#1-install-dependencies) and [Fetch ONS Design System templates](#2-fetch-the-ons-design-system-templates) before running development checks.
 
 Run formatting, linting, type checking, and security checks:
 
