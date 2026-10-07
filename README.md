@@ -7,7 +7,7 @@ A containerised Flask app for implementing a Search As You Type (SAYT) user inte
 For local development you need:
 
 * Python 3.12
-* Poetry 2.1.3
+* Poetry 2.2.1
 * `make`
 * Google Cloud SDK (`gcloud`)
 * Access to a Survey Assist API deployment

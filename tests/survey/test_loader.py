@@ -1024,7 +1024,7 @@ def test_load_survey_definition_rejects_submit_result_on_feedback(
 
     with pytest.raises(
         SurveyDefinitionInvalidError,
-        match=("submit_result may only be configured " "on survey_pages questions"),
+        match=("submit_result may only be configured on survey_pages questions"),
     ):
         load_survey_definition(survey_path)
 

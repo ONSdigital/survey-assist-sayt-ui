@@ -37,8 +37,7 @@ class MissingPlaceholderValueMappingError(ValueError):
         self.response_value = response_value
 
         super().__init__(
-            f"No placeholder value mapping exists for "
-            f"{question_name!r} response {response_value!r}"
+            f"No placeholder value mapping exists for {question_name!r} response {response_value!r}"
         )
 
 

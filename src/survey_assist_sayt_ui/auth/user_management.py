@@ -62,7 +62,7 @@ def add_user(
 
     if _find_user(users, normalised_username) is not None:
         raise ValueError(
-            f"User '{normalised_username}' already exists. " "Use 'update' to change the password."
+            f"User '{normalised_username}' already exists. Use 'update' to change the password."
         )
 
     users.append(

@@ -9,7 +9,7 @@ This document describes the recommended development workflow, coding standards, 
 Before contributing, ensure the following software is installed:
 
 - Python 3.12
-- Poetry 2.1.3 or later
+- Poetry 2.2.1 or later
 - Git
 - Make
 - Docker / Colima / Podman (optional)
