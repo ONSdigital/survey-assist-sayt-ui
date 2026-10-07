@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 import logging
 from math import ceil
+from typing import cast
 
 from flask import Flask
 from flask.sessions import SecureCookieSessionInterface
@@ -87,7 +88,9 @@ def redis_app_fixture(
     static_token_refresher: TokenRefresher,
 ) -> Flask:
     """Create the existing application with Redis session storage."""
-    assert redis_store == {}
+
+    # Request redis_store to install the Redis command stubs for this fixture.
+    _ = redis_store
 
     settings = app.config["settings"]
     assert isinstance(settings, Settings)
@@ -218,29 +221,35 @@ def test_redis_backend_configures_flask_session(
     redis_app: Flask,
 ) -> None:
     """Install the Redis interface with msgpack and a bounded pool."""
-    assert isinstance(redis_app.session_interface, RedisSessionInterface)
+    settings = redis_app.config["settings"]
+    assert isinstance(settings, Settings)
+    assert settings.session_backend == "redis"
+    assert settings.redis_host == "localhost"
+
+    session_interface = redis_app.session_interface
+    assert isinstance(session_interface, RedisSessionInterface)
+
     assert redis_app.config["SESSION_TYPE"] == "redis"
     assert redis_app.config["SESSION_SERIALIZATION_FORMAT"] == "msgpack"
     assert redis_app.config["SESSION_KEY_PREFIX"] == "sayt-ui:session:"
     assert redis_app.config["SESSION_PERMANENT"] is False
     assert redis_app.config["SESSION_REFRESH_EACH_REQUEST"] is False
 
-    redis_client = redis_app.config["SESSION_REDIS"]
-    assert isinstance(redis_client, Redis)
-    assert redis_client.connection_pool.max_connections == 32
-    assert redis_client.connection_pool.connection_kwargs["host"] == "localhost"
-    assert redis_client.connection_pool.connection_kwargs["port"] == 6379
-    assert redis_client.connection_pool.connection_kwargs["socket_connect_timeout"] == 5
-    assert redis_client.connection_pool.connection_kwargs["socket_timeout"] == 5
-    assert redis_client.connection_pool.connection_class is not SSLConnection
+    pool = session_interface.client.connection_pool
+
+    assert pool.max_connections == 32
+    assert pool.connection_kwargs["host"] == "localhost"
+    assert pool.connection_kwargs["port"] == 6379
+    assert pool.connection_kwargs["socket_connect_timeout"] == 5
+    assert pool.connection_kwargs["socket_timeout"] == 5
+    assert pool.connection_class is not SSLConnection
 
 
 def test_redis_backend_configures_password(
     redis_app: Flask,
 ) -> None:
     """Pass the configured Redis password to the connection pool."""
-    settings = redis_app.config["settings"]
-    assert isinstance(settings, Settings)
+    settings = cast(Settings, redis_app.config["settings"])
 
     session_handler.configure_session(
         redis_app,
@@ -259,22 +268,17 @@ def test_redis_backend_configures_password(
 
 
 def test_redis_backend_configures_tls(
-    app: Flask,
-    redis_store: dict[str, bytes],
+    redis_app: Flask,
 ) -> None:
     """Configure Redis TLS using the supplied CA certificate."""
-    assert redis_store == {}
-
-    settings = app.config["settings"]
-    assert isinstance(settings, Settings)
+    settings = cast(Settings, redis_app.config["settings"])
 
     ca_cert_data = "-----BEGIN CERTIFICATE-----\ntest-certificate\n-----END CERTIFICATE-----"
 
     session_handler.configure_session(
-        app,
+        redis_app,
         replace(
             settings,
-            session_backend="redis",
             redis_host="10.0.0.1",
             redis_port="6378",
             redis_use_tls=True,
@@ -282,10 +286,10 @@ def test_redis_backend_configures_tls(
         ),
     )
 
-    redis_client = app.config["SESSION_REDIS"]
-    assert isinstance(redis_client, Redis)
+    session_interface = redis_app.session_interface
+    assert isinstance(session_interface, RedisSessionInterface)
 
-    pool = redis_client.connection_pool
+    pool = session_interface.client.connection_pool
 
     assert pool.connection_class is SSLConnection
     assert pool.connection_kwargs["host"] == "10.0.0.1"
@@ -297,23 +301,20 @@ def test_redis_backend_configures_tls(
 
 @pytest.mark.parametrize("ca_cert_data", [None, "", "  "])
 def test_redis_backend_requires_ca_certificate_when_tls_enabled(
-    app: Flask,
+    redis_app: Flask,
     ca_cert_data: str | None,
 ) -> None:
     """Reject TLS configuration without a Redis CA certificate."""
-    settings = app.config["settings"]
-    assert isinstance(settings, Settings)
+    settings = cast(Settings, redis_app.config["settings"])
 
     with pytest.raises(
         ValueError,
         match="REDIS_CA_CERT_DATA is required when REDIS_USE_TLS=true",
     ):
         session_handler.configure_session(
-            app,
+            redis_app,
             replace(
                 settings,
-                session_backend="redis",
-                redis_host="10.0.0.1",
                 redis_use_tls=True,
                 redis_ca_cert_data=ca_cert_data,
             ),
@@ -408,7 +409,10 @@ def test_redis_backend_fails_app_startup_when_ping_raises(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Abort application creation when the Redis store cannot be reached."""
-    assert redis_store == {}
+
+    # Request redis_store to install the Redis command stubs for this fixture.
+    _ = redis_store
+
     settings = app.config["settings"]
     assert isinstance(settings, Settings)
 
@@ -443,7 +447,9 @@ def test_redis_backend_fails_when_ping_is_not_acknowledged(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Do not start when Redis does not acknowledge its health check."""
-    assert redis_store == {}
+
+    # Request redis_store to install the Redis command stubs for this fixture.
+    _ = redis_store
     settings = app.config["settings"]
     assert isinstance(settings, Settings)
 
@@ -656,11 +662,12 @@ def test_standard_redis_interface_refreshes_ttl_when_session_is_modified(
 
     monkeypatch.setattr(Redis, "set", record_set)
 
-    redis_client = redis_app.config["SESSION_REDIS"]
+    configured_interface = redis_app.session_interface
+    assert isinstance(configured_interface, RedisSessionInterface)
 
     redis_app.session_interface = RedisSessionInterface(
         app=redis_app,
-        client=redis_client,
+        client=configured_interface.client,
         key_prefix=redis_app.config["SESSION_KEY_PREFIX"],
         permanent=False,
         serialization_format=redis_app.config["SESSION_SERIALIZATION_FORMAT"],
