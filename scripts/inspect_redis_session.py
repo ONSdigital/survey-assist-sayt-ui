@@ -100,7 +100,8 @@ def read_session(
 
 
 def main() -> int:
-    """Inspect a session identified interactively by the operator.
+    """Inspect a session identified interactively by the operator in
+    a locally running Redis instance.
 
     Returns:
         int: Zero on success, or one if configuration, Redis, or session
@@ -113,12 +114,18 @@ def main() -> int:
         print("Error: REDIS_HOST must be configured", file=sys.stderr)
         return 1
 
+    password = os.getenv("REDIS_PASSWORD", "")
+    if not password:
+        print("Error: REDIS_PASSWORD must be configured", file=sys.stderr)
+        return 1
+
     try:
         port = _redis_port(os.getenv("REDIS_PORT", "6379"))
         session_id = getpass.getpass("Session ID (without sayt-ui:session:): ").strip()
         redis_client = Redis(
             host=host,
             port=port,
+            password=password,
             socket_connect_timeout=5,
             socket_timeout=5,
         )

@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 import logging
 from math import ceil
+from typing import cast
 
 from flask import Flask
 from flask.sessions import SecureCookieSessionInterface
@@ -14,6 +15,7 @@ from flask_session.redis import RedisSessionInterface
 import msgspec
 import pytest
 from redis import Redis
+from redis.connection import SSLConnection
 from redis.exceptions import ConnectionError as RedisConnectionError
 
 from survey_assist_sayt_ui import session_handler
@@ -32,6 +34,8 @@ from survey_assist_sayt_ui.survey.session import (
 )
 
 TokenRefresher = Callable[[int, str, str, str], tuple[int, str]]
+
+TEST_REDIS_PASSWORD = "not-a-real-password"  # pragma: allowlist secret
 
 
 @pytest.fixture(name="redis_store")
@@ -80,11 +84,10 @@ def redis_store_fixture(
 @pytest.fixture(name="redis_app")
 def redis_app_fixture(
     app: Flask,
-    redis_store: dict[str, bytes],
+    redis_store: dict[str, bytes],  # pylint: disable=W0613
     static_token_refresher: TokenRefresher,
 ) -> Flask:
     """Create the existing application with Redis session storage."""
-    assert redis_store == {}
 
     settings = app.config["settings"]
     assert isinstance(settings, Settings)
@@ -137,6 +140,12 @@ def test_load_settings_normalises_redis_configuration(
     monkeypatch.setenv("REDIS_HOST", "localhost")
     monkeypatch.setenv("REDIS_PORT", "6380")
     monkeypatch.setenv("REDIS_MAX_CONNECTIONS", "12")
+    monkeypatch.setenv("REDIS_PASSWORD", TEST_REDIS_PASSWORD)
+    monkeypatch.setenv("REDIS_USE_TLS", "true")
+    monkeypatch.setenv(
+        "REDIS_CA_CERT_DATA",
+        "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----",
+    )
 
     settings = load_settings()
 
@@ -144,6 +153,34 @@ def test_load_settings_normalises_redis_configuration(
     assert settings.redis_host == "localhost"
     assert settings.redis_port == "6380"
     assert settings.redis_max_connections == "12"
+    assert settings.redis_password == TEST_REDIS_PASSWORD
+    assert settings.redis_use_tls is True
+    assert settings.redis_ca_cert_data == (
+        "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----"
+    )
+
+
+def test_load_settings_defaults_redis_security_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Keep Redis authentication and TLS disabled when not configured."""
+    monkeypatch.setenv(
+        "SURVEY_ASSIST_API_BASE_URL",
+        "http://0.0.0.0:8080/v1/survey-assist",
+    )
+    monkeypatch.setenv(
+        "SA_EMAIL",
+        "sayt-ui@example.iam.gserviceaccount.com",
+    )
+    monkeypatch.delenv("REDIS_PASSWORD", raising=False)
+    monkeypatch.delenv("REDIS_USE_TLS", raising=False)
+    monkeypatch.delenv("REDIS_CA_CERT_DATA", raising=False)
+
+    settings = load_settings()
+
+    assert settings.redis_password is None
+    assert settings.redis_use_tls is False
+    assert settings.redis_ca_cert_data is None
 
 
 def test_client_backend_preserves_flask_session_interface(
@@ -181,20 +218,104 @@ def test_redis_backend_configures_flask_session(
     redis_app: Flask,
 ) -> None:
     """Install the Redis interface with msgpack and a bounded pool."""
-    assert isinstance(redis_app.session_interface, RedisSessionInterface)
+    settings = redis_app.config["settings"]
+    assert isinstance(settings, Settings)
+    assert settings.session_backend == "redis"
+    assert settings.redis_host == "localhost"
+
+    session_interface = redis_app.session_interface
+    assert isinstance(session_interface, RedisSessionInterface)
+
     assert redis_app.config["SESSION_TYPE"] == "redis"
     assert redis_app.config["SESSION_SERIALIZATION_FORMAT"] == "msgpack"
     assert redis_app.config["SESSION_KEY_PREFIX"] == "sayt-ui:session:"
     assert redis_app.config["SESSION_PERMANENT"] is False
     assert redis_app.config["SESSION_REFRESH_EACH_REQUEST"] is False
 
-    redis_client = redis_app.config["SESSION_REDIS"]
-    assert isinstance(redis_client, Redis)
-    assert redis_client.connection_pool.max_connections == 32
-    assert redis_client.connection_pool.connection_kwargs["host"] == "localhost"
-    assert redis_client.connection_pool.connection_kwargs["port"] == 6379
-    assert redis_client.connection_pool.connection_kwargs["socket_connect_timeout"] == 5
-    assert redis_client.connection_pool.connection_kwargs["socket_timeout"] == 5
+    pool = session_interface.client.connection_pool
+
+    assert pool.max_connections == 32
+    assert pool.connection_kwargs["host"] == "localhost"
+    assert pool.connection_kwargs["port"] == 6379
+    assert pool.connection_kwargs["socket_connect_timeout"] == 5
+    assert pool.connection_kwargs["socket_timeout"] == 5
+    assert pool.connection_class is not SSLConnection
+
+
+def test_redis_backend_configures_password(
+    redis_app: Flask,
+) -> None:
+    """Pass the configured Redis password to the connection pool."""
+    settings = cast(Settings, redis_app.config["settings"])
+
+    session_handler.configure_session(
+        redis_app,
+        replace(
+            settings,
+            redis_password=TEST_REDIS_PASSWORD,
+        ),
+    )
+
+    session_interface = redis_app.session_interface
+    assert isinstance(session_interface, RedisSessionInterface)
+
+    pool = session_interface.client.connection_pool
+
+    assert pool.connection_kwargs["password"] == TEST_REDIS_PASSWORD
+
+
+def test_redis_backend_configures_tls(
+    redis_app: Flask,
+) -> None:
+    """Configure Redis TLS using the supplied CA certificate."""
+    settings = cast(Settings, redis_app.config["settings"])
+
+    ca_cert_data = "-----BEGIN CERTIFICATE-----\ntest-certificate\n-----END CERTIFICATE-----"
+
+    session_handler.configure_session(
+        redis_app,
+        replace(
+            settings,
+            redis_host="10.0.0.1",
+            redis_port="6378",
+            redis_use_tls=True,
+            redis_ca_cert_data=ca_cert_data,
+        ),
+    )
+
+    session_interface = redis_app.session_interface
+    assert isinstance(session_interface, RedisSessionInterface)
+
+    pool = session_interface.client.connection_pool
+
+    assert pool.connection_class is SSLConnection
+    assert pool.connection_kwargs["host"] == "10.0.0.1"
+    assert pool.connection_kwargs["port"] == 6378
+    assert pool.connection_kwargs["ssl_ca_data"] == ca_cert_data
+    assert pool.connection_kwargs["ssl_check_hostname"] is False
+    assert pool.connection_kwargs["ssl_cert_reqs"] == "required"
+
+
+@pytest.mark.parametrize("ca_cert_data", [None, "", "  "])
+def test_redis_backend_requires_ca_certificate_when_tls_enabled(
+    redis_app: Flask,
+    ca_cert_data: str | None,
+) -> None:
+    """Reject TLS configuration without a Redis CA certificate."""
+    settings = cast(Settings, redis_app.config["settings"])
+
+    with pytest.raises(
+        ValueError,
+        match="REDIS_CA_CERT_DATA is required when REDIS_USE_TLS=true",
+    ):
+        session_handler.configure_session(
+            redis_app,
+            replace(
+                settings,
+                redis_use_tls=True,
+                redis_ca_cert_data=ca_cert_data,
+            ),
+        )
 
 
 def test_invalid_backend_fails_configuration(
@@ -279,13 +400,13 @@ def test_redis_backend_rejects_invalid_connection_settings(
 
 def test_redis_backend_fails_app_startup_when_ping_raises(
     app: Flask,
-    redis_store: dict[str, bytes],
+    redis_store: dict[str, bytes],  # pylint: disable=W0613
     static_token_refresher: TokenRefresher,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Abort application creation when the Redis store cannot be reached."""
-    assert redis_store == {}
+
     settings = app.config["settings"]
     assert isinstance(settings, Settings)
 
@@ -316,11 +437,11 @@ def test_redis_backend_fails_app_startup_when_ping_raises(
 
 def test_redis_backend_fails_when_ping_is_not_acknowledged(
     app: Flask,
-    redis_store: dict[str, bytes],
+    redis_store: dict[str, bytes],  # pylint: disable=W0613
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Do not start when Redis does not acknowledge its health check."""
-    assert redis_store == {}
+
     settings = app.config["settings"]
     assert isinstance(settings, Settings)
 
@@ -500,6 +621,77 @@ def test_redis_writes_keep_original_absolute_deadline(
 
     assert len(deadlines) >= 3
     assert set(deadlines) == {ceil((started + timedelta(days=15)).timestamp())}
+    assert redis_store
+
+
+def test_standard_redis_interface_refreshes_ttl_when_session_is_modified(
+    redis_app: Flask,
+    redis_store: dict[str, bytes],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Demonstrate that Flask-Session resets Redis TTL after session changes."""
+    expiry_values: list[int] = []
+    original_set = Redis.set
+
+    def record_set(
+        redis_client: Redis,
+        name: str,
+        value: bytes,
+        ex: int | None = None,
+        exat: int | None = None,
+    ) -> bool:
+        """Record Redis expiry arguments used when saving the session."""
+        if ex is not None:
+            expiry_values.append(ex)
+
+        return original_set(
+            redis_client,
+            name,
+            value,
+            ex=ex,
+            exat=exat,
+        )
+
+    monkeypatch.setattr(Redis, "set", record_set)
+
+    configured_interface = redis_app.session_interface
+    assert isinstance(configured_interface, RedisSessionInterface)
+
+    redis_app.session_interface = RedisSessionInterface(
+        app=redis_app,
+        client=configured_interface.client,
+        key_prefix=redis_app.config["SESSION_KEY_PREFIX"],
+        permanent=False,
+        serialization_format=redis_app.config["SESSION_SERIALIZATION_FORMAT"],
+    )
+
+    redis_app.config["SESSION_REFRESH_EACH_REQUEST"] = False
+
+    client = redis_app.test_client()
+
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
+
+    expiry_values.clear()
+
+    response = client.post(
+        "/survey/questions/q0",
+        data={"age-range": "25-34"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+
+    second = client.post(
+        "/survey/questions/q1",
+        data={"job-title": "Teacher"},
+    )
+    assert second.status_code == HTTPStatus.FOUND
+
+    assert expiry_values == [
+        int(timedelta(days=15).total_seconds()),
+        int(timedelta(days=15).total_seconds()),
+    ]
     assert redis_store
 
 

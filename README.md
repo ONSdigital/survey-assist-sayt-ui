@@ -135,6 +135,9 @@ The application configuration is read from environment variables at startup.
 | `REDIS_HOST` | Required when `SESSION_BACKEND=redis` | None | Redis hostname: `127.0.0.1` for a UI running locally; `redis` for the UI container in Podman Compose. |
 | `REDIS_PORT`                | No        | `6379`                                                     | Used when `SESSION_BACKEND` is set as `redis`|
 | `REDIS_MAX_CONNECTIONS`                | No                            |   `32`                                       | When `SESSION_BACKEND` is set to `redis` this variable defines the maximum number of connections|
+| `REDIS_PASSWORD` | No | None | Redis authentication password. Configure for local password testing and for Memorystore when Redis is enabled. |
+| `REDIS_USE_TLS` | No | `false` | Enables TLS for the Redis connection. Set to `true` for the GCP deployment, set to `false` for local dev testing  |
+| `REDIS_CA_CERT_DATA` | Required when `REDIS_USE_TLS=true` | None | PEM encoded CA certificate used to verify the TLS certificate presented by Memorystore. Memorystore is accessed using its instance IP address rather than a DNS hostname. Hostname verification is therefore disabled, while certificate verification remains required against the configured Memorystore CA.|
 | `SESSION_LIFETIME_DAYS` | No | `15` | Positive number of days from successful login until authentication expires; applies to client and Redis sessions. Redis writes do not extend this deadline. |
 
 
@@ -161,7 +164,7 @@ When testing with `SESSION_BACKEND=redis`, you can inspect a saved session
 without displaying its values by default:
 
 ```bash
-REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
+REDIS_PASSWORD=<redis password> REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
   poetry run python scripts/inspect_redis_session.py
 ```
 
@@ -306,7 +309,10 @@ podman machine start  # Only if the existing machine is stopped
 `podman compose` requires an installed Compose provider (`docker-compose` or `podman-compose`).
 It is a Podman command that delegates Compose file handling to that provider; check `podman compose --help` before proceeding.
 
-Create `.env` from `.env.example` and configure `SURVEY_ASSIST_API_BASE_URL`, `SA_EMAIL` and `FLASK_SECRET_KEY`.
+Create `.env` from `.env.example` and configure `SURVEY_ASSIST_API_BASE_URL`, `SA_EMAIL`, `FLASK_SECRET_KEY` and `REDIS_PASSWORD`.
+
+`REDIS_PASSWORD` is used by both the local Redis container and the UI.
+Local Compose Redis does not use TLS; `REDIS_USE_TLS` is forced to `false`.
 
 Create `users.json` using the local-user instructions above.
 
@@ -357,14 +363,13 @@ Inspect the browser's `session` cookie to check it does not increase as you navi
 Check that a corresponding Redis key exists:
 
 ```bash
-podman compose -f docker-compose.yaml exec redis \
-  redis-cli --scan --pattern 'sayt-ui:session:*'
+podman compose -f docker-compose.yaml exec redis redis-cli --scan --pattern "sayt-ui:session:*"
 ```
 
 The existing inspection script can read that local test record:
 
 ```bash
-REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
+REDIS_PASSWORD=<redis password> REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
   poetry run python scripts/inspect_redis_session.py
 ```
 
@@ -457,15 +462,16 @@ podman machine start  # Only if the machine is stopped
 In a separate terminal, run Redis with its port exposed on localhost
 
 ```bash
+export REDIS_PASSWORD="not-a-real-password"  # pragma: allowlist secret
 podman run --rm --name sayt-ui-redis \
   -p 127.0.0.1:6379:6379 \
-  docker.io/library/redis:7-alpine
+  docker.io/library/redis:7-alpine redis-server --requirepass "${REDIS_PASSWORD}"
 ```
 
 Check Redis responds, in another terminal execute:
 
 ```bash
-podman exec sayt-ui-redis redis-cli PING
+podman exec -e REDISCLI_AUTH="${REDIS_PASSWORD}" sayt-ui-redis redis-cli PING
 ```
 
 The Redis instance should respond ```PONG```
@@ -478,6 +484,8 @@ Ensure the following env vars are set:
 SESSION_BACKEND=redis
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
+REDIS_PASSWORD=not-a-real-password
+REDIS_USE_TLS=false
 ```
 
 Start the UI
@@ -489,7 +497,10 @@ Start the UI
 Check that a server-side session key was created without displaying its contents
 
 ```
-podman exec sayt-ui-redis redis-cli --scan --pattern 'sayt-ui:session:*'
+podman exec \
+  -e REDISCLI_AUTH="${REDIS_PASSWORD}" \
+  sayt-ui-redis \
+  redis-cli --scan --pattern 'sayt-ui:session:*'
 ```
 
 When you are **signed in** to the UI you should see a session id like:
@@ -503,13 +514,24 @@ sayt-ui:session:lbIaNIf0gGAyR-5wI5H--XB0cj_9bUZK-_pYE6WjJ1o
 When you **complete the survey questions**, you can inspect a saved session displaying its values using the script ```inspect_redis_session.py```:
 
 ```bash
-REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
+REDIS_PASSWORD=<redis password> REDIS_HOST=127.0.0.1 REDIS_PORT=6379 \
   poetry run python scripts/inspect_redis_session.py --show-values
 ```
 
 
 You will need to provide the session-id that you want to inspect e.g ```lbIaNIf0gGAyR-5wI5H--XB0cj_9bUZK-_pYE6WjJ1o```, the output should show a session structure including the stored values.
 
+
+### Environment variables for Cloud Run / Memorystore
+
+```bash
+SESSION_BACKEND=redis
+REDIS_HOST=<memorystore-ip>
+REDIS_PORT=<memorystore-tls-port>
+REDIS_PASSWORD=<from-secret-manager>
+REDIS_USE_TLS=true
+REDIS_CA_CERT_DATA=<memorystore-ca-pem>
+```
 
 ## Extending the code
 

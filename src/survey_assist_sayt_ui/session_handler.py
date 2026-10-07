@@ -8,6 +8,7 @@ from flask import Flask
 from flask_session.base import ServerSideSession
 from flask_session.redis.redis import RedisSessionInterface
 from redis import ConnectionPool, Redis
+from redis.connection import SSLConnection
 from redis.exceptions import RedisError
 
 from survey_assist_sayt_ui.auth.decorators import (
@@ -119,13 +120,34 @@ def configure_session(app: Flask, settings: Settings) -> None:
         settings.redis_max_connections,
     )
 
-    pool = ConnectionPool(
-        host=host.strip(),
-        port=port,
-        max_connections=max_connections,
-        socket_connect_timeout=5,
-        socket_timeout=5,
-    )
+    if settings.redis_use_tls and (
+        settings.redis_ca_cert_data is None or not settings.redis_ca_cert_data.strip()
+    ):
+        raise ValueError("REDIS_CA_CERT_DATA is required when REDIS_USE_TLS=true")
+
+    if settings.redis_use_tls:
+        pool = ConnectionPool(
+            connection_class=SSLConnection,
+            host=host.strip(),
+            port=port,
+            password=settings.redis_password,
+            max_connections=max_connections,
+            socket_connect_timeout=5,
+            socket_timeout=5,
+            ssl_ca_data=settings.redis_ca_cert_data,
+            ssl_check_hostname=False,
+            ssl_cert_reqs="required",
+        )
+    else:
+        pool = ConnectionPool(
+            host=host.strip(),
+            port=port,
+            password=settings.redis_password,
+            max_connections=max_connections,
+            socket_connect_timeout=5,
+            socket_timeout=5,
+        )
+
     redis_client = Redis(connection_pool=pool)
 
     try:
