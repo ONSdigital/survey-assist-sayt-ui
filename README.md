@@ -237,6 +237,36 @@ make podman-compose-down
 
 For local development, Redis data is disposable and is not retained when its container is removed.
 
+### Redis session failure handling
+
+The UI uses five-second Redis connect and socket timeouts. At runtime,
+redis-py makes one immediate retry of a failed session command for connection
+and timeout errors. Authentication and other permanent errors are not retried.
+The startup Redis connectivity check is not retried.
+
+If a session read, write, or delete still fails, the request returns HTTP 500
+with a message asking the respondent to try again later. The UI does not
+silently switch to client-side storage or delete the browser's existing session
+cookie. After Redis recovers, the respondent may be able to resume from the
+last successful session write. If Redis responds but that session ID no longer
+exists, protected pages require sign-in again.
+
+A timed-out write or delete has an uncertain outcome: Redis might have applied
+it before the timeout. A failed HTTP response must not be interpreted as a
+guarantee that the previous Redis record is unchanged. Do not automatically
+resubmit a completed survey result without checking whether it was already
+accepted.
+
+The 5-second connect and socket limits apply to individual network
+operations, not to a complete Flask request. One retry is bounded, but the
+total request duration is not guaranteed to stay below 10 seconds.
+
+Monitor Redis availability through Memorystore metrics and the application's
+CRITICAL session-error logs. `/health` remains a basic application health
+endpoint and does not explicitly check Redis availability. However, requests
+containing a Redis session cookie may trigger a Redis session read before
+the health endpoint is executed.
+
 ## Configuration reference
 
 The application configuration is read from environment variables at startup.

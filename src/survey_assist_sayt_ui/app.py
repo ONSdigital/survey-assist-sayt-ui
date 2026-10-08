@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from urllib.parse import urlparse
 
-from flask import Flask, redirect, request, session, url_for
+from flask import Flask, Response, redirect, request, session, url_for
 from flask.typing import ResponseReturnValue
 from jinja2 import ChainableUndefined, ChoiceLoader, FileSystemLoader
 from survey_assist_utils.api_token.jwt_utils import check_and_refresh_token
@@ -26,7 +26,12 @@ from survey_assist_sayt_ui.services.result_submission import (
 from survey_assist_sayt_ui.services.survey_assist_api import (
     SurveyAssistApiClient,
 )
-from survey_assist_sayt_ui.session_handler import configure_session
+from survey_assist_sayt_ui.session_handler import (
+    READ_FAILURE_KEY,
+    SessionAwareFlask,
+    configure_session,
+    session_unavailable_response,
+)
 from survey_assist_sayt_ui.survey.loader import (
     SurveyDefinitionError,
     load_survey_definition,
@@ -124,7 +129,7 @@ def create_app(  # pylint: disable=too-many-locals, too-many-statements
 
     refresh_token = token_refresher or check_and_refresh_token
 
-    app = Flask(__name__, template_folder="app_templates")
+    app = SessionAwareFlask(__name__, template_folder="app_templates")
     app.jinja_env.undefined = ChainableUndefined
 
     design_templates = Path(__file__).parent / "templates"
@@ -180,6 +185,18 @@ def create_app(  # pylint: disable=too-many-locals, too-many-statements
     app.register_blueprint(main_blueprint)
     app.register_blueprint(meta_blueprint)
     app.register_blueprint(survey_blueprint)
+
+    @app.before_request
+    def reject_failed_redis_session_read() -> Response | None:
+        """Stop processing when the respondent's session could not be read.
+
+        Returns:
+            HTTP 500 without a session save after a failed Redis read;
+            otherwise None.
+        """
+        if request.environ.get(READ_FAILURE_KEY):
+            return session_unavailable_response(app)
+        return None
 
     @app.before_request
     def expire_authenticated_session() -> ResponseReturnValue | None:

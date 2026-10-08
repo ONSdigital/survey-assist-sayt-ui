@@ -1,5 +1,6 @@
 """Tests for configurable Flask session storage."""
 
+# pylint: disable=too-many-lines
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -7,6 +8,7 @@ from http import HTTPStatus
 import logging
 from math import ceil
 from typing import cast
+from unittest.mock import Mock
 
 from flask import Flask
 from flask.sessions import SecureCookieSessionInterface
@@ -14,9 +16,11 @@ from flask.testing import FlaskClient
 from flask_session.redis import RedisSessionInterface
 import msgspec
 import pytest
-from redis import Redis
+from redis import Redis, RedisError
 from redis.connection import SSLConnection
+from redis.exceptions import AuthenticationError, AuthorizationError, MaxConnectionsError
 from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from survey_assist_sayt_ui import session_handler
 from survey_assist_sayt_ui.app import create_app
@@ -240,6 +244,15 @@ def test_redis_backend_configures_flask_session(
     assert pool.connection_kwargs["socket_connect_timeout"] == 5
     assert pool.connection_kwargs["socket_timeout"] == 5
     assert pool.connection_class is not SSLConnection
+    assert pool.connection_kwargs["retry_on_timeout"] is False
+
+    retry = pool.connection_kwargs["retry"]
+    assert isinstance(retry, session_handler.SessionRetry)
+    assert retry.get_retries() == 1
+
+    connection = pool.connection_class(**pool.connection_kwargs)
+    assert isinstance(connection.retry, session_handler.SessionRetry)
+    assert connection.retry.get_retries() == 1
 
 
 def test_redis_backend_configures_password(
@@ -410,8 +423,12 @@ def test_redis_backend_fails_app_startup_when_ping_raises(
     settings = app.config["settings"]
     assert isinstance(settings, Settings)
 
+    attempts = 0
+
     def unavailable(_client: Redis) -> bool:
-        """Simulate an unavailable Redis server."""
+        """Count a failing startup availability check."""
+        nonlocal attempts
+        attempts += 1
         raise RedisConnectionError("Redis unavailable")
 
     monkeypatch.setattr(Redis, "ping", unavailable)
@@ -433,6 +450,7 @@ def test_redis_backend_fails_app_startup_when_ping_raises(
             )
 
     assert "Redis session store unavailable at startup" in caplog.text
+    assert attempts == 1
 
 
 def test_redis_backend_fails_when_ping_is_not_acknowledged(
@@ -866,3 +884,423 @@ def test_redis_logout_prevents_replay_of_old_session_cookie(
     with replay_client.session_transaction() as flask_session:
         assert SESSION_USER_KEY not in flask_session
         assert SURVEY_RESPONSES_KEY not in flask_session
+
+
+def _authenticated_redis_client(redis_app: Flask) -> tuple[FlaskClient, str]:
+    """Create a test client with an existing authenticated Redis session.
+
+    Args:
+        redis_app: Application configured with Redis sessions.
+
+    Returns:
+        Client and Redis key for its authenticated session.
+    """
+    client = redis_app.test_client()
+
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
+
+    cookie = client.get_cookie(redis_app.config["SESSION_COOKIE_NAME"])
+    assert cookie is not None
+    return client, f"sayt-ui:session:{cookie.value}"
+
+
+def _connection_retry(redis_app: Flask) -> session_handler.SessionRetry:
+    """Obtain the policy installed on an actual runtime Redis connection."""
+    redis_client = redis_app.config["SESSION_REDIS"]
+    assert isinstance(redis_client, Redis)
+
+    pool = redis_client.connection_pool
+    connection = pool.connection_class(**pool.connection_kwargs)
+    assert isinstance(connection.retry, session_handler.SessionRetry)
+    assert connection.retry.get_retries() == 1
+    return connection.retry
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        RedisConnectionError("connection dropped"),
+        RedisTimeoutError("request timed out"),
+    ],
+)
+def test_runtime_retry_makes_exactly_one_additional_attempt(
+    redis_app: Flask,
+    failure: RedisError,
+) -> None:
+    """Retry connection and timeout failures once, without backoff."""
+    retry = _connection_retry(redis_app)
+    attempts = 0
+
+    def fail_then_succeed() -> str:
+        """Succeed on the second attempt."""
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise failure
+        return "ok"
+
+    assert (
+        retry.call_with_retry(
+            fail_then_succeed,
+            lambda _error: None,
+        )
+        == "ok"
+    )
+    assert attempts == 2
+
+
+def test_runtime_retry_stops_after_two_failed_attempts(
+    redis_app: Flask,
+) -> None:
+    """Do not continue retrying while Redis remains unavailable."""
+    retry = _connection_retry(redis_app)
+
+    attempts = 0
+
+    def always_fail() -> None:
+        """Count attempts before raising a transient error."""
+        nonlocal attempts
+        attempts += 1
+        raise RedisTimeoutError("request timed out")
+
+    with pytest.raises(RedisTimeoutError):
+        retry.call_with_retry(always_fail, lambda _error: None)
+
+    assert attempts == 2
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        AuthenticationError("invalid credentials"),
+        AuthorizationError("not authorized"),
+        MaxConnectionsError("connection pool exhausted"),
+    ],
+)
+def test_runtime_retry_does_not_retry_permanent_failure(
+    redis_app: Flask,
+    failure: RedisError,
+) -> None:
+    """Do not retry authentication, authorization, or pool exhaustion."""
+    retry = _connection_retry(redis_app)
+    attempts = 0
+
+    def permanently_fails() -> None:
+        """Count calls before raising the permanent error."""
+        nonlocal attempts
+        attempts += 1
+        raise failure
+
+    with pytest.raises(type(failure)):
+        retry.call_with_retry(permanently_fails, lambda _error: None)
+
+    assert attempts == 1
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        RedisConnectionError("connection dropped"),
+        RedisTimeoutError("request timed out"),
+    ],
+)
+def test_nested_runtime_retry_makes_at_most_two_attempts(
+    redis_app: Flask,
+    failure: RedisError,
+) -> None:
+    """A nested connection retry must not multiply command attempts."""
+    retry = _connection_retry(redis_app)
+    attempts = 0
+
+    def failed_connection() -> None:
+        """Count each underlying connection attempt."""
+        nonlocal attempts
+        attempts += 1
+        raise failure
+
+    def failed_command() -> None:
+        """Exercise the connection retry within a command retry."""
+        retry.call_with_retry(failed_connection, lambda _error: None)
+
+    with pytest.raises(type(failure)):
+        retry.call_with_retry(failed_command, lambda _error: None)
+
+    assert attempts == 2
+
+
+@pytest.mark.parametrize(
+    ("operation", "arguments", "redis_response", "expected"),
+    [
+        ("get", ("test:key",), b"value", b"value"),
+        ("set", ("test:key", b"value"), b"OK", True),
+        ("delete", ("test:key",), 1, 1),
+    ],
+)
+@pytest.mark.parametrize(
+    "failure",
+    [
+        RedisConnectionError("connection dropped"),
+        RedisTimeoutError("request timed out"),
+    ],
+)
+def test_redis_command_retries_transient_failure_once(  # pylint: disable=too-many-arguments, too-many-positional-arguments
+    redis_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    operation: str,
+    arguments: tuple[object, ...],
+    redis_response: bytes | int,
+    expected: bytes | bool | int,
+    failure: RedisError,
+) -> None:
+    """Retry a failed Redis command once and return the successful result."""
+    redis_client = redis_app.config["SESSION_REDIS"]
+    assert isinstance(redis_client, Redis)
+
+    pool = redis_client.connection_pool
+    connection = Mock()
+    connection.retry = _connection_retry(redis_app)
+    connection.read_response.return_value = redis_response
+
+    attempts = 0
+
+    def send_command(*_args: object, **_kwargs: object) -> None:
+        """Fail the first command attempt and allow the second."""
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise failure
+
+    connection.send_command.side_effect = send_command
+
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            pool,
+            "get_connection",
+            lambda *_args, **_kwargs: connection,
+        )
+        patch.setattr(pool, "release", lambda _connection: None)
+
+        result = redis_client.execute_command(
+            operation.upper(),
+            *arguments,
+        )
+    assert result == expected
+    assert attempts == 2
+    assert connection.send_command.call_count == 2
+
+
+def test_failed_redis_read_shows_500_and_retains_session_cookie(
+    redis_app: Flask,
+    redis_store: dict[str, bytes],
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Do not treat a failed GET as an absent respondent session."""
+    client, key = _authenticated_redis_client(redis_app)
+    cookie_name = redis_app.config["SESSION_COOKIE_NAME"]
+    original_cookie = client.get_cookie(cookie_name)
+    assert original_cookie is not None
+
+    def fail_get(_client: Redis, _key: str) -> bytes:
+        """Simulate an exhausted read attempt."""
+        raise RedisTimeoutError("read timed out")
+
+    with caplog.at_level(logging.CRITICAL):
+        with monkeypatch.context() as patch:
+            patch.setattr(Redis, "get", fail_get)
+            response = client.get("/survey/questions/q0")
+
+    assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+    assert "We are unable to save your answers right now" in response.get_data(as_text=True)
+    assert "Set-Cookie" not in response.headers
+    assert client.get_cookie(cookie_name) == original_cookie
+    assert key in redis_store
+    assert "operation=get" in caplog.text
+    assert "person@example.com" not in caplog.text
+    assert client.get("/survey/questions/q0").status_code == HTTPStatus.OK
+
+
+def test_exhausted_redis_pool_shows_500_and_retains_session_cookie(
+    redis_app: Flask,
+    redis_store: dict[str, bytes],
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Handle pool exhaustion before a Redis command can enter its retry loop."""
+    # pylint: disable=too-many-locals
+    client, key = _authenticated_redis_client(redis_app)
+    cookie_name = redis_app.config["SESSION_COOKIE_NAME"]
+    original_cookie = client.get_cookie(cookie_name)
+    assert original_cookie is not None
+    previous_record = redis_store[key]
+
+    redis_client = redis_app.config["SESSION_REDIS"]
+    assert isinstance(redis_client, Redis)
+    pool = redis_client.connection_pool
+    attempts = 0
+
+    def get_via_command(connection: Redis, name: str) -> bytes | None:
+        """Use the command path rather than the fixture's in-memory GET."""
+        return cast(bytes | None, connection.execute_command("GET", name))
+
+    def exhausted_pool() -> None:
+        """Fail while obtaining a connection, before command retry begins."""
+        nonlocal attempts
+        attempts += 1
+        raise MaxConnectionsError("Too many connections")
+
+    with caplog.at_level(logging.CRITICAL):
+        with monkeypatch.context() as patch:
+            patch.setattr(Redis, "get", get_via_command)
+            patch.setattr(pool, "get_connection", exhausted_pool)
+            response = client.get("/survey/questions/q0")
+
+    assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+    assert "We are unable to save your answers right now" in response.get_data(as_text=True)
+    assert "Set-Cookie" not in response.headers
+    assert client.get_cookie(cookie_name) == original_cookie
+    assert redis_store[key] == previous_record
+    assert attempts == 1
+    assert "operation=get" in caplog.text
+    assert "MaxConnectionsError" in caplog.text
+    assert "person@example.com" not in caplog.text
+    assert client.get("/survey/questions/q0").status_code == HTTPStatus.OK
+
+
+def test_failed_redis_write_shows_500_and_preserves_last_saved_answer(
+    redis_app: Flask,
+    redis_store: dict[str, bytes],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Replace a success redirect when saving an answer fails."""
+    client, key = _authenticated_redis_client(redis_app)
+    cookie_name = redis_app.config["SESSION_COOKIE_NAME"]
+    original_cookie = client.get_cookie(cookie_name)
+    assert original_cookie is not None
+    previous_record = redis_store[key]
+
+    def fail_set(
+        _client: Redis,
+        name: str,
+        value: bytes,
+        ex: int | None = None,
+        exat: int | None = None,
+    ) -> bool:
+        """Simulate a write that does not reach Redis."""
+        raise RedisTimeoutError("write timed out")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Redis, "set", fail_set)
+        response = client.post(
+            "/survey/questions/q0",
+            data={"age-range": "25-34"},
+        )
+
+    assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+    assert "We are unable to save your answers right now" in response.get_data(as_text=True)
+    assert "Set-Cookie" not in response.headers
+    assert client.get_cookie(cookie_name) == original_cookie
+    assert redis_store[key] == previous_record
+
+    with client.session_transaction() as flask_session:
+        assert SURVEY_RESPONSES_KEY not in flask_session
+
+
+def test_failed_redis_delete_shows_500_and_retains_cookie(
+    redis_app: Flask,
+    redis_store: dict[str, bytes],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Do not return a successful logout when Redis deletion fails."""
+    client, key = _authenticated_redis_client(redis_app)
+    cookie_name = redis_app.config["SESSION_COOKIE_NAME"]
+    original_cookie = client.get_cookie(cookie_name)
+    assert original_cookie is not None
+
+    def fail_delete(_client: Redis, _key: str) -> int:
+        """Simulate an exhausted deletion attempt."""
+        raise RedisConnectionError("connection dropped")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Redis, "delete", fail_delete)
+        response = client.get("/logout")
+
+    assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+    assert client.get_cookie(cookie_name) == original_cookie
+    assert "Set-Cookie" not in response.headers
+    assert key in redis_store
+    assert client.get("/survey/questions/q0").status_code == HTTPStatus.OK
+
+
+def test_missing_redis_record_requires_login(
+    redis_app: Flask,
+    redis_store: dict[str, bytes],
+) -> None:
+    """A retained but no-longer-backed session ID cannot authenticate."""
+    client, key = _authenticated_redis_client(redis_app)
+    redis_store.pop(key)
+
+    response = client.get("/survey/questions/q0")
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/login")
+
+
+@pytest.mark.parametrize(
+    ("operation", "arguments"),
+    [
+        ("get", ("test:key",)),
+        ("set", ("test:key", b"value")),
+        ("delete", ("test:key",)),
+    ],
+)
+@pytest.mark.parametrize(
+    "failure",
+    [
+        RedisConnectionError("connection dropped"),
+        RedisTimeoutError("request timed out"),
+    ],
+)
+def test_redis_command_stops_after_retry_exhaustion(
+    redis_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    operation: str,
+    arguments: tuple[object, ...],
+    failure: RedisError,
+) -> None:
+    """Stop a failing Redis command after its initial attempt and one retry."""
+    redis_client = redis_app.config["SESSION_REDIS"]
+    assert isinstance(redis_client, Redis)
+
+    pool = redis_client.connection_pool
+    connection = Mock()
+    connection.retry = _connection_retry(redis_app)
+
+    attempts = 0
+
+    def send_command(*_args: object, **_kwargs: object) -> None:
+        """Simulate a Redis command that fails on every attempt."""
+        nonlocal attempts
+        attempts += 1
+        raise failure
+
+    connection.send_command.side_effect = send_command
+
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            pool,
+            "get_connection",
+            lambda *_args, **_kwargs: connection,
+        )
+        patch.setattr(pool, "release", lambda _connection: None)
+
+        with pytest.raises(type(failure)):
+            redis_client.execute_command(
+                operation.upper(),
+                *arguments,
+            )
+
+    assert attempts == 2
+    assert connection.send_command.call_count == 2

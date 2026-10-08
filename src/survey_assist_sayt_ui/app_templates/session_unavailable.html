@@ -1,0 +1,19 @@
+{% extends "core.html" %}
+
+{% from "components/panel/_macro.njk" import onsPanel %}
+
+{% set page_title = "Your answers could not be saved" %}
+{% set page_heading = page_title %}
+{% set main_col_class = "ons-col-8@m" %}
+
+{% block main %}
+    <h1>{{ page_heading }}</h1>
+
+    {{
+        onsPanel({
+            "variant": "error",
+            "title": "Please try again later",
+            "body": "We are unable to save your answers right now. Your answers from earlier in the survey may still be available. Please try again later."
+        })
+    }}
+{% endblock %}
