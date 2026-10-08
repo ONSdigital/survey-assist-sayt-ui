@@ -470,6 +470,34 @@ To run the checks without applying Ruff fixes or formatting changes:
 make check-python-nofix
 ```
 
+### E2E Testing using playwright
+
+To run the e2e tests you must have the local SAYT UI app [setup and running](#install-and-run-locally)
+
+Install Chromium
+
+```bash
+poetry run playwright install chromium
+```
+
+Set these values in your .env file:
+
+```text
+SAYT_E2E_BASE_URL=https://your-sandbox-ui-host
+SAYT_E2E_USERNAME=test@example.com
+SAYT_E2E_PASSWORD=your-test-account-password
+```
+
+Run the test:
+
+```bash
+make e2e-test
+```
+
+`SAYT_E2E_BASE_URL` is the full browser URL of the UI. The browser test signs in, searches for "game developer" in the SAYT Quick Test, and clicks the first suggestion. It saves the selected activity, checks the confirmation, and signs out.
+
+The browser test runs only with `make e2e-test`. The standard test and CI command excludes it.
+
 ## Extending the code
 
 Replace `src/survey_assist_sayt_ui/app_templates/index.html` and add new blueprints under `src/survey_assist_sayt_ui/routes/`.
