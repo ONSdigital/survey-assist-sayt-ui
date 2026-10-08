@@ -95,14 +95,14 @@ podman-build:  ## Build the Podman image.
 podman-run:  ## Run the Podman container.
 	$(call container-run,podman)
 
-podman-compose-up: ## Build and start the local UI (client sessions) and Redis.
+podman-compose-up: ## Build and start the local UI.
 	CRED_FILE="$(CRED_FILE)" podman compose -f docker-compose.yaml up --build -d
 
 podman-compose-redis-up: ## Build and start the local UI with Redis sessions.
 	CRED_FILE="$(CRED_FILE)" podman compose -f docker-compose.yaml -f docker-compose.redis.yaml up --build -d
 
-podman-compose-down: ## Stop and remove the local UI and Redis containers.
-	CRED_FILE="$(CRED_FILE)" podman compose -f docker-compose.yaml down
+podman-compose-down: ## Stop and remove the local UI and the Redis containers if running.
+	CRED_FILE="$(CRED_FILE)" podman compose -f docker-compose.yaml -f docker-compose.redis.yaml down 
 
 podman-compose-logs: ## Follow logs from the local Compose UI.
 	CRED_FILE="$(CRED_FILE)" podman compose -f docker-compose.yaml logs -f ui
