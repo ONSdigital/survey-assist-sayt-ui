@@ -82,14 +82,6 @@ Set `SURVEY_ASSIST_API_BASE_URL` to the base URL of a Survey Assist API environm
 
 Set `SA_EMAIL` to the email address of the service account for that environment. Your Google Cloud user must have `iam.serviceAccounts.signJwt` permission on the service account specified by `SA_EMAIL` to sign JWTs on its behalf.
 
-`make run` does not load `.env`. Export the values into your current shell before you start the application:
-
-```bash
-set -a
-source .env
-set +a
-```
-
 See [Configuration reference](#configuration-reference) for all supported settings, documentation and defaults.
 
 ### 4. Create a local user
