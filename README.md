@@ -267,10 +267,13 @@ accepted.
 
 The 5-second connect and socket limits apply to individual network
 operations, not to a complete Flask request. One retry is bounded, but the
-total request duration is not guaranteed to stay below 10 seconds. Monitor
-Redis availability through Memorystore metrics and the application's
-CRITICAL session-error logs; `/health` remains a basic application health
-endpoint and does not query Redis.
+total request duration is not guaranteed to stay below 10 seconds.
+
+Monitor Redis availability through Memorystore metrics and the application's
+CRITICAL session-error logs. `/health` remains a basic application health
+endpoint and does not explicitly check Redis availability. However, requests
+containing a Redis session cookie may trigger a Redis session read before
+the health endpoint is executed.
 
 ## Configuration reference
 
