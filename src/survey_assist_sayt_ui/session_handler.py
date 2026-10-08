@@ -1,15 +1,24 @@
 """Configure client-side or Redis-backed Flask sessions."""
 
+from collections.abc import Callable
+from contextvars import ContextVar
 from datetime import timedelta
 import logging
 from math import ceil
+from typing import Any, TypeVar
 
-from flask import Flask
+from flask import Flask, Request, Response, render_template
+from flask import request as flask_request
+from flask.sessions import SessionMixin
 from flask_session.base import ServerSideSession
 from flask_session.redis.redis import RedisSessionInterface
-from redis import ConnectionPool, Redis
+from redis import ConnectionPool, Redis, RedisError
+from redis.backoff import NoBackoff
 from redis.connection import SSLConnection
-from redis.exceptions import RedisError
+from redis.exceptions import AuthenticationError, AuthorizationError, MaxConnectionsError
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
+from redis.retry import Retry
 
 from survey_assist_sayt_ui.auth.decorators import (
     SESSION_LOGIN_TIME_KEY,
@@ -19,6 +28,83 @@ from survey_assist_sayt_ui.auth.session_lifetime import login_deadline
 from survey_assist_sayt_ui.config import Settings
 
 logger = logging.getLogger(__name__)
+
+READ_FAILURE_KEY = "survey_assist.redis_session_read_failed"
+SAVE_OPERATION_KEY = "survey_assist.redis_session_save_operation"
+RETRYABLE_REDIS_ERRORS = (RedisConnectionError, RedisTimeoutError)
+
+RetryResult = TypeVar("RetryResult")
+
+
+def _is_transient_redis_error(error: Exception) -> bool:
+    """Identify Redis failures for which another attempt may succeed.
+
+    Args:
+        error: Failure raised by a Redis operation.
+
+    Returns:
+        Whether the failure is eligible for one retry.
+    """
+    return isinstance(error, RETRYABLE_REDIS_ERRORS) and not isinstance(
+        error,
+        (AuthenticationError, AuthorizationError, MaxConnectionsError),
+    )
+
+
+class SessionRetry(Retry):
+    """Allow one transient retry across nested Redis command and connection calls."""
+
+    _active: ContextVar[bool] = ContextVar(
+        "survey_assist_redis_retry_active",
+        default=False,
+    )
+
+    def call_with_retry(
+        self,
+        do: Callable[[], RetryResult],
+        fail: Callable[[Exception], Any] | Callable[[Exception, int], Any],
+        is_retryable: Callable[[Exception], bool] | None = None,
+        with_failure_count: bool = False,
+    ) -> RetryResult:
+        """Run a Redis operation with the session retry policy.
+
+        Args:
+            do: Operation to execute.
+            fail: Callback invoked after an eligible failure.
+            is_retryable: Additional redis-py eligibility check, if supplied.
+            with_failure_count: Pass the failure count to the callback when true.
+
+        Returns:
+            The operation's result.
+        """
+
+        def should_retry(error: Exception) -> bool:
+            return _is_transient_redis_error(error) and (
+                is_retryable is None or is_retryable(error)
+            )
+
+        if self._active.get():
+            return Retry(
+                NoBackoff(),
+                0,
+                supported_errors=RETRYABLE_REDIS_ERRORS,
+            ).call_with_retry(
+                do,
+                fail,
+                should_retry,
+                with_failure_count,
+            )
+
+        token = self._active.set(True)
+        try:
+            return super().call_with_retry(
+                do,
+                fail,
+                should_retry,
+                with_failure_count,
+            )
+        finally:
+            self._active.reset(token)
 
 
 def _positive_int(name: str, raw: str, *, maximum: int | None = None) -> int:
@@ -46,8 +132,148 @@ def _positive_int(name: str, raw: str, *, maximum: int | None = None) -> int:
     return value
 
 
+def _redis_pool(
+    settings: Settings,
+    host: str,
+    port: int,
+    max_connections: int,
+    retry: Retry,
+) -> ConnectionPool:
+    """Construct a Redis pool with the configured transport and retry policy.
+
+    Args:
+        settings: Redis authentication and TLS settings.
+        host: Validated Redis host.
+        port: Validated Redis port.
+        max_connections: Maximum connections in this process's pool.
+        retry: redis-py retry policy for commands using the pool.
+
+    Returns:
+        Configured Redis connection pool.
+    """
+    if settings.redis_use_tls:
+        return ConnectionPool(
+            connection_class=SSLConnection,
+            host=host,
+            port=port,
+            password=settings.redis_password,
+            max_connections=max_connections,
+            socket_connect_timeout=5,
+            socket_timeout=5,
+            retry=retry,
+            retry_on_timeout=False,
+            ssl_ca_data=settings.redis_ca_cert_data,
+            ssl_check_hostname=False,
+            ssl_cert_reqs="required",
+        )
+
+    return ConnectionPool(
+        host=host,
+        port=port,
+        password=settings.redis_password,
+        max_connections=max_connections,
+        socket_connect_timeout=5,
+        socket_timeout=5,
+        retry=retry,
+        retry_on_timeout=False,
+    )
+
+
+def session_unavailable_response(app: Flask) -> Response:
+    """Create an error response without trying to save the Flask session.
+
+    Args:
+        app: Current Flask application.
+
+    Returns:
+        HTTP 500 response containing the respondent-facing error page.
+    """
+    response = app.make_response((render_template("session_unavailable.html"), 500))
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+class SessionAwareFlask(Flask):
+    """Convert response-time Redis session failures into an unsaved HTTP 500."""
+
+    def process_response(self, response: Response) -> Response:
+        """Finalise a response, handling a Redis session save failure.
+
+        Args:
+            response: Response produced by the route.
+
+        Returns:
+            Normal response, or an unsaved error response after Redis failure.
+        """
+        try:
+            return super().process_response(response)
+        except RedisError as exc:
+            logger.critical(
+                "Redis session operation failed operation=%s error_type=%s",
+                flask_request.environ.get(SAVE_OPERATION_KEY, "response_processing"),
+                type(exc).__name__,
+            )
+            return session_unavailable_response(self)
+
+
 class AbsoluteExpiryRedisSessionInterface(RedisSessionInterface):
-    """Save authenticated Redis sessions with an expiry fixed at login."""
+    """Use Flask-Session with fixed login expiry and safe read failure handling."""
+
+    def open_session(self, app: Flask, request: Request) -> ServerSideSession:
+        """Open a session without treating a failed Redis read as a new login.
+
+        Args:
+            app: Current Flask application.
+            request: Request containing the existing session cookie.
+
+        Returns:
+            Loaded session, or a temporary empty session after a failed read.
+        """
+        try:
+            return super().open_session(app, request)
+        except RedisError as exc:
+            logger.critical(
+                "Redis session operation failed operation=get error_type=%s",
+                type(exc).__name__,
+            )
+            request.environ[READ_FAILURE_KEY] = True
+            return ServerSideSession(sid=self._generate_sid(self.sid_length))
+
+    def save_session(
+        self,
+        app: Flask,
+        session: SessionMixin,
+        response: Response,
+    ) -> None:
+        """Never persist or change cookies after a failed session read.
+
+        Args:
+            app: Current Flask application.
+            session: Session opened for this request.
+            response: Response being finalised.
+
+        Raises:
+            TypeError: If the session is not a server-side session.
+        """
+        if flask_request.environ.get(READ_FAILURE_KEY):
+            return
+
+        if not isinstance(session, ServerSideSession):
+            raise TypeError("Redis session interface requires a server-side session")
+
+        super().save_session(app, session, response)
+
+    def _delete_session(self, store_id: str) -> None:
+        """Delete one Redis session, recording the operation for error handling.
+
+        Args:
+            store_id: Redis key to delete.
+
+        Raises:
+            RedisError: If Redis cannot complete the deletion.
+        """
+        flask_request.environ[SAVE_OPERATION_KEY] = "delete"
+        super()._delete_session(store_id)
 
     def _upsert_session(
         self,
@@ -55,7 +281,7 @@ class AbsoluteExpiryRedisSessionInterface(RedisSessionInterface):
         session: ServerSideSession,
         store_id: str,
     ) -> None:
-        """Write a session without extending an authenticated login.
+        """Write a session without extending an authenticated login deadline.
 
         Args:
             session_lifetime: Configured maximum lifetime.
@@ -66,6 +292,8 @@ class AbsoluteExpiryRedisSessionInterface(RedisSessionInterface):
             ValueError: If an authenticated session has an invalid login time.
             RedisError: If Redis cannot save the session.
         """
+        flask_request.environ[SAVE_OPERATION_KEY] = "set"
+
         if not session.get(SESSION_USER_KEY):
             super()._upsert_session(session_lifetime, session, store_id)
             return
@@ -95,7 +323,7 @@ def configure_session(app: Flask, settings: Settings) -> None:
 
     Raises:
         ValueError: If session or Redis configuration is invalid.
-        RuntimeError: If the configured Redis store is unavailable at startup.
+        RuntimeError: If Redis is unavailable during the single startup check.
     """
     lifetime_days = _positive_int(
         "SESSION_LIFETIME_DAYS",
@@ -125,40 +353,43 @@ def configure_session(app: Flask, settings: Settings) -> None:
     ):
         raise ValueError("REDIS_CA_CERT_DATA is required when REDIS_USE_TLS=true")
 
-    if settings.redis_use_tls:
-        pool = ConnectionPool(
-            connection_class=SSLConnection,
-            host=host.strip(),
-            port=port,
-            password=settings.redis_password,
-            max_connections=max_connections,
-            socket_connect_timeout=5,
-            socket_timeout=5,
-            ssl_ca_data=settings.redis_ca_cert_data,
-            ssl_check_hostname=False,
-            ssl_cert_reqs="required",
-        )
-    else:
-        pool = ConnectionPool(
-            host=host.strip(),
-            port=port,
-            password=settings.redis_password,
-            max_connections=max_connections,
-            socket_connect_timeout=5,
-            socket_timeout=5,
-        )
-
-    redis_client = Redis(connection_pool=pool)
-
+    startup_pool = _redis_pool(
+        settings,
+        host.strip(),
+        port,
+        max_connections,
+        Retry(NoBackoff(), 0, supported_errors=RETRYABLE_REDIS_ERRORS),
+    )
     try:
-        available = redis_client.ping()
-    except RedisError as exc:
-        logger.critical("Redis session store unavailable at startup", exc_info=True)
-        raise RuntimeError("Redis session store unavailable at startup") from exc
+        try:
+            available = Redis(connection_pool=startup_pool).ping()
+        except RedisError as exc:
+            logger.critical(
+                "Redis session store unavailable at startup error_type=%s",
+                type(exc).__name__,
+            )
+            raise RuntimeError("Redis session store unavailable at startup") from exc
 
-    if not available:
-        logger.critical("Redis session store did not acknowledge startup ping")
-        raise RuntimeError("Redis session store did not acknowledge startup ping")
+        if not available:
+            logger.critical("Redis session store did not acknowledge startup ping")
+            raise RuntimeError("Redis session store did not acknowledge startup ping")
+    finally:
+        startup_pool.disconnect()
+
+    logger.info("Redis session store available at startup")
+
+    runtime_pool = _redis_pool(
+        settings,
+        host.strip(),
+        port,
+        max_connections,
+        SessionRetry(
+            NoBackoff(),
+            1,
+            supported_errors=RETRYABLE_REDIS_ERRORS,
+        ),
+    )
+    redis_client = Redis(connection_pool=runtime_pool)
 
     app.config.update(
         SESSION_TYPE="redis",
