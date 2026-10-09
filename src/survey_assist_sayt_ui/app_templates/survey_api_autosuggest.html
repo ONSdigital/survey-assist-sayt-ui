@@ -25,6 +25,7 @@
 {% set main_col_class = "ons-col-8@m" %}
 {% set autosuggest_id = page.page_id ~ "-api-autosuggest" %}
 {% set loading_id = autosuggest_id ~ "-loading" %}
+{% set selection_field_name = page.answer.name ~ "-selected" %}
 {% set not_listed_enabled = page.answer.not_listed | default(false) %}
 {% set self_describe_id = page.page_id ~ "-self-describe" %}
 {% set self_describe_field_id = self_describe_id ~ "-field" %}
@@ -149,6 +150,8 @@
     "resultsThreshold": 0.3,
     "language": "en",
     "externalInitialiser": true,
+    "selectionFieldName": selection_field_name,
+    "selectionValue": selected_suggestion | default(""),
     "apiSource": {
         "url": url_for(
             "main.business_activity_suggestions"
@@ -223,22 +226,35 @@
     ></script>
 {% endblock %}
 
+{% set error_items = [] %}
+
+{% if error_message %}
+    {% set _ = error_items.append({
+        "text": error_message,
+        "url": "#" ~ autosuggest_error.id,
+        "variants": "inPageLink"
+    }) %}
+{% endif %}
+
+{% if self_describe_error_message %}
+    {% set _ = error_items.append({
+        "text": self_describe_error_message,
+        "url": "#" ~ self_describe_error.id,
+        "variants": "inPageLink"
+    }) %}
+{% endif %}
+
 {% block main %}
-    {% if self_describe_error_message %}
+    {% if error_items %}
         {% call onsPanel({
             "title": "There is a problem with your answer",
-            "variant": "error"
+            "variant": "error",
+            "classes": "ons-u-mb-m"
         }) %}
             {{
                 onsList({
                     "element": "ol",
-                    "itemsList": [
-                        {
-                            "text": self_describe_error_message,
-                            "url": "#" ~ self_describe_error.id,
-                            "variants": "inPageLink"
-                        }
-                    ]
+                    "itemsList": error_items
                 })
             }}
         {% endcall %}

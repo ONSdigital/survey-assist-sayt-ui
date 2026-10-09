@@ -288,47 +288,8 @@
   },
   "survey_pages": {
     "enabled": true,
-    "start_page_id": "q0",
+    "start_page_id": "q1",
     "pages": [
-      {
-        "page_id": "q0",
-        "page_type": "question",
-        "page_title": "About you",
-        "question_name": "about_you_question",
-        "question": {
-          "text": "About you",
-          "description": "Enter your details"
-        },
-        "answer": {
-          "type": "multi_text",
-          "name": "about-you",
-          "fields": [
-            {
-              "name": "first-name",
-              "label": "My First or Given name",
-              "required": false,
-              "required_error": "Enter your first or given name",
-              "autocomplete": "given-name"
-            },
-            {
-              "name": "middle-names",
-              "label": "My Middle Names",
-              "required": false,
-              "autocomplete": "additional-name"
-            },
-            {
-              "name": "surname",
-              "label": "My Surname or Family Name",
-              "required": false,
-              "required_error": "Enter your surname or family name",
-              "autocomplete": "family-name"
-            }
-          ]
-        },
-        "submit_button": {
-          "text": "Save and continue"
-        }
-      },
       {
         "page_id": "q1",
         "page_type": "question",
@@ -473,7 +434,7 @@
         }
       },
       {
-        "page_id": "q-business-activity",
+        "page_id": "q4",
         "page_type": "question",
         "page_title": "Business Activity",
         "question_name": "business_activity_question",
@@ -501,6 +462,50 @@
           "text": "Save and continue"
         },
         "submit_result": true
+      },
+      {
+        "page_id": "q5",
+        "page_type": "question",
+        "page_title": "Business Name",
+        "question_name": "business_name_question",
+        "question": {
+          "text": "At your main job, what is the name of the business or organisation you work for?",
+          "description": ""
+        },
+        "answer": {
+          "type": "text",
+          "name": "business-name",
+          "required": true,
+          "multiline": true,
+          "rows": 5,
+          "character_limit": 150,
+          "placeholder": ""
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
+      },
+      {
+        "page_id": "q6",
+        "page_type": "question",
+        "page_title": "Business Location",
+        "question_name": "business_location_question",
+        "question": {
+          "text": "In which city, town, village or London borough is the business or organisation located?",
+          "description": ""
+        },
+        "answer": {
+          "type": "text",
+          "name": "business-location",
+          "required": true,
+          "multiline": true,
+          "rows": 5,
+          "character_limit": 150,
+          "placeholder": ""
+        },
+        "submit_button": {
+          "text": "Save and continue"
+        }
       },
       {
         "page_id": "g2",
