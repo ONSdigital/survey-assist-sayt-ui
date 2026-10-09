@@ -32,6 +32,7 @@ endef
 
 .PHONY: help all clean install templates run run-docs all-tests test lint format \
 	check-python check-python-nofix \
+	e2e-tests \
 	docker-build docker-run podman-build podman-run \
 	podman-compose-up podman-compose-redis-up podman-compose-down podman-compose-logs \
 	manage-users pre-commit-install pre-commit-run pre-push-run \
@@ -67,7 +68,11 @@ run-docs: ## Run the mkdocs
 	poetry run mkdocs serve
 
 all-tests: ## Run all tests with coverage and fail if coverage is below threshold
-	poetry run pytest --ignore=cicd --cov --cov-report=term-missing
+	poetry run pytest --ignore=cicd --ignore=tests/e2e --cov --cov-report=term-missing
+
+e2e-tests: ## Run the browser test against the configured UI.
+	playwright install chromium 
+	poetry run pytest tests/e2e
 
 check-python: ## Format and lint the python code (auto fix)
 	poetry run ruff check . --fix

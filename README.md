@@ -470,6 +470,30 @@ To run the checks without applying Ruff fixes or formatting changes:
 make check-python-nofix
 ```
 
+### E2E testing with Playwright
+
+Before you run the E2E tests, [start the local UI](#install-and-run-locally).
+
+Set these values in `.env`. Use the credentials from the local setup:
+
+```text
+TEST_E2E_BASE_URL=http://127.0.0.1:5000
+TEST_E2E_USERNAME=user@example.com
+TEST_E2E_PASSWORD=your-test-account-password
+```
+
+`TEST_E2E_BASE_URL` is the full browser URL of the local UI.
+
+Run the tests:
+
+```bash
+make e2e-tests
+```
+
+Currently the e2e tests cover sign in and sign out behaviour and have parameterised tests for survey selections.
+
+The browser tests run only with `make e2e-tests`. The standard test and CI command excludes them.
+
 ## Extending the code
 
 Replace `src/survey_assist_sayt_ui/app_templates/index.html` and add new blueprints under `src/survey_assist_sayt_ui/routes/`.
