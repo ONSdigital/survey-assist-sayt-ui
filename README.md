@@ -474,10 +474,6 @@ make check-python-nofix
 
 To run the e2e tests you must have the local SAYT UI app [setup and running](#install-and-run-locally)
 
-Install Chromium
-
-```bash
-poetry run playwright install chromium
 ```
 
 Set these values in your .env file:
@@ -488,15 +484,17 @@ SAYT_E2E_USERNAME=test@example.com
 SAYT_E2E_PASSWORD=your-test-account-password
 ```
 
-Run the test:
+`SAYT_E2E_BASE_URL` is the full browser URL of the UI. 
+
+Run the tests:
 
 ```bash
-make e2e-test
+make e2e-tests
 ```
 
-`SAYT_E2E_BASE_URL` is the full browser URL of the UI. The browser test signs in, searches for "game developer" in the SAYT Quick Test, and clicks the first suggestion. It saves the selected activity, checks the confirmation, and signs out.
+Currently the e2e tests cover sign in and sign out behaviour and have parameterised tests for survey selections.
 
-The browser test runs only with `make e2e-test`. The standard test and CI command excludes it.
+The browser tests run only with `make e2e-tests`. The standard test and CI command excludes them.
 
 ## Extending the code
 
