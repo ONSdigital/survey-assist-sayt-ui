@@ -1,8 +1,9 @@
 """Browser tests for authenticated session handling."""
 
-from pages.home import HomePage
-from pages.login import LoginPage
 from playwright.sync_api import Page
+
+from .pages.home import HomePage
+from .pages.login import LoginPage
 
 
 def test_session_survives_reload_and_logout_blocks_protected_pages(
