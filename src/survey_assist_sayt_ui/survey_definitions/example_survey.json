@@ -61,7 +61,7 @@
             {
               "type": "button",
               "text": "Start now",
-              "target_page_id": "q0",
+              "target_page_id": "q1",
               "variants": [
                 "loader"
               ]
