@@ -32,7 +32,7 @@ endef
 
 .PHONY: help all clean install templates run run-docs all-tests test lint format \
 	check-python check-python-nofix \
-	e2e-test \
+	e2e-tests \
 	docker-build docker-run podman-build podman-run \
 	podman-compose-up podman-compose-redis-up podman-compose-down podman-compose-logs \
 	manage-users pre-commit-install pre-commit-run pre-push-run \
