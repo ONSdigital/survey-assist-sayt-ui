@@ -57,10 +57,14 @@ from survey_assist_sayt_ui.survey.session import (
 
 NOT_LISTED_FIELD_SUFFIX = "-not-listed"
 SELF_DESCRIBE_FIELD_SUFFIX = "-self-describe"
+AUTOSUGGEST_SELECTION_FIELD_SUFFIX = "-selected"
 NOT_LISTED_VALUE = "not-listed"
 
 DEFAULT_SELF_DESCRIBE_LABEL = "Describe it in your own words"
 DEFAULT_SELF_DESCRIBE_REQUIRED_ERROR = "Enter a description of it in your own words"
+DEFAULT_AUTOSUGGEST_SELECTION_REQUIRED_ERROR = (
+    "Select an answer from the suggestions or select Not listed"
+)
 
 logger = logging.getLogger(__name__)
 
@@ -263,6 +267,20 @@ def _resolve_page_question_text(
     return resolve_question_text(page, responses)
 
 
+def _get_autosuggest_selection_field_name(
+    answer_name: str,
+) -> str:
+    """Return the field name used to record an autosuggest selection.
+
+    Args:
+        answer_name: Configured autosuggest response name.
+
+    Returns:
+        str: Generated selection field name.
+    """
+    return f"{answer_name}{AUTOSUGGEST_SELECTION_FIELD_SUFFIX}"
+
+
 def _get_not_listed_field_name(
     answer_name: str,
 ) -> str:
@@ -275,6 +293,28 @@ def _get_not_listed_field_name(
         str: Generated Not listed checkbox name.
     """
     return f"{answer_name}{NOT_LISTED_FIELD_SUFFIX}"
+
+
+def _get_autosuggest_selection_error(
+    page: QuestionPage,
+) -> str:
+    """Return the validation message for an invalid autosuggest selection.
+
+    Args:
+        page: Configured survey question.
+
+    Returns:
+        str: Autosuggest validation error.
+    """
+    answer = page["answer"]
+
+    if answer["type"] != "api_autosuggest":
+        return ""
+
+    if answer.get("not_listed", False):
+        return DEFAULT_AUTOSUGGEST_SELECTION_REQUIRED_ERROR
+
+    return "Select an answer from the suggestions"
 
 
 def _get_self_describe_field_name(
@@ -921,6 +961,11 @@ def question(page_id: str) -> ResponseReturnValue:
         responses,
     )
 
+    selected_suggestion = ""
+
+    if page["answer"]["type"] == "api_autosuggest" and not not_listed_selected:
+        selected_suggestion = saved_value
+
     self_describe_label, _ = _get_self_describe_config(page)
 
     template_name = _get_question_template(page)
@@ -930,6 +975,7 @@ def question(page_id: str) -> ResponseReturnValue:
         page=page,
         question_text=question_text,
         saved_value=saved_value,
+        selected_suggestion=selected_suggestion,
         saved_values=_get_saved_multi_text_values(
             page,
             responses,
@@ -991,7 +1037,7 @@ def save_response(page_id: str) -> ResponseReturnValue:
         ResponseReturnValue: Redirect to the next configured page or a
             validation error response.
     """
-    # pylint: disable=too-many-locals
+    # pylint: disable=too-many-locals, too-many-return-statements
     page = _get_question_page(page_id)
     answer = page["answer"]
     responses = cast(
@@ -1044,6 +1090,47 @@ def save_response(page_id: str) -> ResponseReturnValue:
         self_describe_required_error,
     ) = _get_self_describe_config(page)
 
+    if answer["type"] == "api_autosuggest" and not not_listed_selected:
+        selection_field_name = _get_autosuggest_selection_field_name(
+            answer["name"],
+        )
+        selected_suggestion = request.form.get(
+            selection_field_name,
+            "",
+        ).strip()
+
+        has_valid_selection = bool(value) and selected_suggestion == value
+
+        if (value and not has_valid_selection) or (answer["required"] and not value):
+            selection_error = _get_autosuggest_selection_error(page)
+
+            logger.warning(
+                "question text: %s page_id=%s missing valid autosuggest selection",
+                question_text,
+                page_id,
+            )
+
+            return (
+                render_template(
+                    _get_question_template(page),
+                    page=page,
+                    question_text=question_text,
+                    saved_value=value,
+                    selected_suggestion="",
+                    not_listed_selected=False,
+                    self_describe_value="",
+                    self_describe_label=self_describe_label,
+                    self_describe_error_message=None,
+                    form_action=url_for(
+                        "survey.save_response",
+                        page_id=page_id,
+                    ),
+                    previous_url=previous_url,
+                    error_message=selection_error,
+                ),
+                HTTPStatus.BAD_REQUEST,
+            )
+
     if not_listed_selected and not value:
         logger.warning(
             "question text: %s page_id=%s missing self-description",
@@ -1056,6 +1143,7 @@ def save_response(page_id: str) -> ResponseReturnValue:
                 page=page,
                 question_text=question_text,
                 saved_value="",
+                selected_suggestion="",
                 not_listed_selected=True,
                 self_describe_value=value,
                 self_describe_label=self_describe_label,
@@ -1082,6 +1170,7 @@ def save_response(page_id: str) -> ResponseReturnValue:
                 page=page,
                 question_text=question_text,
                 saved_value=value,
+                selected_suggestion="",
                 not_listed_selected=not_listed_selected,
                 self_describe_value="",
                 self_describe_label=self_describe_label,

@@ -328,7 +328,10 @@ def test_api_autosuggest_response_is_saved_and_progresses(
 
     response = client.post(
         "/survey/questions/q-api-autosuggest",
-        data={"business-activity": ("Retail sale of clothing in specialised stores")},
+        data={
+            "business-activity": ("Retail sale of clothing in specialised stores"),
+            "business-activity-selected": ("Retail sale of clothing in specialised stores"),
+        },
     )
 
     assert response.status_code == HTTPStatus.FOUND
@@ -494,7 +497,11 @@ def test_api_autosuggest_rejects_empty_response_when_not_listed_disabled(
         },
     )
 
+    response_text = response.get_data(as_text=True)
+
     assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "Select an answer from the suggestions" in response_text
+    assert "or select Not listed" not in response_text
 
 
 def test_final_survey_page_redirects_to_feedback(
@@ -1667,3 +1674,138 @@ def test_first_survey_page_records_response_start_time(
         timestamp = datetime.fromisoformat(flask_session[SURVEY_RESPONSE_START_TIME_KEY])
 
     assert timestamp.tzinfo is not None
+
+
+def test_api_autosuggest_question_renders_selection_tracking(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test API autosuggest renders selected-suggestion tracking."""
+    _authenticate(client)
+    _insert_autosuggest_page(
+        app,
+        api_autosuggest_page,
+    )
+
+    response = client.get("/survey/questions/q-api-autosuggest")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert 'data-autosuggest-selection-field-name="business-activity-selected"' in response_text
+
+
+def test_api_autosuggest_rejects_missing_required_selection(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test required autosuggest cannot be submitted unanswered."""
+    _authenticate(client)
+    _enable_autosuggest_self_describe(
+        api_autosuggest_page,
+    )
+    _insert_autosuggest_page(
+        app,
+        api_autosuggest_page,
+    )
+
+    response = client.post(
+        "/survey/questions/q-api-autosuggest",
+        data={
+            "business-activity": "",
+            "business-activity-selected": "",
+        },
+    )
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "Select an answer from the suggestions or select Not listed" in response_text
+
+
+def test_api_autosuggest_rejects_typed_unselected_response(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test typed autosuggest text is not treated as a selection."""
+    _authenticate(client)
+    _enable_autosuggest_self_describe(
+        api_autosuggest_page,
+    )
+    _insert_autosuggest_page(
+        app,
+        api_autosuggest_page,
+    )
+
+    response = client.post(
+        "/survey/questions/q-api-autosuggest",
+        data={
+            "business-activity": "Software",
+            "business-activity-selected": "",
+        },
+    )
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert 'value="Software"' in response_text
+    assert "Select an answer from the suggestions or select Not listed" in response_text
+
+    with client.session_transaction() as flask_session:
+        responses = flask_session.get(
+            SURVEY_RESPONSES_KEY,
+            {},
+        )
+
+    assert "q-api-autosuggest" not in responses
+
+
+def test_api_autosuggest_rejects_changed_selected_response(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test changing selected autosuggest text invalidates the selection."""
+    _authenticate(client)
+    _insert_autosuggest_page(
+        app,
+        api_autosuggest_page,
+    )
+
+    response = client.post(
+        "/survey/questions/q-api-autosuggest",
+        data={
+            "business-activity": "Software development changed",
+            "business-activity-selected": "Software development",
+        },
+    )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_api_autosuggest_repopulates_saved_selection_state(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test a saved autosuggest response remains a valid selection."""
+    _authenticate(client)
+    _insert_autosuggest_page(
+        app,
+        api_autosuggest_page,
+    )
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_RESPONSES_KEY] = {
+            "q-api-autosuggest": {
+                "question_name": "business_activity_question",
+                "response_name": "business-activity",
+                "value": "Software development",
+            }
+        }
+
+    response = client.get("/survey/questions/q-api-autosuggest")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert 'data-autosuggest-selection-value="Software development"' in response_text

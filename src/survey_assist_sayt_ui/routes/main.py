@@ -35,6 +35,9 @@ NOT_LISTED_VALUE = "not-listed"
 API_AUTOSUGGEST_SELF_DESCRIBE_REQUIRED_ERROR = (
     "Enter a description of the main activity of your organisation"
 )
+API_AUTOSUGGEST_SELECTION_REQUIRED_ERROR = (
+    "Select a business activity from the suggestions or select Not listed"
+)
 
 
 def _get_survey_definition() -> SurveyDefinition:
@@ -111,6 +114,7 @@ def api_autosuggest() -> ResponseReturnValue:
         business_activity="",
         business_activity_not_listed=False,
         business_activity_self_describe="",
+        selected_suggestion="",
         error_message=None,
         self_describe_error_message=None,
         page_title="API business activity",
@@ -130,6 +134,12 @@ def save_api_autosuggest_response() -> ResponseReturnValue:
         "business_activity",
         "",
     ).strip()
+
+    selected_suggestion = request.form.get(
+        "business_activity_selected",
+        "",
+    ).strip()
+
     self_describe = request.form.get(
         "business_activity_self_describe",
         "",
@@ -142,6 +152,25 @@ def save_api_autosuggest_response() -> ResponseReturnValue:
 
     not_listed_selected = not_listed_value == NOT_LISTED_VALUE
 
+    if not not_listed_selected and (
+        not business_activity or selected_suggestion != business_activity
+    ):
+        logger.warning("API autosuggest response does not contain a selected suggestion")
+        return (
+            render_template(
+                "business_activity_api.html",
+                business_activity=business_activity,
+                business_activity_not_listed=False,
+                business_activity_self_describe="",
+                selected_suggestion="",
+                error_message=API_AUTOSUGGEST_SELECTION_REQUIRED_ERROR,
+                self_describe_error_message=None,
+                page_title="API business activity",
+                authenticated_user=session.get(SESSION_USER_KEY),
+            ),
+            HTTPStatus.BAD_REQUEST,
+        )
+
     if not_listed_selected and not self_describe:
         logger.warning("API autosuggest Not listed response is missing a self-description")
         return (
@@ -150,6 +179,7 @@ def save_api_autosuggest_response() -> ResponseReturnValue:
                 business_activity="",
                 business_activity_not_listed=True,
                 business_activity_self_describe="",
+                selected_suggestion="",
                 error_message=None,
                 self_describe_error_message=(API_AUTOSUGGEST_SELF_DESCRIBE_REQUIRED_ERROR),
                 page_title="API business activity",

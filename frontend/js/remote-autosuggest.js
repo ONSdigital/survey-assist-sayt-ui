@@ -4,6 +4,10 @@ function initialiseRemoteAutosuggest(container) {
   const apiUrl = container.dataset.autosuggestApiUrl
   const queryParam =
     container.dataset.autosuggestApiQueryParam || 'q'
+  const selectionFieldName =
+    container.dataset.autosuggestSelectionFieldName
+  const initialSelectionValue =
+    container.dataset.autosuggestSelectionValue || ''
 
   const debounceMs = 300
   let debounceTimer = null
@@ -17,12 +21,48 @@ function initialiseRemoteAutosuggest(container) {
     limit: 20,
   }
   let autosuggest
+  let selectionInput = null
 
   function normaliseQueryForSearch(value) {
     return value
       .toLowerCase()
       .trim()
       .replace(/\s+/g, ' ')
+  }
+
+  function initialiseSelectionInput() {
+    if (!selectionFieldName) {
+      return
+    }
+
+    const form = container.closest('form')
+
+    if (!form) {
+      return
+    }
+
+    const existingField =
+      form.elements.namedItem(selectionFieldName)
+
+    if (existingField instanceof HTMLInputElement) {
+      selectionInput = existingField
+    } else {
+      selectionInput = document.createElement('input')
+      selectionInput.type = 'hidden'
+      selectionInput.name = selectionFieldName
+      form.appendChild(selectionInput)
+    }
+
+    selectionInput.value = initialSelectionValue
+  }
+
+  function clearSelectionIfInputChanged() {
+    if (
+      selectionInput &&
+      autosuggest.input.value !== selectionInput.value
+    ) {
+      selectionInput.value = ''
+    }
   }
 
   function waitForDebounce() {
@@ -33,7 +73,6 @@ function initialiseRemoteAutosuggest(container) {
   }
 
   async function fetchSuggestions(query) {
-    // If the query is effectively the same, return the last result envelope
     const normalisedQuery = normaliseQueryForSearch(query)
 
     if (normalisedQuery === lastNormalisedQuery) {
@@ -58,7 +97,10 @@ function initialiseRemoteAutosuggest(container) {
     })
 
     if (requestId !== latestRequestId) {
-      throw new DOMException('Stale autosuggest response', 'AbortError')
+      throw new DOMException(
+        'Stale autosuggest response',
+        'AbortError',
+      )
     }
 
     if (!response.ok) {
@@ -72,13 +114,14 @@ function initialiseRemoteAutosuggest(container) {
       ? payload
       : payload.results || []
 
-    // Store result as the last normalised query for future reference
     lastResultEnvelope = {
       status: response.status,
       results: results.slice(0, 20),
       totalResults: results.length,
       limit: 20,
     }
+
+    lastNormalisedQuery = normalisedQuery
 
     return lastResultEnvelope
   }
@@ -89,8 +132,19 @@ function initialiseRemoteAutosuggest(container) {
 
     async onSelect(result) {
       autosuggest.input.value = result.displayText
+
+      if (selectionInput) {
+        selectionInput.value = result.displayText
+      }
     },
   })
+
+  initialiseSelectionInput()
+
+  autosuggest.input.addEventListener(
+    'input',
+    clearSelectionIfInputChanged,
+  )
 }
 
 function initialiseRemoteAutosuggests() {
