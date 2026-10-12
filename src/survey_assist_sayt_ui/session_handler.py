@@ -87,7 +87,7 @@ class SessionRetry(Retry):
             return Retry(
                 NoBackoff(),
                 0,
-                supported_errors=RETRYABLE_REDIS_ERRORS,
+                supported_errors=self._supported_errors,
             ).call_with_retry(
                 do,
                 fail,
