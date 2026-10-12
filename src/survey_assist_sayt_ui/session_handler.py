@@ -220,6 +220,17 @@ class AbsoluteExpiryRedisSessionInterface(RedisSessionInterface):
     def open_session(self, app: Flask, request: Request) -> ServerSideSession:
         """Open a session without treating a failed Redis read as a new login.
 
+        Flask loads sessions before normal request processing and error handling,
+        so Redis errors raised here cannot be handled by a registered error handler.
+
+        If Redis is unavailable, return a temporary empty session to allow Flask
+        to continue into before_request, where the request is rejected with an
+        HTTP 500 response.
+
+        Mark the request as having a failed session read so save_session() does
+        not persist the temporary session or modify the respondent's session
+        cookie. This preserves the existing session for a future retry.
+
         Args:
             app: Current Flask application.
             request: Request containing the existing session cookie.
