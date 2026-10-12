@@ -244,7 +244,6 @@ def test_redis_backend_configures_flask_session(
     assert pool.connection_kwargs["socket_connect_timeout"] == 5
     assert pool.connection_kwargs["socket_timeout"] == 5
     assert pool.connection_class is not SSLConnection
-    assert pool.connection_kwargs["retry_on_timeout"] is False
 
     retry = pool.connection_kwargs["retry"]
     assert isinstance(retry, session_handler.SessionRetry)

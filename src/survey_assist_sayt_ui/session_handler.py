@@ -161,7 +161,6 @@ def _redis_pool(
             socket_connect_timeout=5,
             socket_timeout=5,
             retry=retry,
-            retry_on_timeout=False,
             ssl_ca_data=settings.redis_ca_cert_data,
             ssl_check_hostname=False,
             ssl_cert_reqs="required",
@@ -175,7 +174,6 @@ def _redis_pool(
         socket_connect_timeout=5,
         socket_timeout=5,
         retry=retry,
-        retry_on_timeout=False,
     )
 
 
