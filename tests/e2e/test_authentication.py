@@ -6,7 +6,7 @@ from .pages.home import HomePage
 from .pages.login import LoginPage
 
 
-def test_session_survives_reload_and_logout_blocks_protected_pages(
+def test_signed_in_session_survives_reload_and_logout_blocks_protected_pages(
     page: Page, base_url: str, credentials: tuple[str, str]
 ) -> None:
     """Keep the session after navigation and deny access after sign-out."""

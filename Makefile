@@ -72,7 +72,7 @@ all-tests: ## Run all tests with coverage and fail if coverage is below threshol
 
 e2e-tests: ## Run the browser test against the configured UI.
 	poetry run playwright install chromium
-	poetry run pytest tests/e2e
+	poetry run pytest tests/e2e -v
 
 check-python: ## Format and lint the python code (auto fix)
 	poetry run ruff check . --fix
