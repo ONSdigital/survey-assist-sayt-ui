@@ -218,6 +218,17 @@ def test_client_backend_preserves_flask_session_interface(
     assert isinstance(app.session_interface, SecureCookieSessionInterface)
 
 
+def test_redis_failure_handler_registered_only_in_redis_mode(
+    app: Flask,
+    redis_app: Flask,
+) -> None:
+    """Register Redis session failure handling only for the Redis backend."""
+    handler = session_handler.reject_failed_redis_session_read
+
+    assert handler not in app.before_request_funcs.get(None, [])
+    assert handler in redis_app.before_request_funcs.get(None, [])
+
+
 def test_redis_backend_configures_flask_session(
     redis_app: Flask,
 ) -> None:

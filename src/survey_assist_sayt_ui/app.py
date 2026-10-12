@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from urllib.parse import urlparse
 
-from flask import Flask, Response, redirect, request, session, url_for
+from flask import Flask, redirect, request, session, url_for
 from flask.typing import ResponseReturnValue
 from jinja2 import ChainableUndefined, ChoiceLoader, FileSystemLoader
 from survey_assist_utils.api_token.jwt_utils import check_and_refresh_token
@@ -27,10 +27,8 @@ from survey_assist_sayt_ui.services.survey_assist_api import (
     SurveyAssistApiClient,
 )
 from survey_assist_sayt_ui.session_handler import (
-    READ_FAILURE_KEY,
     SessionAwareFlask,
     configure_session,
-    session_unavailable_response,
 )
 from survey_assist_sayt_ui.survey.loader import (
     SurveyDefinitionError,
@@ -185,18 +183,6 @@ def create_app(  # pylint: disable=too-many-locals, too-many-statements
     app.register_blueprint(main_blueprint)
     app.register_blueprint(meta_blueprint)
     app.register_blueprint(survey_blueprint)
-
-    @app.before_request
-    def reject_failed_redis_session_read() -> Response | None:
-        """Stop processing when the respondent's session could not be read.
-
-        Returns:
-            HTTP 500 without a session save after a failed Redis read;
-            otherwise None.
-        """
-        if request.environ.get(READ_FAILURE_KEY):
-            return session_unavailable_response(app)
-        return None
 
     @app.before_request
     def expire_authenticated_session() -> ResponseReturnValue | None:

@@ -7,7 +7,7 @@ import logging
 from math import ceil
 from typing import Any, TypeVar
 
-from flask import Flask, Request, Response, render_template
+from flask import Flask, Request, Response, current_app, render_template
 from flask import request as flask_request
 from flask.sessions import SessionMixin
 from flask_session.base import ServerSideSession
@@ -49,6 +49,21 @@ def _is_transient_redis_error(error: Exception) -> bool:
         error,
         (AuthenticationError, AuthorizationError, MaxConnectionsError),
     )
+
+
+def reject_failed_redis_session_read() -> Response | None:
+    """Reject requests whose Redis session could not be loaded.
+
+    Flask opens sessions before normal request processing, so Redis read
+    failures are recorded and handled here instead of through Flask's
+    registered error handlers.
+
+    Returns:
+        An HTTP 500 response after a failed session read, otherwise None.
+    """
+    if flask_request.environ.get(READ_FAILURE_KEY):
+        return session_unavailable_response(current_app)
+    return None
 
 
 class SessionRetry(Retry):
@@ -416,3 +431,5 @@ def configure_session(app: Flask, settings: Settings) -> None:
         permanent=app.config["SESSION_PERMANENT"],
         serialization_format=app.config["SESSION_SERIALIZATION_FORMAT"],
     )
+
+    app.before_request(reject_failed_redis_session_read)
