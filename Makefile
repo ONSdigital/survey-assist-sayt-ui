@@ -102,7 +102,7 @@ podman-compose-redis-up: ## Build and start the local UI with Redis sessions.
 	CRED_FILE="$(CRED_FILE)" podman compose -f docker-compose.yaml -f docker-compose.redis.yaml up --build -d
 
 podman-compose-down: ## Stop and remove the local UI and the Redis containers if running.
-	CRED_FILE="$(CRED_FILE)" podman compose -f docker-compose.yaml -f docker-compose.redis.yaml down 
+	CRED_FILE="$(CRED_FILE)" podman compose -f docker-compose.yaml down --remove-orphans
 
 podman-compose-logs: ## Follow logs from the local Compose UI.
 	CRED_FILE="$(CRED_FILE)" podman compose -f docker-compose.yaml logs -f ui
