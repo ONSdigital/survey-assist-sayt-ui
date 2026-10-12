@@ -1112,7 +1112,7 @@ def test_failed_redis_read_shows_500_and_retains_session_cookie(
             response = client.get("/survey/questions/q0")
 
     assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
-    assert "We are unable to save your answers right now" in response.get_data(as_text=True)
+    assert "The service is temporarily unavailable" in response.get_data(as_text=True)
     assert "Set-Cookie" not in response.headers
     assert client.get_cookie(cookie_name) == original_cookie
     assert key in redis_store
@@ -1157,7 +1157,7 @@ def test_exhausted_redis_pool_shows_500_and_retains_session_cookie(
             response = client.get("/survey/questions/q0")
 
     assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
-    assert "We are unable to save your answers right now" in response.get_data(as_text=True)
+    assert "The service is temporarily unavailable" in response.get_data(as_text=True)
     assert "Set-Cookie" not in response.headers
     assert client.get_cookie(cookie_name) == original_cookie
     assert redis_store[key] == previous_record
@@ -1198,7 +1198,7 @@ def test_failed_redis_write_shows_500_and_preserves_last_saved_answer(
         )
 
     assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
-    assert "We are unable to save your answers right now" in response.get_data(as_text=True)
+    assert "The service is temporarily unavailable" in response.get_data(as_text=True)
     assert "Set-Cookie" not in response.headers
     assert client.get_cookie(cookie_name) == original_cookie
     assert redis_store[key] == previous_record
