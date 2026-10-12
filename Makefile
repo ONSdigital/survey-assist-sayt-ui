@@ -68,10 +68,10 @@ run-docs: ## Run the mkdocs
 	poetry run mkdocs serve
 
 all-tests: ## Run all tests with coverage and fail if coverage is below threshold
-	poetry run pytest --ignore=cicd --ignore=tests/e2e --cov --cov-report=term-missing
+	poetry run pytest --ignore=cicd --cov --cov-report=term-missing
 
 e2e-tests: ## Run the browser test against the configured UI.
-	playwright install chromium 
+	poetry run playwright install chromium
 	poetry run pytest tests/e2e
 
 check-python: ## Format and lint the python code (auto fix)

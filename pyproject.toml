@@ -66,6 +66,7 @@ ignore-paths = [".venv"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+norecursedirs = ["tests/e2e"]
 
 [tool.coverage.run]
 branch = true
