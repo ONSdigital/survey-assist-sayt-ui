@@ -52,7 +52,7 @@ def _is_transient_redis_error(error: Exception) -> bool:
 
 
 class SessionRetry(Retry):
-    """Allow one transient retry across nested Redis command and connection calls."""
+    """Prevent nested Redis retry calls from exceeding the configured retry limit."""
 
     _active: ContextVar[bool] = ContextVar(
         "survey_assist_redis_retry_active",
