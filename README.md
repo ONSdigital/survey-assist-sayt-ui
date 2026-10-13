@@ -13,7 +13,7 @@ For local development you need:
 * Access to a Survey Assist API deployment
 * Google Application Default Credentials (ADC) with permission to sign JWTs for the service account configured by `SA_EMAIL`
 
-Docker or Podman is only required if you want to build and run the application in a container locally.
+Docker or Podman with Compose is required to run the E2E tests or the application in a container locally.
 
 Node.js and npm are only required when changing `remote-autosuggest.js` and rebuilding the JavaScript bundle.
 
@@ -477,18 +477,32 @@ Before you run the E2E tests, [start the local UI](#install-and-run-locally).
 Set these values in `.env`. Use the credentials from the local setup:
 
 ```text
-TEST_E2E_BASE_URL=http://127.0.0.1:5000
+TEST_E2E_BASE_URL=http://host.containers.internal:5000
 TEST_E2E_USERNAME=user@example.com
 TEST_E2E_PASSWORD=your-test-account-password
 ```
 
-`TEST_E2E_BASE_URL` is the full browser URL of the local UI.
+Set `TEST_E2E_BASE_URL` to the UI URL as seen from the test container. Use
+`host.containers.internal` for a UI on the host, not `127.0.0.1`, which refers to
+the test container. For Docker Desktop, use `host.docker.internal` instead.
+Use port `5000` for `make run`, or port `8000` for the local container UI.
+You can set any reachable UI URL and test credentials in `.env`; Compose
+passes the `TEST_E2E_*` values from `.env` to the test container.
 
 Run the tests:
 
 ```bash
 make e2e-tests
 ```
+
+The target uses Podman Compose by default. For Docker, run
+
+```bash
+make e2e-tests CONTAINER_ENGINE=docker
+```
+
+The first run builds an E2E image with only the locked E2E dependencies and installs Chromium.
+The container engine caches the image layers for later runs.
 
 Currently the e2e tests cover sign in and sign out behaviour and have parameterised tests for survey selections.
 

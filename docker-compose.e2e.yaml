@@ -1,0 +1,19 @@
+name: survey-assist-sayt-ui-e2e
+
+services:
+  e2e:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    image: survey-assist-sayt-ui-e2e:local
+    init: true
+    environment:
+      TEST_E2E_BASE_URL: ${TEST_E2E_BASE_URL:-}
+      TEST_E2E_USERNAME: ${TEST_E2E_USERNAME:-}
+      TEST_E2E_PASSWORD: ${TEST_E2E_PASSWORD:-}
+    volumes:
+      - type: bind
+        source: ./tests/e2e
+        target: /app/tests/e2e
+        read_only: true
+    command: pytest tests/e2e -v

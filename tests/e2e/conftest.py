@@ -3,14 +3,11 @@
 import os
 from urllib.parse import urlsplit
 
-from dotenv import load_dotenv
 from playwright.sync_api import Page
 import pytest
 
 from .pages.home import HomePage
 from .pages.login import LoginPage
-
-load_dotenv()
 
 
 @pytest.fixture(scope="session", name="base_url")

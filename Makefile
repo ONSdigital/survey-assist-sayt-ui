@@ -5,6 +5,7 @@ SHELL := /bin/bash
 PY ?= python
 PKG ?= survey_assist_sayt_ui
 IMAGE_NAME ?= survey-assist-sayt-ui
+CONTAINER_ENGINE ?= podman
 CRED_FILE ?= $(HOME)/.config/gcloud/application_default_credentials.json
 VERSION ?= $(shell poetry version -s 2>/dev/null || echo 0.0.0+unknown)
 GIT_SHA ?= $(shell git rev-parse --short=7 HEAD 2>/dev/null || echo unknown)
@@ -70,9 +71,8 @@ run-docs: ## Run the mkdocs
 all-tests: ## Run all tests with coverage and fail if coverage is below threshold
 	poetry run pytest --ignore=cicd --cov --cov-report=term-missing
 
-e2e-tests: ## Run the browser test against the configured UI.
-	poetry run playwright install chromium
-	poetry run pytest tests/e2e -v
+e2e-tests: ## Run browser tests in a Playwright container against the configured UI.
+	$(CONTAINER_ENGINE) compose -f docker-compose.e2e.yaml run --build --rm e2e
 
 check-python: ## Format and lint the python code (auto fix)
 	poetry run ruff check . --fix
