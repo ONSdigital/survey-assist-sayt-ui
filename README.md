@@ -482,12 +482,9 @@ TEST_E2E_USERNAME=user@example.com
 TEST_E2E_PASSWORD=your-test-account-password
 ```
 
-Set `TEST_E2E_BASE_URL` to the UI URL as seen from the test container. Use
-`host.containers.internal` for a UI on the host, not `127.0.0.1`, which refers to
-the test container. For Docker Desktop, use `host.docker.internal` instead.
-Use port `5000` for `make run`, or port `8000` for the local container UI.
-You can set any reachable UI URL and test credentials in `.env`; Compose
-passes the `TEST_E2E_*` values from `.env` to the test container.
+Set `TEST_E2E_BASE_URL` to the UI URL as seen from the test container.
+This would mean `host.containers.internal` for a UI running locally i.e `http://host.containers.internal:5000/`.
+
 
 Run the tests:
 
@@ -501,10 +498,8 @@ The target uses Podman Compose by default. For Docker, run
 make e2e-tests CONTAINER_ENGINE=docker
 ```
 
-The first run builds an E2E image with only the locked E2E dependencies and installs Chromium.
-The container engine caches the image layers for later runs.
-
-Currently the e2e tests cover sign in and sign out behaviour and have parameterised tests for survey selections.
+The first run may take a while as it builds an image with only the locked E2E dependencies and installs Chromium.
+The container engine does cache the image layers for later runs which will be quicker.
 
 The browser tests run only with `make e2e-tests`. The standard test and CI command excludes them.
 
