@@ -29,6 +29,12 @@
         {% elif params.autosuggestData %}
             data-autosuggest-data="{{ params.autosuggestData }}"
         {% endif %}
+        {% if params.selectionFieldName %}
+            data-autosuggest-selection-field-name="{{ params.selectionFieldName }}"
+        {% endif %}
+        {% if params.selectionValue %}
+            data-autosuggest-selection-value="{{ params.selectionValue }}"
+        {% endif %}
         {% if params.errorTitle %}data-error-title="{{ params.errorTitle }}"{% endif %}
         {% if params.errorMessageEnter %}data-error-enter="{{ params.errorMessageEnter }}"{% endif %}
         {% if params.errorMessageSelect %}data-error-select="{{ params.errorMessageSelect }}"{% endif %}
