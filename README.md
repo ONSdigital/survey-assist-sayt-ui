@@ -538,7 +538,16 @@ If Docker is the preferred container engine you can override using:
 make e2e-tests CONTAINER_ENGINE=docker
 ```
 
-The browser tests run only with `make e2e-tests`. The standard test and CI command exclude them.
+Use the command below to watch all E2E tests in an Edge window. Useful for debugging.
+
+```bash
+make e2e-tests-visual
+```
+
+To inspect the browser during a visual test, add `page.pause()` at the point where you want the test to stop.
+Resume the test in Playwright Inspector.
+
+The standard test and CI command excludes the browser tests.
 
 ## Extending the code
 
