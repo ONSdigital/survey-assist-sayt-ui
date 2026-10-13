@@ -1,5 +1,8 @@
 services:
   ui:
+    extends:
+      file: docker-compose.yaml
+      service: ui
     environment:
       SESSION_BACKEND: redis
       REDIS_HOST: redis
