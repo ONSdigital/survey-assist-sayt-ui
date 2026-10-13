@@ -13,7 +13,7 @@ For local development you need:
 * Access to a Survey Assist API deployment
 * Google Application Default Credentials (ADC) with permission to sign JWTs for the service account configured by `SA_EMAIL`
 
-Docker or Podman with Compose is required to run the E2E tests or the application in a container locally.
+Docker or Podman with Compose is required to run the container E2E tests or the application in a container locally.
 
 Node.js and npm are only required when changing `remote-autosuggest.js` and rebuilding the JavaScript bundle.
 
