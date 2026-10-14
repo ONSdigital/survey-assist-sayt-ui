@@ -78,7 +78,7 @@ e2e-tests: ## Run browser tests with Poetry and a Playwright server container.
 	$(CONTAINER_ENGINE) compose -f docker-compose.e2e.yaml up -d --wait && \
 	PLAYWRIGHT_WS_ENDPOINT=ws://127.0.0.1:3000/ poetry run pytest tests/e2e -v
 
-e2e-tests-visual: ## Run the authentication browser test in a visible local Edge window.
+e2e-tests-visual: ## Run the e2e tests in a visible Edge window.
 	poetry run dotenv run -- pytest tests/e2e --headed --browser-channel msedge --slowmo 1000
 
 check-python: ## Format and lint the python code (auto fix)
