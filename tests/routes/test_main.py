@@ -261,6 +261,7 @@ def test_api_autosuggest_uses_selected_suggestion_when_not_listed_not_selected(
         "/api-autosuggest",
         data={
             "business_activity": "Software development: 62012",
+            "business_activity_selected": "Software development: 62012",
             "business_activity_self_describe": "Ignored description",
         },
     )

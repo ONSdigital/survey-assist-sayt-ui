@@ -26,7 +26,10 @@ from survey_assist_sayt_ui.services.result_submission import (
 from survey_assist_sayt_ui.services.survey_assist_api import (
     SurveyAssistApiClient,
 )
-from survey_assist_sayt_ui.session_handler import configure_session
+from survey_assist_sayt_ui.session_handler import (
+    SessionAwareFlask,
+    configure_session,
+)
 from survey_assist_sayt_ui.survey.loader import (
     SurveyDefinitionError,
     load_survey_definition,
@@ -124,7 +127,7 @@ def create_app(  # pylint: disable=too-many-locals, too-many-statements
 
     refresh_token = token_refresher or check_and_refresh_token
 
-    app = Flask(__name__, template_folder="app_templates")
+    app = SessionAwareFlask(__name__, template_folder="app_templates")
     app.jinja_env.undefined = ChainableUndefined
 
     design_templates = Path(__file__).parent / "templates"
