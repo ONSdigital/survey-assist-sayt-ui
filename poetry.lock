@@ -1089,27 +1089,29 @@ protobuf = ">=6.33.5,<8.0.0"
 
 [[package]]
 name = "google-cloud-storage"
-version = "2.19.0"
+version = "3.17.0"
 description = "Google Cloud Storage API client library"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "google_cloud_storage-2.19.0-py2.py3-none-any.whl", hash = "sha256:aeb971b5c29cf8ab98445082cbfe7b161a1f48ed275822f59ed3f1524ea54fba"},
-    {file = "google_cloud_storage-2.19.0.tar.gz", hash = "sha256:cd05e9e7191ba6cb68934d8eb76054d9be4562aa89dbc4236feee4d7d51342b2"},
+    {file = "google_cloud_storage-3.17.0-py3-none-any.whl", hash = "sha256:0b89283fccf84745bae75bbefdbda8393e5323471071a2ba24ab437407141171"},
+    {file = "google_cloud_storage-3.17.0.tar.gz", hash = "sha256:4373aa6328e070c31c97aa236f1600a239dfd3c85e5870cdf3dc2a928dfe0bca"},
 ]
 
 [package.dependencies]
-google-api-core = ">=2.15.0,<3.0.0"
-google-auth = ">=2.26.1,<3.0"
-google-cloud-core = ">=2.3.0,<3.0"
-google-crc32c = ">=1.0,<2.0"
-google-resumable-media = ">=2.7.2"
-requests = ">=2.18.0,<3.0.0"
+google-api-core = ">=2.27.0,<3.0.0"
+google-auth = ">=2.26.1,<3.0.0"
+google-cloud-core = ">=2.4.2,<3.0.0"
+google-crc32c = ">=1.6.0,<2.0.0"
+google-resumable-media = ">=2.7.2,<3.0.0"
+requests = ">=2.22.0,<3.0.0"
 
 [package.extras]
-protobuf = ["protobuf (<6.0.0)"]
-tracing = ["opentelemetry-api (>=1.1.0)"]
+grpc = ["google-api-core[grpc] (>=2.27.0,<3.0.0)", "grpc-google-iam-v1 (>=0.14.2,<1.0.0)", "grpcio (>=1.59.0,<2.0.0)", "grpcio (>=1.75.1,<2.0.0) ; python_version >= \"3.14\"", "grpcio-status (>=1.59.0,<2.0.0)", "grpcio-status (>=1.75.1,<2.0.0) ; python_version >= \"3.14\"", "proto-plus (>=1.26.1,<2.0.0)", "protobuf (>=6.33.5,<8.0.0)"]
+protobuf = ["protobuf (>=6.33.5,<8.0.0)"]
+testing = ["PyYAML", "black", "brotli", "coverage", "flake8", "google-cloud-iam", "google-cloud-kms", "google-cloud-pubsub", "google-cloud-testutils", "google-cloud-testutils", "mock", "numpy", "opentelemetry-sdk", "psutil", "py-cpuinfo", "pyopenssl", "pytest", "pytest-asyncio", "pytest-benchmark", "pytest-cov", "pytest-rerunfailures", "pytest-xdist"]
+tracing = ["opentelemetry-api (>=1.1.0,<2.0.0)"]
 
 [[package]]
 name = "google-crc32c"
@@ -2874,7 +2876,7 @@ files = [
 
 [[package]]
 name = "survey-assist-utils"
-version = "0.0.8"
+version = "0.0.9"
 description = "Utility module for Survey Assist"
 optional = false
 python-versions = "^3.12"
@@ -2886,13 +2888,13 @@ develop = false
 google-auth = "^2.36.0"
 google-cloud-iam = "^2.19.1"
 google-cloud-logging = "^3.9.0"
-google-cloud-storage = "^2.0.0"
+google-cloud-storage = "^3.9.0"
 
 [package.source]
 type = "git"
 url = "https://github.com/ONSdigital/survey-assist-utils.git"
-reference = "v0.0.8"
-resolved_reference = "5dabfb06c649a6e71817434c67ffe3b4d07b0386"
+reference = "v0.0.9"
+resolved_reference = "0d95e3aea62dc8d182161899fb3d617e041fe188"
 
 [[package]]
 name = "tomli"
@@ -3092,4 +3094,4 @@ watchdog = ["watchdog (>=2.3)"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "af9251cdb56e9622972a49627017fff4513ae6624bdfccb5f8890670f1409bc1"
+content-hash = "eeba662eb8d3c14f18f0ae3c4caf82fa41157e0b69fcc486ad66e44d34518124"
