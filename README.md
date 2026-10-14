@@ -507,14 +507,10 @@ Before you run the E2E tests, [start the local UI](#install-and-run-locally).
 Set these values in `.env`. Use the credentials from the local setup:
 
 ```text
-TEST_E2E_BASE_URL=http://host.containers.internal:5000
+TEST_E2E_BASE_URL=http://localhost:5000
 TEST_E2E_USERNAME=user@example.com
 TEST_E2E_PASSWORD=your-test-account-password
 ```
-
-Set `TEST_E2E_BASE_URL` to the UI URL as seen from the test container.
-This would mean `host.containers.internal` for a UI running locally i.e `http://host.containers.internal:5000/`.
-
 
 Run the tests:
 
@@ -522,16 +518,15 @@ Run the tests:
 make e2e-tests
 ```
 
-The target uses Podman Compose by default. For Docker, run
+Running the above starts the Playwright server in a container, runs pytest in your local Poetry environment, then stops the server.
+
+If Docker is the preferred container engine you can override using:
 
 ```bash
 make e2e-tests CONTAINER_ENGINE=docker
 ```
 
-The first run may take a while as it builds an image with only the locked E2E dependencies and installs Chromium.
-The container engine does cache the image layers for later runs which will be quicker.
-
-The browser tests run only with `make e2e-tests`. The standard test and CI command excludes them.
+The browser tests run only with `make e2e-tests`. The standard test and CI command exclude them.
 
 ## Extending the code
 

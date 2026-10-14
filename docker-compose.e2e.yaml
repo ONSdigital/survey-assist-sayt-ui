@@ -1,19 +1,17 @@
 name: survey-assist-sayt-ui-e2e
 
 services:
-  e2e:
-    build:
-      context: .
-      dockerfile: Dockerfile.e2e
-    image: survey-assist-sayt-ui-e2e:local
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.63.0-noble
     init: true
-    environment:
-      TEST_E2E_BASE_URL: ${TEST_E2E_BASE_URL:-}
-      TEST_E2E_USERNAME: ${TEST_E2E_USERNAME:-}
-      TEST_E2E_PASSWORD: ${TEST_E2E_PASSWORD:-}
-    volumes:
-      - type: bind
-        source: ./tests/e2e
-        target: /app/tests/e2e
-        read_only: true
-    command: pytest tests/e2e -v
+    ipc: host
+    user: pwuser
+    working_dir: /home/pwuser
+    ports:
+      - "127.0.0.1:3000:3000"
+    command: npx -y playwright@1.63.0 run-server --port 3000 --host 0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:3000/"]
+      interval: 3s
+      timeout: 3s
+      retries: 10

@@ -40,9 +40,9 @@ pymdown-extensions = "^12.1"
 detect-secrets = "^1.5.0"
 deptry = "^0.25.1"
 python-dotenv = "^1.2.4"
-
-[tool.poetry.group.e2e.dependencies]
 pytest-playwright = "^0.9.0"
+# Keep this version aligned with the Playwright server.
+playwright = "1.63.0"
 
 [tool.ruff]
 target-version = "py312"

@@ -71,8 +71,10 @@ run-docs: ## Run the mkdocs
 all-tests: ## Run all tests with coverage and fail if coverage is below threshold
 	poetry run pytest --ignore=cicd --cov --cov-report=term-missing
 
-e2e-tests: ## Run browser tests in a Playwright container against the configured UI.
-	$(CONTAINER_ENGINE) compose -f docker-compose.e2e.yaml run --build --rm e2e
+e2e-tests: ## Run browser tests with Poetry and a Playwright server container.
+	@trap '$(CONTAINER_ENGINE) compose -f docker-compose.e2e.yaml down' EXIT; \
+	$(CONTAINER_ENGINE) compose -f docker-compose.e2e.yaml up -d --wait && \
+	PLAYWRIGHT_WS_ENDPOINT=ws://127.0.0.1:3000/ poetry run pytest tests/e2e -v
 
 check-python: ## Format and lint the python code (auto fix)
 	poetry run ruff check . --fix

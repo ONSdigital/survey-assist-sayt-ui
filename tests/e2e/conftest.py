@@ -3,11 +3,21 @@
 import os
 from urllib.parse import urlsplit
 
+from dotenv import load_dotenv
 from playwright.sync_api import Page
 import pytest
 
 from .pages.home import HomePage
 from .pages.login import LoginPage
+
+load_dotenv()
+
+
+@pytest.fixture(scope="session")
+def connect_options() -> dict[str, str]:
+    """Connect the browser fixture to the Playwright server."""
+    ws_endpoint = os.environ.get("PLAYWRIGHT_WS_ENDPOINT", "ws://127.0.0.1:3000/")
+    return {"endpoint": ws_endpoint, "expose_network": "<loopback>"}
 
 
 @pytest.fixture(scope="session", name="base_url")
