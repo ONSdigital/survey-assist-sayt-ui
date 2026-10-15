@@ -47,9 +47,11 @@ from survey_assist_sayt_ui.survey.placeholders import (
     resolve_question_text,
 )
 from survey_assist_sayt_ui.survey.result_builder import (
-    build_empty_survey_result,
+    build_suggestion_survey_result,
 )
 from survey_assist_sayt_ui.survey.session import (
+    SUGGESTION_TIME_END_KEY,
+    SUGGESTION_TIME_START_KEY,
     SURVEY_FEEDBACK_RESPONSES_KEY,
     SURVEY_RESPONSE_START_TIME_KEY,
     SURVEY_RESPONSES_KEY,
@@ -850,7 +852,17 @@ def _submit_result_if_configured(
 
     time_end = datetime.now(UTC)
 
-    result = build_empty_survey_result(
+    try:
+        suggestion_time_start = _get_session_datetime(SUGGESTION_TIME_START_KEY)
+        suggestion_time_end = _get_session_datetime(SUGGESTION_TIME_END_KEY)
+    except RuntimeError:
+        logger.exception(
+            "Suggestion timestamps unavailable page_id=%s",
+            page["page_id"],
+        )
+        return
+
+    result = build_suggestion_survey_result(
         _get_survey_definition(),
         case_id=case_id,
         user=result_user,
@@ -858,6 +870,12 @@ def _submit_result_if_configured(
         survey_time_start=survey_time_start,
         response_time_start=response_time_start,
         time_end=time_end,
+        responses=cast(
+            SurveyResponses,
+            session.get(SURVEY_RESPONSES_KEY, {}),
+        ),
+        suggestion_time_start=suggestion_time_start,
+        suggestion_time_end=suggestion_time_end,
     )
 
     client = cast(
@@ -963,6 +981,10 @@ def question(page_id: str) -> ResponseReturnValue:
 
     selected_suggestion = ""
 
+    if page["answer"]["type"] == "api_autosuggest":
+        session[SUGGESTION_TIME_START_KEY] = datetime.now(UTC).isoformat()
+        session.pop(SUGGESTION_TIME_END_KEY, None)
+
     if page["answer"]["type"] == "api_autosuggest" and not not_listed_selected:
         selected_suggestion = saved_value
 
@@ -1014,7 +1036,26 @@ def previous_question(page_id: str) -> ResponseReturnValue:
         abort(HTTPStatus.NOT_FOUND)
 
     updated_responses = dict(responses)
-    updated_responses.pop(page_id, None)
+
+    pages = _get_survey_definition()["survey_pages"]["pages"]
+    page_ids = [page["page_id"] for page in pages]
+    previous_index = page_ids.index(previous_page_id)
+    discarded_page_ids = set(page_ids[previous_index + 1 :])
+
+    for discarded_page_id in discarded_page_ids:
+        updated_responses.pop(discarded_page_id, None)
+
+    autosuggest_discarded = any(
+        page["page_type"] == "question"
+        and page["answer"]["type"] == "api_autosuggest"
+        and page["page_id"] in discarded_page_ids
+        for page in pages
+    )
+
+    if autosuggest_discarded:
+        session.pop(SUGGESTION_TIME_START_KEY, None)
+        session.pop(SUGGESTION_TIME_END_KEY, None)
+
     session[SURVEY_RESPONSES_KEY] = updated_responses
 
     return redirect(
@@ -1196,6 +1237,9 @@ def save_response(page_id: str) -> ResponseReturnValue:
         "value": value,
     }
     session[SURVEY_RESPONSES_KEY] = updated_responses
+
+    if answer["type"] == "api_autosuggest":
+        session[SUGGESTION_TIME_END_KEY] = datetime.now(UTC).isoformat()
 
     _submit_result_if_configured(page)
 

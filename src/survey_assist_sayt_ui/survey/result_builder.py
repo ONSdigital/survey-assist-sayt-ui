@@ -2,9 +2,104 @@
 
 from datetime import datetime
 import re
+from typing import cast
 
-from survey_assist_sayt_ui.models.result import Response, SurveyAssistResult
-from survey_assist_sayt_ui.survey.models import SurveyDefinition
+from survey_assist_sayt_ui.models.result import (
+    InputField,
+    Response,
+    SuggestionInteraction,
+    SuggestionResponse,
+    SurveyAssistResult,
+)
+from survey_assist_sayt_ui.survey.models import (
+    MultiTextSurveyResponse,
+    SurveyDefinition,
+    SurveyResponses,
+)
+
+
+def build_suggestion_inputs(
+    survey_definition: SurveyDefinition,
+    responses: SurveyResponses,
+) -> list[InputField]:
+    """Build inputs in configured survey question order."""
+    inputs: list[InputField] = []
+
+    for page in survey_definition["survey_pages"]["pages"]:
+        if page["page_type"] != "question":
+            continue
+
+        saved = responses.get(page["page_id"])
+        if saved is None:
+            continue
+
+        if "values" in saved:
+            multi_response = cast(MultiTextSurveyResponse, saved)
+
+            for name, value in multi_response["values"].items():
+                inputs.append(
+                    InputField(
+                        field=name,
+                        value=value,
+                    )
+                )
+        else:
+            inputs.append(
+                InputField(
+                    field=saved["response_name"],
+                    value=saved["value"],
+                )
+            )
+
+    return inputs
+
+
+def build_suggestion_survey_result(  # pylint: disable=too-many-arguments
+    survey_definition: SurveyDefinition,
+    *,
+    case_id: str,
+    user: str,
+    person_id: str,
+    survey_time_start: datetime,
+    response_time_start: datetime,
+    time_end: datetime,
+    responses: SurveyResponses,
+    suggestion_time_start: datetime,
+    suggestion_time_end: datetime,
+) -> SurveyAssistResult:
+    """Build a survey result with a placeholder SAYT interaction."""
+
+    result = build_empty_survey_result(
+        survey_definition,
+        case_id=case_id,
+        user=user,
+        person_id=person_id,
+        survey_time_start=survey_time_start,
+        response_time_start=response_time_start,
+        time_end=time_end,
+    )
+
+    interaction = SuggestionInteraction(
+        time_start=suggestion_time_start,
+        time_end=suggestion_time_end,
+        input=build_suggestion_inputs(
+            survey_definition,
+            responses,
+        ),
+        queries_sent=0,
+        queries=[],
+        response=SuggestionResponse(
+            listed=False,
+            code="",
+            description="",
+            suggestions=[],
+            not_listed_description="",
+        ),
+    )
+
+    result.responses[0].survey_assist_interactions.append(interaction)
+
+    return result
 
 
 def build_empty_survey_result(  # pylint: disable=too-many-arguments

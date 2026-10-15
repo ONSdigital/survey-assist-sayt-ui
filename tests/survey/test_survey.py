@@ -26,6 +26,8 @@ from survey_assist_sayt_ui.survey.models import (
     SurveyFeedback,
 )
 from survey_assist_sayt_ui.survey.session import (
+    SUGGESTION_TIME_END_KEY,
+    SUGGESTION_TIME_START_KEY,
     SURVEY_FEEDBACK_RESPONSES_KEY,
     SURVEY_RESPONSE_START_TIME_KEY,
 )
@@ -1619,6 +1621,8 @@ def test_submit_result_question_sends_result_before_continuing(
         expected_response_start = datetime.fromisoformat(
             flask_session[SURVEY_RESPONSE_START_TIME_KEY]
         )
+        flask_session[SUGGESTION_TIME_START_KEY] = "2026-09-23T09:58:00+00:00"
+        flask_session[SUGGESTION_TIME_END_KEY] = "2026-09-23T10:05:02+00:00"
 
     response = client.post(
         "/survey/questions/q2",
