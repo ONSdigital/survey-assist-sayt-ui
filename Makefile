@@ -31,7 +31,7 @@ define container-run
 		$(IMAGE_NAME)
 endef
 
-.PHONY: help all clean install templates run run-docs all-tests test lint format \
+.PHONY: help all clean install templates run run-docs all-tests \
 	check-python check-python-nofix \
 	e2e-tests \
 	docker-build docker-run podman-build podman-run \
@@ -68,8 +68,10 @@ run:  ## Run the Flask application.
 run-docs: ## Run the mkdocs
 	poetry run mkdocs serve
 
-all-tests: ## Run all tests with coverage and fail if coverage is below threshold
-	poetry run pytest --ignore=cicd --cov --cov-report=term-missing
+## Run all unit tests with coverage and enforce the coverage threshold.
+## Excludes Playwright tests by default for now, as they require a configured environment and increase runtime.
+all-tests: 
+	poetry run pytest --cov --cov-report=term-missing
 
 e2e-tests: ## Run browser tests with Poetry and a Playwright server container.
 	@trap '$(CONTAINER_ENGINE) compose -f docker-compose.e2e.yaml down' EXIT; \
