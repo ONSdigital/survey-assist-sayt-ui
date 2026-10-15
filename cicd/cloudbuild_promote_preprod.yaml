@@ -5,13 +5,13 @@ steps:
       - |
         set -e
         echo === Looking up config from parameter store ===
-        dev_config=$(gcloud parametermanager parameters versions describe dev --parameter=infra-test-config --location=global --project $PROJECT_ID --format=json | python3 -c "import sys, json; print(json.load(sys.stdin)['payload']['data'])" | base64 --decode)
-        SAYT_UI_IMAGE_DEV=$(echo $dev_config | python3 -c "import sys, json; print(json.load(sys.stdin)['cr-sayt-ui-image'])")
+        dev_config=$(gcloud parametermanager parameters versions describe dev --parameter=infra-test-config --location=global --project $PROJECT_ID --format='value(payload.data)' | base64 --decode)
+        SAYT_UI_IMAGE_DEV=$(echo $dev_config | jq -er '."cr-sayt-ui-image"')
 
-        preprod_config=$(gcloud parametermanager parameters versions describe preprod --parameter=infra-test-config --location=global --project $PROJECT_ID --format=json | python3 -c "import sys, json; print(json.load(sys.stdin)['payload']['data'])" | base64 --decode)
-        SAYT_UI_IMAGE_RELEASES=$(echo $preprod_config | python3 -c "import sys, json; print(json.load(sys.stdin)['cr-sayt-ui-image'])")
-        TARGET_PROJECT_ID=$(echo $preprod_config | python3 -c "import sys, json; print(json.load(sys.stdin)['project-id'])")
-        export PROXY_API_URL=$(echo $preprod_config | python3 -c "import sys, json; print(json.load(sys.stdin)['proxy-api-url'])")
+        preprod_config=$(gcloud parametermanager parameters versions describe preprod --parameter=infra-test-config --location=global --project $PROJECT_ID --format='value(payload.data)' | base64 --decode)
+        SAYT_UI_IMAGE_RELEASES=$(echo $preprod_config | jq -er '."cr-sayt-ui-image"')
+        TARGET_PROJECT_ID=$(echo $preprod_config | jq -er '."project-id"')
+        export PROXY_API_URL=$(echo $preprod_config | jq -er '."proxy-api-url"')
 
         echo === Pulling image dev image with tag $SHORT_SHA ===
         docker pull $$SAYT_UI_IMAGE_DEV:$SHORT_SHA

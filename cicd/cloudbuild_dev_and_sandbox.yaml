@@ -23,10 +23,10 @@ steps:
         fi
 
         echo === Looking up config from parameter store ===
-        config=$(gcloud parametermanager parameters versions describe $_ENV_NAME --parameter=infra-test-config --location=global --project $PROJECT_ID --format=json | python3 -c "import sys, json; print(json.load(sys.stdin)['payload']['data'])" | base64 --decode)
-        SAYT_UI_IMAGE=$(echo $config | python3 -c "import sys, json; print(json.load(sys.stdin)['cr-sayt-ui-image'])")
-        TARGET_PROJECT_ID=$(echo $config | python3 -c "import sys, json; print(json.load(sys.stdin)['project-id'])")
-        export PROXY_API_URL=$(echo $config | python3 -c "import sys, json; print(json.load(sys.stdin)['proxy-api-url'])")
+        config=$(gcloud parametermanager parameters versions describe $_ENV_NAME --parameter=infra-test-config --location=global --project $PROJECT_ID --format='value(payload.data)' | base64 --decode)
+        SAYT_UI_IMAGE=$(echo $config | jq -er '."cr-sayt-ui-image"')
+        TARGET_PROJECT_ID=$(echo $config | jq -er '."project-id"')
+        export PROXY_API_URL=$(echo $config | jq -er '."proxy-api-url"')
 
         echo === Build Docker image, tag and push to GAR ===
         APP_VERSION=$(poetry version -s)
