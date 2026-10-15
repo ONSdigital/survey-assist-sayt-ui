@@ -1,5 +1,6 @@
 steps:
   - name: gcr.io/$PROJECT_ID/testrunner
+    secretEnv: ['TEST_E2E_USERNAME', 'TEST_E2E_PASSWORD']
     args:
       - '-c'
       - |
@@ -32,8 +33,21 @@ steps:
         export SAYT_UI_URL=$$PROXY_API_URL # set to proxy API
         poetry run pytest -s cicd
 
+        echo === Run E2E tests ===
+
+        # TEST_E2E_USERNAME and TEST_E2E_PASSWORD are exported by the secret manager
+        export TEST_E2E_BASE_URL=$$SAYT_UI_URL
+        export CONTAINER_ENGINE=docker
+        make e2e-tests
+
     id: Tag and push release image
     entrypoint: bash
 timeout: 2000s
 options:
   logging: CLOUD_LOGGING_ONLY
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/sayt-ui-e2e-username-${_ENV_NAME}/versions/latest
+      env: TEST_E2E_USERNAME
+    - versionName: projects/$PROJECT_ID/secrets/sayt-ui-e2e-password-${_ENV_NAME}/versions/latest
+      env: TEST_E2E_PASSWORD
