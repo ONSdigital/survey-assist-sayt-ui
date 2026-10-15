@@ -13,6 +13,7 @@ from survey_assist_sayt_ui.models.result import (
 )
 from survey_assist_sayt_ui.survey.models import (
     MultiTextSurveyResponse,
+    SingleValueSurveyResponse,
     SurveyDefinition,
     SurveyResponses,
 )
@@ -54,6 +55,36 @@ def build_suggestion_inputs(
     return inputs
 
 
+def get_not_listed_description(
+    survey_definition: SurveyDefinition,
+    responses: SurveyResponses,
+) -> str:
+    """Return the saved SAYT Not Listed self-description, if present."""
+
+    for page in survey_definition["survey_pages"]["pages"]:
+        if page["page_type"] != "question":
+            continue
+
+        answer = page["answer"]
+
+        if answer["type"] != "api_autosuggest":
+            continue
+
+        saved = responses.get(page["page_id"])
+
+        if saved is None or "value" not in saved:
+            continue
+
+        single_response = cast(SingleValueSurveyResponse, saved)
+
+        expected_field_name = f"{page['page_id']}-self-describe"
+
+        if single_response["response_name"] == expected_field_name:
+            return single_response["value"]
+
+    return ""
+
+
 def build_suggestion_survey_result(  # pylint: disable=too-many-arguments
     survey_definition: SurveyDefinition,
     *,
@@ -93,7 +124,10 @@ def build_suggestion_survey_result(  # pylint: disable=too-many-arguments
             code="",
             description="",
             suggestions=[],
-            not_listed_description="",
+            not_listed_description=get_not_listed_description(
+                survey_definition,
+                responses,
+            ),
         ),
     )
 
