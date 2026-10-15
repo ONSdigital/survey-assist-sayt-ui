@@ -13,9 +13,13 @@ from survey_assist_sayt_ui.auth.decorators import (
     SESSION_RESULT_USER_KEY,
     SESSION_USER_KEY,
 )
+from survey_assist_sayt_ui.models.feedback import FeedbackResponse, FeedbackResult
 from survey_assist_sayt_ui.models.result import (
     ResultResponse,
     SurveyAssistResult,
+)
+from survey_assist_sayt_ui.services.feedback_submission import (
+    FeedbackSubmissionError,
 )
 from survey_assist_sayt_ui.routes.survey import SURVEY_RESPONSES_KEY
 from survey_assist_sayt_ui.survey.models import (
@@ -29,6 +33,25 @@ from survey_assist_sayt_ui.survey.session import (
     SURVEY_FEEDBACK_RESPONSES_KEY,
     SURVEY_RESPONSE_START_TIME_KEY,
 )
+
+
+class StubSurveyFeedbackSubmissionClient:  # pylint: disable=too-few-public-methods
+    """Capture submitted survey feedback for tests."""
+
+    def __init__(self, error: Exception | None = None) -> None:
+        self.submitted_feedback: list[FeedbackResult] = []
+        self.error = error
+
+    def submit(self, feedback: FeedbackResult) -> FeedbackResponse:
+        """Capture feedback, or raise a configured submission error."""
+        if self.error is not None:
+            raise self.error
+
+        self.submitted_feedback.append(feedback)
+        return FeedbackResponse(
+            message="Feedback stored successfully",
+            feedback_id="feedback-123",
+        )
 
 
 class StubSurveyResultSubmissionClient:  # pylint: disable=too-few-public-methods
@@ -1809,3 +1832,139 @@ def test_api_autosuggest_repopulates_saved_selection_state(
 
     assert response.status_code == HTTPStatus.OK
     assert 'data-autosuggest-selection-value="Software development"' in response_text
+
+
+def test_complete_sends_feedback_held_in_the_session(
+    client: FlaskClient,
+    app: Flask,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test completion sends session feedback with the result identifiers."""
+    _authenticate(client)
+    _set_result_session(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_feedback"] = survey_feedback
+    feedback_client = StubSurveyFeedbackSubmissionClient()
+    app.extensions["feedback_submission_client"] = feedback_client
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_FEEDBACK_RESPONSES_KEY] = {
+            "fq1": {
+                "question_name": "survey_ease_question",
+                "response_name": "survey-ease",
+                "value": "easy",
+            },
+            "fq2": {
+                "question_name": "other_feedback_question",
+                "response_name": "other-feedback",
+                "value": "Some feedback here",
+            },
+        }
+
+    response = client.get("/survey/complete")
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Thank you for taking part." in response.get_data(as_text=True)
+    assert len(feedback_client.submitted_feedback) == 1
+
+    feedback = feedback_client.submitted_feedback[0]
+
+    assert feedback.survey_id == "test_survey"
+    assert feedback.wave_id == "test-wave"
+    assert feedback.case_id == "11"
+    assert feedback.person_id == "11-01"
+    assert feedback.questions[0].response == "easy"
+    assert feedback.questions[0].response_name == "survey-ease"
+    assert feedback.questions[0].response_options == ["Easy", "Difficult"]
+    assert feedback.questions[1].response == "Some feedback here"
+    assert feedback.questions[1].response_options == []
+
+
+def test_complete_omits_a_blank_optional_feedback_answer(
+    client: FlaskClient,
+    app: Flask,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test a blank optional answer is not included in the feedback request."""
+    _authenticate(client)
+    _set_result_session(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_feedback"] = survey_feedback
+    feedback_client = StubSurveyFeedbackSubmissionClient()
+    app.extensions["feedback_submission_client"] = feedback_client
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_FEEDBACK_RESPONSES_KEY] = {
+            "fq1": {
+                "question_name": "survey_ease_question",
+                "response_name": "survey-ease",
+                "value": "difficult",
+            }
+        }
+
+    client.get("/survey/complete")
+
+    feedback = feedback_client.submitted_feedback[0]
+
+    assert [question.response_name for question in feedback.questions] == [
+        "survey-ease"
+    ]
+
+
+def test_complete_without_feedback_does_not_send_feedback(
+    client: FlaskClient,
+    app: Flask,
+) -> None:
+    """Test completion with no feedback answers does not call the API."""
+    _authenticate(client)
+    _set_result_session(client)
+    feedback_client = StubSurveyFeedbackSubmissionClient()
+    app.extensions["feedback_submission_client"] = feedback_client
+
+    response = client.get("/survey/complete")
+
+    assert response.status_code == HTTPStatus.OK
+    assert not feedback_client.submitted_feedback
+
+
+def test_complete_hides_a_failed_feedback_save(
+    client: FlaskClient,
+    app: Flask,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test a failed feedback save still shows the completion page."""
+    _authenticate(client)
+    _set_result_session(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_feedback"] = survey_feedback
+    app.extensions["feedback_submission_client"] = StubSurveyFeedbackSubmissionClient(
+        error=FeedbackSubmissionError("Survey feedback submission failed"),
+    )
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_FEEDBACK_RESPONSES_KEY] = {
+            "fq1": {
+                "question_name": "survey_ease_question",
+                "response_name": "survey-ease",
+                "value": "easy",
+            }
+        }
+
+    response = client.get("/survey/complete")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Thank you for taking part." in response_text
+    assert "Survey feedback submission failed" not in response_text
