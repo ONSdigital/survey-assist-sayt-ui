@@ -50,6 +50,8 @@ from survey_assist_sayt_ui.survey.result_builder import (
     build_suggestion_survey_result,
 )
 from survey_assist_sayt_ui.survey.session import (
+    QUESTION_RENDER_PAGE_ID_KEY,
+    QUESTION_RENDER_TIME_KEY,
     SUGGESTION_TIME_END_KEY,
     SUGGESTION_TIME_START_KEY,
     SURVEY_FEEDBACK_RESPONSES_KEY,
@@ -818,7 +820,7 @@ def _record_survey_response_start(
     )
 
 
-def _submit_result_if_configured(
+def _submit_result_if_configured(  # pylint: disable=too-many-return-statements
     page: QuestionPage,
 ) -> None:
     """Submit the current survey result when configured for the page."""
@@ -852,15 +854,39 @@ def _submit_result_if_configured(
 
     time_end = datetime.now(UTC)
 
-    try:
-        suggestion_time_start = _get_session_datetime(SUGGESTION_TIME_START_KEY)
-        suggestion_time_end = _get_session_datetime(SUGGESTION_TIME_END_KEY)
-    except RuntimeError:
-        logger.exception(
-            "Suggestion timestamps unavailable page_id=%s",
+    if SUGGESTION_TIME_START_KEY in session and SUGGESTION_TIME_END_KEY in session:
+        try:
+            suggestion_time_start = _get_session_datetime(SUGGESTION_TIME_START_KEY)
+            suggestion_time_end = _get_session_datetime(SUGGESTION_TIME_END_KEY)
+        except RuntimeError:
+            logger.exception(
+                "Invalid suggestion timestamps page_id=%s",
+                page["page_id"],
+            )
+            return
+    else:
+        if session.get(QUESTION_RENDER_PAGE_ID_KEY) != page["page_id"]:
+            logger.error(
+                "Question render timestamp unavailable page_id=%s",
+                page["page_id"],
+            )
+            return
+
+        try:
+            suggestion_time_start = _get_session_datetime(QUESTION_RENDER_TIME_KEY)
+        except RuntimeError:
+            logger.exception(
+                "Invalid question render timestamp page_id=%s",
+                page["page_id"],
+            )
+            return
+
+        suggestion_time_end = time_end
+
+        logger.info(
+            "Using question timestamps for pre-SAYT result page_id=%s",
             page["page_id"],
         )
-        return
 
     result = build_suggestion_survey_result(
         _get_survey_definition(),
@@ -981,8 +1007,13 @@ def question(page_id: str) -> ResponseReturnValue:
 
     selected_suggestion = ""
 
+    render_time = datetime.now(UTC).isoformat()
+
+    session[QUESTION_RENDER_TIME_KEY] = render_time
+    session[QUESTION_RENDER_PAGE_ID_KEY] = page_id
+
     if page["answer"]["type"] == "api_autosuggest":
-        session[SUGGESTION_TIME_START_KEY] = datetime.now(UTC).isoformat()
+        session[SUGGESTION_TIME_START_KEY] = render_time
         session.pop(SUGGESTION_TIME_END_KEY, None)
 
     if page["answer"]["type"] == "api_autosuggest" and not not_listed_selected:

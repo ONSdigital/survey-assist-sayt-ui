@@ -350,7 +350,8 @@
         },
         "submit_button": {
           "text": "Save and continue"
-        }
+        },
+        "submit_result": true
       },
       {
         "page_id": "q2",
@@ -431,7 +432,8 @@
         },
         "submit_button": {
           "text": "Save and continue"
-        }
+        },
+        "submit_result": true
       },
       {
         "page_id": "q4",
@@ -460,7 +462,8 @@
         },
         "submit_button": {
           "text": "Save and continue"
-        }
+        },
+        "submit_result": true
       },
       {
         "page_id": "q5",
