@@ -520,7 +520,7 @@
     ]
   },
   "survey_feedback": {
-    "enabled": false,
+    "enabled": true,
     "start_page_id": "fq1",
     "pages": [
       {
