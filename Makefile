@@ -33,7 +33,7 @@ endef
 
 .PHONY: help all clean install templates run run-docs all-tests \
 	check-python check-python-nofix \
-	e2e-tests \
+	e2e-tests e2e-tests-visual \
 	docker-build docker-run podman-build podman-run \
 	podman-compose-up podman-compose-redis-up podman-compose-down podman-compose-logs \
 	manage-users pre-commit-install pre-commit-run pre-push-run \
@@ -77,6 +77,9 @@ e2e-tests: ## Run browser tests with Poetry and a Playwright server container.
 	@trap '$(CONTAINER_ENGINE) compose -f docker-compose.e2e.yaml down' EXIT; \
 	$(CONTAINER_ENGINE) compose -f docker-compose.e2e.yaml up -d --wait && \
 	PLAYWRIGHT_WS_ENDPOINT=ws://127.0.0.1:3000/ poetry run pytest tests/e2e -v
+
+e2e-tests-visual: ## Run the e2e tests in a browser, with a visible window. Optionally specify the browser channel using PLAYWRIGHT_BROWSER_CHANNEL
+	poetry run pytest tests/e2e --headed --slowmo 1000 $(if $(PLAYWRIGHT_BROWSER_CHANNEL),--browser-channel $(PLAYWRIGHT_BROWSER_CHANNEL))
 
 check-python: ## Format and lint the python code (auto fix)
 	poetry run ruff check . --fix
