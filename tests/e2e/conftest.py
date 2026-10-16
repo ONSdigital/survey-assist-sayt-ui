@@ -44,7 +44,7 @@ def configured_credentials() -> tuple[str, str]:
 
 @pytest.fixture(scope="session", name="browser_type_launch_args")
 def configured_browser_type_launch_args(browser_type_launch_args: dict) -> dict:
-    """Disable QUIC to match managed Macs that use TCP."""
+    """Disable QUIC to standardise traffic flow across different environments."""
     return {
         **browser_type_launch_args,
         "args": [*browser_type_launch_args.get("args", []), "--disable-quic"],

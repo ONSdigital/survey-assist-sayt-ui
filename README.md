@@ -538,10 +538,19 @@ If Docker is the preferred container engine you can override using:
 make e2e-tests CONTAINER_ENGINE=docker
 ```
 
-Use the command below to watch all E2E tests in an Edge window. Useful for debugging.
+Use the command below to view E2E tests in a browser window on the machine. Useful for debugging.
+
+By default playwright uses chromium so you can use the following to install as required, then run the tests:
 
 ```bash
+poetry run playwright install chromium
 make e2e-tests-visual
+```
+
+To use a [specific browser](https://playwright.dev/python/docs/browsers#configure-browsers) you can instead use the `PLAYWRIGHT_BROWSER_CHANNEL` parameter to override i.e
+
+```bash
+make e2e-tests-visual PLAYWRIGHT_BROWSER_CHANNEL=msedge
 ```
 
 To inspect the browser during a visual test, add `page.pause()` at the point where you want the test to stop.

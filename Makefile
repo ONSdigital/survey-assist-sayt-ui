@@ -78,8 +78,8 @@ e2e-tests: ## Run browser tests with Poetry and a Playwright server container.
 	$(CONTAINER_ENGINE) compose -f docker-compose.e2e.yaml up -d --wait && \
 	PLAYWRIGHT_WS_ENDPOINT=ws://127.0.0.1:3000/ poetry run pytest tests/e2e -v
 
-e2e-tests-visual: ## Run the e2e tests in a visible Edge window.
-	poetry run pytest tests/e2e --headed --browser-channel msedge --slowmo 1000
+e2e-tests-visual: ## Run the e2e tests in a browser, with a visible window. Optionally specify the browser channel using PLAYWRIGHT_BROWSER_CHANNEL
+	poetry run pytest tests/e2e --headed --slowmo 1000 $(if $(PLAYWRIGHT_BROWSER_CHANNEL),--browser-channel $(PLAYWRIGHT_BROWSER_CHANNEL))
 
 check-python: ## Format and lint the python code (auto fix)
 	poetry run ruff check . --fix
