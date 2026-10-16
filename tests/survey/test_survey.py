@@ -349,6 +349,7 @@ def test_api_autosuggest_response_is_saved_and_progresses(
         "question_name": "business_activity_question",
         "response_name": "business-activity",
         "value": ("Retail sale of clothing in specialised stores"),
+        "suggestions": [],
     }
 
 
@@ -423,6 +424,7 @@ def test_api_autosuggest_saves_self_described_response(
         "question_name": "business_activity_question",
         "response_name": ("q-api-autosuggest-self-describe"),
         "value": "Repair and restoration of bicycles",
+        "suggestions": [],
     }
 
 
