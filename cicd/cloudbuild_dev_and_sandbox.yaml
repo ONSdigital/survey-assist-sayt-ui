@@ -58,7 +58,8 @@ steps:
         echo === Run E2E tests ===
         export TEST_E2E_USERNAME=$SERVICE_ACCOUNT_EMAIL
         # TEST_E2E_PASSWORD is exported by the secret manager
-        export TEST_E2E_BASE_URL=$$SAYT_UI_URL
+        export TEST_E2E_BEARER_TOKEN=$(gcloud auth print-identity-token) # Use CICD service account
+        export TEST_E2E_BASE_URL=$$PROXY_API_URL # set to proxy API
         export CONTAINER_ENGINE=docker
         make e2e-tests
 

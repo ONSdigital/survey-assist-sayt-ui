@@ -22,6 +22,21 @@ def connect_options() -> dict[str, str] | None:
     return {"endpoint": ws_endpoint, "expose_network": "<loopback>"}
 
 
+@pytest.fixture(scope="session")
+def browser_context_args(browser_context_args: dict) -> dict:
+    """Attach an optional bearer token Authorization header to all requests."""
+    token = os.environ.get("TEST_E2E_BEARER_TOKEN")
+    if not token:
+        return browser_context_args
+    return {
+        **browser_context_args,
+        "extra_http_headers": {
+            **browser_context_args.get("extra_http_headers", {}),
+            "Authorization": f"Bearer {token}",
+        },
+    }
+
+
 @pytest.fixture(scope="session", name="base_url")
 def configured_base_url() -> str:
     """Return the URL of the deployed UI."""
