@@ -33,6 +33,9 @@ from survey_assist_sayt_ui.services.result_submission import (
     ResultSubmissionError,
     SurveyResultSubmissionClient,
 )
+from survey_assist_sayt_ui.survey.feedback_builder import (
+    build_feedback_result,
+)
 from survey_assist_sayt_ui.survey.models import (
     FeedbackPage,
     FeedbackResponses,
@@ -49,9 +52,6 @@ from survey_assist_sayt_ui.survey.models import (
 from survey_assist_sayt_ui.survey.placeholders import (
     MissingPlaceholderResponseError,
     resolve_question_text,
-)
-from survey_assist_sayt_ui.survey.feedback_builder import (
-    build_feedback_result,
 )
 from survey_assist_sayt_ui.survey.result_builder import (
     build_empty_survey_result,
