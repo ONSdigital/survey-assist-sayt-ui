@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from http import HTTPStatus
+import json
 import logging
 from typing import cast
 
@@ -283,6 +284,28 @@ def _get_autosuggest_selection_field_name(
         str: Generated selection field name.
     """
     return f"{answer_name}{AUTOSUGGEST_SELECTION_FIELD_SUFFIX}"
+
+
+def _get_submitted_suggestions(
+    answer_name: str,
+) -> list[str]:
+    """Return the submitted last displayed SAYT suggestions."""
+    field_name = f"{answer_name}-suggestions"
+    raw_value = request.form.get(field_name, "[]")
+
+    try:
+        suggestions = json.loads(raw_value)
+    except (TypeError, ValueError):
+        abort(HTTPStatus.BAD_REQUEST)
+
+    if (
+        not isinstance(suggestions, list)
+        or len(suggestions) > 20
+        or any(not isinstance(item, str) or len(item) > 500 for item in suggestions)
+    ):
+        abort(HTTPStatus.BAD_REQUEST)
+
+    return cast(list[str], suggestions)
 
 
 def _get_not_listed_field_name(
@@ -1262,11 +1285,17 @@ def save_response(page_id: str) -> ResponseReturnValue:
 
     updated_responses = dict(responses)
     updated_responses.pop(page_id, None)
-    updated_responses[page_id] = {
+
+    saved_response: SingleValueSurveyResponse = {
         "question_name": page["question_name"],
         "response_name": response_name,
         "value": value,
     }
+
+    if answer["type"] == "api_autosuggest":
+        saved_response["suggestions"] = _get_submitted_suggestions(answer["name"])
+
+    updated_responses[page_id] = saved_response
     session[SURVEY_RESPONSES_KEY] = updated_responses
 
     if answer["type"] == "api_autosuggest":

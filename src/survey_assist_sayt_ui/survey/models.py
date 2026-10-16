@@ -268,6 +268,7 @@ class SingleValueSurveyResponse(TypedDict):
     question_name: str
     response_name: str
     value: str
+    suggestions: NotRequired[list[str]]
 
 
 class MultiTextSurveyResponse(TypedDict):

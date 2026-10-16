@@ -8,6 +8,7 @@ from survey_assist_sayt_ui.models.result import (
     InputField,
     Response,
     SuggestionInteraction,
+    SuggestionListItem,
     SuggestionResponse,
     SurveyAssistResult,
 )
@@ -85,6 +86,37 @@ def get_not_listed_description(
     return ""
 
 
+def get_last_suggestions(
+    survey_definition: SurveyDefinition,
+    responses: SurveyResponses,
+) -> list[SuggestionListItem]:
+    """Return the last displayed suggestions from the answered SAYT question."""
+
+    for page in survey_definition["survey_pages"]["pages"]:
+        if page["page_type"] != "question":
+            continue
+
+        if page["answer"]["type"] != "api_autosuggest":
+            continue
+
+        saved = responses.get(page["page_id"])
+
+        if saved is None or "value" not in saved:
+            continue
+
+        single_response = cast(SingleValueSurveyResponse, saved)
+
+        return [
+            SuggestionListItem(
+                code="99999",  # Placeholder until code is added to api
+                description=description,
+            )
+            for description in single_response.get("suggestions", [])
+        ]
+
+    return []
+
+
 def build_suggestion_survey_result(  # pylint: disable=too-many-arguments
     survey_definition: SurveyDefinition,
     *,
@@ -123,7 +155,10 @@ def build_suggestion_survey_result(  # pylint: disable=too-many-arguments
             listed=False,
             code="",
             description="",
-            suggestions=[],
+            suggestions=get_last_suggestions(
+                survey_definition,
+                responses,
+            ),
             not_listed_description=get_not_listed_description(
                 survey_definition,
                 responses,

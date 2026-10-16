@@ -22,6 +22,7 @@ function initialiseRemoteAutosuggest(container) {
   }
   let autosuggest
   let selectionInput = null
+  let suggestionsInput = null
 
   function normaliseQueryForSearch(value) {
     return value
@@ -54,6 +55,34 @@ function initialiseRemoteAutosuggest(container) {
     }
 
     selectionInput.value = initialSelectionValue
+  }
+
+  function initialiseSuggestionsInput() {
+    if (!selectionFieldName) {
+      return
+    }
+
+    const form = container.closest('form')
+
+    if (!form) {
+      return
+    }
+
+    const fieldName = selectionFieldName.replace(
+      /-selected$/,
+      '-suggestions',
+    )
+
+    suggestionsInput = form.elements.namedItem(fieldName)
+
+    if (!(suggestionsInput instanceof HTMLInputElement)) {
+      suggestionsInput = document.createElement('input')
+      suggestionsInput.type = 'hidden'
+      suggestionsInput.name = fieldName
+      form.appendChild(suggestionsInput)
+    }
+
+    suggestionsInput.value = '[]'
   }
 
   function clearSelectionIfInputChanged() {
@@ -139,7 +168,27 @@ function initialiseRemoteAutosuggest(container) {
     },
   })
 
+  const originalHandleResults =
+  autosuggest.handleResults.bind(autosuggest)
+
+  autosuggest.handleResults = (envelope) => {
+    originalHandleResults(envelope)
+
+    if (!suggestionsInput) {
+      return
+    }
+
+    const descriptions = autosuggest.results.map((result) => {
+      const item = result.item ?? result
+
+      return item[autosuggest.lang] ?? item.formattedAddress
+    })
+
+    suggestionsInput.value = JSON.stringify(descriptions)
+  }
+
   initialiseSelectionInput()
+  initialiseSuggestionsInput()
 
   autosuggest.input.addEventListener(
     'input',
