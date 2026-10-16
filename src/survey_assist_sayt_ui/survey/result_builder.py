@@ -9,6 +9,7 @@ from survey_assist_sayt_ui.models.result import (
     Response,
     SuggestionInteraction,
     SuggestionListItem,
+    SuggestionQuery,
     SuggestionResponse,
     SurveyAssistResult,
 )
@@ -150,6 +151,38 @@ def get_last_suggestions(
     return []
 
 
+def get_suggestion_queries(
+    survey_definition: SurveyDefinition,
+    responses: SurveyResponses,
+) -> list[SuggestionQuery]:
+    """Return successful SAYT queries, newest first."""
+
+    for page in survey_definition["survey_pages"]["pages"]:
+        if page["page_type"] != "question":
+            continue
+
+        if page["answer"]["type"] != "api_autosuggest":
+            continue
+
+        saved = responses.get(page["page_id"])
+
+        if saved is None or "value" not in saved:
+            continue
+
+        single_response = cast(SingleValueSurveyResponse, saved)
+
+        return [
+            SuggestionQuery(
+                value=query["value"],
+                time_start=datetime.fromisoformat(query["time_start"]),
+                time_end=datetime.fromisoformat(query["time_end"]),
+            )
+            for query in single_response.get("queries", [])
+        ]
+
+    return []
+
+
 def build_suggestion_survey_result(  # pylint: disable=too-many-arguments
     survey_definition: SurveyDefinition,
     *,
@@ -180,6 +213,11 @@ def build_suggestion_survey_result(  # pylint: disable=too-many-arguments
         responses,
     )
 
+    suggestion_queries = get_suggestion_queries(
+        survey_definition,
+        responses,
+    )
+
     interaction = SuggestionInteraction(
         time_start=suggestion_time_start,
         time_end=suggestion_time_end,
@@ -187,8 +225,8 @@ def build_suggestion_survey_result(  # pylint: disable=too-many-arguments
             survey_definition,
             responses,
         ),
-        queries_sent=0,
-        queries=[],
+        queries_sent=len(suggestion_queries),
+        queries=suggestion_queries,
         response=SuggestionResponse(
             listed=bool(selected_description),
             code="99999" if selected_description else "",

@@ -161,7 +161,7 @@ def test_business_activity_suggestions_returns_search_results(
     app: Flask,
     client: FlaskClient,
 ) -> None:
-    """Test returning business activity suggestions to the autosuggest component."""
+    """Test returning suggestions with upstream API timing metadata."""
     app.extensions["business_activity_search_client"] = StubBusinessActivitySearchClient()
 
     with client.session_transaction() as flask_session:
@@ -174,7 +174,11 @@ def test_business_activity_suggestions_returns_search_results(
     )
 
     assert response.status_code == HTTPStatus.OK
-    assert response.get_json() == [
+
+    payload = response.get_json()
+
+    # Verify suggestions are returned in their original order.
+    assert payload["results"] == [
         {
             "en": "Software development: 62012",
         },
@@ -182,6 +186,18 @@ def test_business_activity_suggestions_returns_search_results(
             "en": "Soft drinks production: 11070",
         },
     ]
+
+    # Verify query metadata.
+    query = payload["query"]
+
+    assert query["value"] == "soft"
+
+    time_start = datetime.fromisoformat(query["time_start"])
+    time_end = datetime.fromisoformat(query["time_end"])
+
+    assert time_start.tzinfo is not None
+    assert time_end.tzinfo is not None
+    assert time_end >= time_start
 
 
 def test_api_autosuggest_renders_self_describe_input(

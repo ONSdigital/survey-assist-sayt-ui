@@ -262,6 +262,14 @@ class SurveyPages(TypedDict):
     pages: list[SurveyPage]
 
 
+class SuggestionQueryRecord(TypedDict):
+    """One recorded successful SAYT query."""
+
+    value: str
+    time_start: str
+    time_end: str
+
+
 class SingleValueSurveyResponse(TypedDict):
     """Response stored for one single-value survey question."""
 
@@ -269,6 +277,7 @@ class SingleValueSurveyResponse(TypedDict):
     response_name: str
     value: str
     suggestions: NotRequired[list[str]]
+    queries: NotRequired[list[SuggestionQueryRecord]]
 
 
 class MultiTextSurveyResponse(TypedDict):

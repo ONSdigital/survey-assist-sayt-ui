@@ -20,12 +20,14 @@ from flask import (
     url_for,
 )
 from flask.typing import ResponseReturnValue
+from pydantic import ValidationError
 
 from survey_assist_sayt_ui.auth.decorators import (
     SESSION_LOGIN_TIME_KEY,
     SESSION_RESULT_USER_KEY,
     login_required,
 )
+from survey_assist_sayt_ui.models.result import SuggestionQuery
 from survey_assist_sayt_ui.services.result_submission import (
     ResultSubmissionError,
     SurveyResultSubmissionClient,
@@ -38,6 +40,7 @@ from survey_assist_sayt_ui.survey.models import (
     MultiTextSurveyResponse,
     QuestionPage,
     SingleValueSurveyResponse,
+    SuggestionQueryRecord,
     SurveyDefinition,
     SurveyFeedback,
     SurveyPage,
@@ -306,6 +309,59 @@ def _get_submitted_suggestions(
         abort(HTTPStatus.BAD_REQUEST)
 
     return cast(list[str], suggestions)
+
+
+def _get_submitted_queries(
+    answer_name: str,
+) -> list[SuggestionQueryRecord]:
+    """Validate and return successful SAYT queries, newest first."""
+    field_name = f"{answer_name}-queries"
+    raw_value = request.form.get(field_name, "[]")
+
+    try:
+        submitted = json.loads(raw_value)
+    except (TypeError, ValueError):
+        abort(HTTPStatus.BAD_REQUEST)
+
+    if not isinstance(submitted, list) or len(submitted) > 200:
+        abort(HTTPStatus.BAD_REQUEST)
+
+    queries: list[SuggestionQueryRecord] = []
+
+    for item in submitted:
+        if not isinstance(item, dict):
+            abort(HTTPStatus.BAD_REQUEST)
+
+        if set(item) != {"value", "time_start", "time_end"}:
+            abort(HTTPStatus.BAD_REQUEST)
+
+        if not isinstance(item["value"], str):
+            abort(HTTPStatus.BAD_REQUEST)
+
+        if not 3 <= len(item["value"]) <= 100:
+            abort(HTTPStatus.BAD_REQUEST)
+
+        try:
+            query = SuggestionQuery.model_validate(item)
+        except ValidationError:
+            abort(HTTPStatus.BAD_REQUEST)
+
+        if (
+            query.time_start.tzinfo is None
+            or query.time_end.tzinfo is None
+            or query.time_end < query.time_start
+        ):
+            abort(HTTPStatus.BAD_REQUEST)
+
+        queries.append(
+            {
+                "value": query.value,
+                "time_start": query.time_start.isoformat(),
+                "time_end": query.time_end.isoformat(),
+            }
+        )
+
+    return queries
 
 
 def _get_not_listed_field_name(
@@ -1294,6 +1350,7 @@ def save_response(page_id: str) -> ResponseReturnValue:
 
     if answer["type"] == "api_autosuggest":
         saved_response["suggestions"] = _get_submitted_suggestions(answer["name"])
+        saved_response["queries"] = _get_submitted_queries(answer["name"])
 
     updated_responses[page_id] = saved_response
     session[SURVEY_RESPONSES_KEY] = updated_responses

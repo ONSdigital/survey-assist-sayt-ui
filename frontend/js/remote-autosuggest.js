@@ -23,6 +23,8 @@ function initialiseRemoteAutosuggest(container) {
   let autosuggest
   let selectionInput = null
   let suggestionsInput = null
+  let queriesInput = null
+  const queryHistory = []
 
   function normaliseQueryForSearch(value) {
     return value
@@ -85,6 +87,50 @@ function initialiseRemoteAutosuggest(container) {
     suggestionsInput.value = '[]'
   }
 
+  function initialiseQueriesInput() {
+    if (!selectionFieldName) {
+      return
+    }
+
+    const form = container.closest('form')
+
+    if (!form) {
+      return
+    }
+
+    const fieldName = selectionFieldName.replace(
+      /-selected$/,
+      '-queries',
+    )
+
+    const existingField = form.elements.namedItem(fieldName)
+
+    if (existingField instanceof HTMLInputElement) {
+      queriesInput = existingField
+    } else {
+      queriesInput = document.createElement('input')
+      queriesInput.type = 'hidden'
+      queriesInput.name = fieldName
+      form.appendChild(queriesInput)
+    }
+
+    queriesInput.value = '[]'
+  }
+
+  function recordQuery(query) {
+    if (!queriesInput || !query) {
+      return
+    }
+
+    queryHistory.unshift({
+      value: query.value,
+      time_start: query.time_start,
+      time_end: query.time_end,
+    })
+
+    queriesInput.value = JSON.stringify(queryHistory)
+  }
+
   function clearSelectionIfInputChanged() {
     if (
       selectionInput &&
@@ -143,6 +189,17 @@ function initialiseRemoteAutosuggest(container) {
       ? payload
       : payload.results || []
 
+    if (requestId !== latestRequestId) {
+      throw new DOMException(
+        'Stale autosuggest response',
+        'AbortError',
+      )
+    }
+
+    if (!Array.isArray(payload) && payload.query) {
+      recordQuery(payload.query)
+    }
+
     lastResultEnvelope = {
       status: response.status,
       results: results.slice(0, 20),
@@ -189,6 +246,7 @@ function initialiseRemoteAutosuggest(container) {
 
   initialiseSelectionInput()
   initialiseSuggestionsInput()
+  initialiseQueriesInput()
 
   autosuggest.input.addEventListener(
     'input',
