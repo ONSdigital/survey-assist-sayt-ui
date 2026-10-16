@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from http import HTTPStatus
 import logging
 from typing import cast
@@ -201,11 +202,11 @@ def save_api_autosuggest_response() -> ResponseReturnValue:
 @main_blueprint.get("/api/business-activity-suggestions")
 @login_required
 def business_activity_suggestions() -> ResponseReturnValue:
-    """Proxy business activity searches to the configured API."""
+    """Proxy business activity searches with upstream timing metadata."""
     query = request.args.get("q", "", type=str).strip()
 
     if len(query) < MIN_AUTOSUGGEST_CHARACTERS:
-        return jsonify([])
+        return jsonify({"results": []})
 
     if len(query) > MAX_AUTOSUGGEST_QUERY_LENGTH:
         return {"error": "Search query is too long"}, 400
@@ -214,6 +215,8 @@ def business_activity_suggestions() -> ResponseReturnValue:
         BusinessActivitySearchClient,
         current_app.extensions["business_activity_search_client"],
     )
+
+    time_start = datetime.now(UTC)
 
     try:
         suggestions = client.search(
@@ -233,7 +236,18 @@ def business_activity_suggestions() -> ResponseReturnValue:
         )
         return {"error": "Suggestion service unavailable"}, 502
 
-    return jsonify([suggestion.to_dict() for suggestion in suggestions])
+    time_end = datetime.now(UTC)
+
+    return jsonify(
+        {
+            "results": [suggestion.to_dict() for suggestion in suggestions],
+            "query": {
+                "value": query,
+                "time_start": time_start.isoformat(),
+                "time_end": time_end.isoformat(),
+            },
+        }
+    )
 
 
 @main_blueprint.route("/save-response", methods=["POST"])

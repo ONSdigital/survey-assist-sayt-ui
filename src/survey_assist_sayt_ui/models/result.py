@@ -147,6 +147,74 @@ class SurveyAssistInteraction(BaseModel):
     response: ClassificationResponse | LookupResponse
 
 
+class SuggestionQuery(BaseModel):
+    """Record one successful upstream suggestion request.
+
+    Attributes:
+        value: Search string sent upstream.
+        time_start: Time the upstream request started.
+        time_end: Time the upstream request finished.
+    """
+
+    value: str
+    time_start: datetime
+    time_end: datetime
+
+
+class SuggestionListItem(BaseModel):
+    """Represent one item in the last displayed suggestions list.
+
+    Attributes:
+        code: Placeholder code because the suggestions API returns display text only.
+        description: Full displayed suggestion label.
+    """
+
+    code: str
+    description: str
+
+
+class SuggestionResponse(BaseModel):
+    """Represent the respondent's SAYT answer.
+
+    Attributes:
+        listed: Whether a suggestion was selected.
+        code: Placeholder code for a selection; otherwise an empty string.
+        description: Full selected label; otherwise an empty string.
+        suggestions: Last list returned for display, in screen order.
+        not_listed_description: Free text entered for Not listed.
+    """
+
+    listed: bool
+    code: str
+    description: str
+    suggestions: list[SuggestionListItem]
+    not_listed_description: str
+
+
+class SuggestionInteraction(BaseModel):
+    """Represent the SAYT interaction included in a survey result.
+
+    Attributes:
+        type: Suggestion interaction discriminator.
+        flavour: Classification flavour.
+        time_start: SAYT render time, or checkpoint render time before SAYT.
+        time_end: SAYT answer time, or checkpoint submission time before SAYT.
+        input: Answers available through the submitting checkpoint.
+        queries_sent: Number of successful upstream searches recorded.
+        queries: Successful searches, newest first.
+        response: Selection, Not listed, or pre-SAYT placeholder.
+    """
+
+    type: Literal["suggestion"] = "suggestion"
+    flavour: Literal["sic"] = "sic"
+    time_start: datetime
+    time_end: datetime
+    input: list[InputField]
+    queries_sent: int
+    queries: list[SuggestionQuery]
+    response: SuggestionResponse
+
+
 class Response(BaseModel):
     """Represents a single person's response to a survey, including Survey Assist interactions.
 
@@ -160,7 +228,7 @@ class Response(BaseModel):
     person_id: str
     time_start: datetime
     time_end: datetime
-    survey_assist_interactions: list[SurveyAssistInteraction]
+    survey_assist_interactions: list[SurveyAssistInteraction | SuggestionInteraction]
 
 
 class SurveyAssistResult(BaseModel):

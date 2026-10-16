@@ -350,7 +350,8 @@
         },
         "submit_button": {
           "text": "Save and continue"
-        }
+        },
+        "submit_result": true
       },
       {
         "page_id": "q2",
@@ -431,7 +432,8 @@
         },
         "submit_button": {
           "text": "Save and continue"
-        }
+        },
+        "submit_result": true
       },
       {
         "page_id": "q4",
@@ -505,7 +507,8 @@
         },
         "submit_button": {
           "text": "Save and continue"
-        }
+        },
+        "submit_result": true
       },
       {
         "page_id": "g2",
@@ -520,7 +523,7 @@
     ]
   },
   "survey_feedback": {
-    "enabled": false,
+    "enabled": true,
     "start_page_id": "fq1",
     "pages": [
       {

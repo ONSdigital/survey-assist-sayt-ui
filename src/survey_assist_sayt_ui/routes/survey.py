@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from http import HTTPStatus
+import json
 import logging
 from typing import cast
 
@@ -19,12 +20,14 @@ from flask import (
     url_for,
 )
 from flask.typing import ResponseReturnValue
+from pydantic import ValidationError
 
 from survey_assist_sayt_ui.auth.decorators import (
     SESSION_LOGIN_TIME_KEY,
     SESSION_RESULT_USER_KEY,
     login_required,
 )
+from survey_assist_sayt_ui.models.result import SuggestionQuery
 from survey_assist_sayt_ui.services.result_submission import (
     ResultSubmissionError,
     SurveyResultSubmissionClient,
@@ -37,6 +40,7 @@ from survey_assist_sayt_ui.survey.models import (
     MultiTextSurveyResponse,
     QuestionPage,
     SingleValueSurveyResponse,
+    SuggestionQueryRecord,
     SurveyDefinition,
     SurveyFeedback,
     SurveyPage,
@@ -47,9 +51,13 @@ from survey_assist_sayt_ui.survey.placeholders import (
     resolve_question_text,
 )
 from survey_assist_sayt_ui.survey.result_builder import (
-    build_empty_survey_result,
+    build_suggestion_survey_result,
 )
 from survey_assist_sayt_ui.survey.session import (
+    QUESTION_RENDER_PAGE_ID_KEY,
+    QUESTION_RENDER_TIME_KEY,
+    SUGGESTION_TIME_END_KEY,
+    SUGGESTION_TIME_START_KEY,
     SURVEY_FEEDBACK_RESPONSES_KEY,
     SURVEY_RESPONSE_START_TIME_KEY,
     SURVEY_RESPONSES_KEY,
@@ -279,6 +287,81 @@ def _get_autosuggest_selection_field_name(
         str: Generated selection field name.
     """
     return f"{answer_name}{AUTOSUGGEST_SELECTION_FIELD_SUFFIX}"
+
+
+def _get_submitted_suggestions(
+    answer_name: str,
+) -> list[str]:
+    """Return the submitted last displayed SAYT suggestions."""
+    field_name = f"{answer_name}-suggestions"
+    raw_value = request.form.get(field_name, "[]")
+
+    try:
+        suggestions = json.loads(raw_value)
+    except (TypeError, ValueError):
+        abort(HTTPStatus.BAD_REQUEST)
+
+    if (
+        not isinstance(suggestions, list)
+        or len(suggestions) > 20
+        or any(not isinstance(item, str) or len(item) > 500 for item in suggestions)
+    ):
+        abort(HTTPStatus.BAD_REQUEST)
+
+    return cast(list[str], suggestions)
+
+
+def _get_submitted_queries(
+    answer_name: str,
+) -> list[SuggestionQueryRecord]:
+    """Validate and return successful SAYT queries, newest first."""
+    field_name = f"{answer_name}-queries"
+    raw_value = request.form.get(field_name, "[]")
+
+    try:
+        submitted = json.loads(raw_value)
+    except (TypeError, ValueError):
+        abort(HTTPStatus.BAD_REQUEST)
+
+    if not isinstance(submitted, list) or len(submitted) > 200:
+        abort(HTTPStatus.BAD_REQUEST)
+
+    queries: list[SuggestionQueryRecord] = []
+
+    for item in submitted:
+        if not isinstance(item, dict):
+            abort(HTTPStatus.BAD_REQUEST)
+
+        if set(item) != {"value", "time_start", "time_end"}:
+            abort(HTTPStatus.BAD_REQUEST)
+
+        if not isinstance(item["value"], str):
+            abort(HTTPStatus.BAD_REQUEST)
+
+        if not 3 <= len(item["value"]) <= 100:
+            abort(HTTPStatus.BAD_REQUEST)
+
+        try:
+            query = SuggestionQuery.model_validate(item)
+        except ValidationError:
+            abort(HTTPStatus.BAD_REQUEST)
+
+        if (
+            query.time_start.tzinfo is None
+            or query.time_end.tzinfo is None
+            or query.time_end < query.time_start
+        ):
+            abort(HTTPStatus.BAD_REQUEST)
+
+        queries.append(
+            {
+                "value": query.value,
+                "time_start": query.time_start.isoformat(),
+                "time_end": query.time_end.isoformat(),
+            }
+        )
+
+    return queries
 
 
 def _get_not_listed_field_name(
@@ -816,7 +899,7 @@ def _record_survey_response_start(
     )
 
 
-def _submit_result_if_configured(
+def _submit_result_if_configured(  # pylint: disable=too-many-return-statements
     page: QuestionPage,
 ) -> None:
     """Submit the current survey result when configured for the page."""
@@ -850,7 +933,41 @@ def _submit_result_if_configured(
 
     time_end = datetime.now(UTC)
 
-    result = build_empty_survey_result(
+    if SUGGESTION_TIME_START_KEY in session and SUGGESTION_TIME_END_KEY in session:
+        try:
+            suggestion_time_start = _get_session_datetime(SUGGESTION_TIME_START_KEY)
+            suggestion_time_end = _get_session_datetime(SUGGESTION_TIME_END_KEY)
+        except RuntimeError:
+            logger.exception(
+                "Invalid suggestion timestamps page_id=%s",
+                page["page_id"],
+            )
+            return
+    else:
+        if session.get(QUESTION_RENDER_PAGE_ID_KEY) != page["page_id"]:
+            logger.error(
+                "Question render timestamp unavailable page_id=%s",
+                page["page_id"],
+            )
+            return
+
+        try:
+            suggestion_time_start = _get_session_datetime(QUESTION_RENDER_TIME_KEY)
+        except RuntimeError:
+            logger.exception(
+                "Invalid question render timestamp page_id=%s",
+                page["page_id"],
+            )
+            return
+
+        suggestion_time_end = time_end
+
+        logger.info(
+            "Using question timestamps for pre-SAYT result page_id=%s",
+            page["page_id"],
+        )
+
+    result = build_suggestion_survey_result(
         _get_survey_definition(),
         case_id=case_id,
         user=result_user,
@@ -858,6 +975,12 @@ def _submit_result_if_configured(
         survey_time_start=survey_time_start,
         response_time_start=response_time_start,
         time_end=time_end,
+        responses=cast(
+            SurveyResponses,
+            session.get(SURVEY_RESPONSES_KEY, {}),
+        ),
+        suggestion_time_start=suggestion_time_start,
+        suggestion_time_end=suggestion_time_end,
     )
 
     client = cast(
@@ -963,6 +1086,15 @@ def question(page_id: str) -> ResponseReturnValue:
 
     selected_suggestion = ""
 
+    render_time = datetime.now(UTC).isoformat()
+
+    session[QUESTION_RENDER_TIME_KEY] = render_time
+    session[QUESTION_RENDER_PAGE_ID_KEY] = page_id
+
+    if page["answer"]["type"] == "api_autosuggest":
+        session[SUGGESTION_TIME_START_KEY] = render_time
+        session.pop(SUGGESTION_TIME_END_KEY, None)
+
     if page["answer"]["type"] == "api_autosuggest" and not not_listed_selected:
         selected_suggestion = saved_value
 
@@ -1014,7 +1146,26 @@ def previous_question(page_id: str) -> ResponseReturnValue:
         abort(HTTPStatus.NOT_FOUND)
 
     updated_responses = dict(responses)
-    updated_responses.pop(page_id, None)
+
+    pages = _get_survey_definition()["survey_pages"]["pages"]
+    page_ids = [page["page_id"] for page in pages]
+    previous_index = page_ids.index(previous_page_id)
+    discarded_page_ids = set(page_ids[previous_index + 1 :])
+
+    for discarded_page_id in discarded_page_ids:
+        updated_responses.pop(discarded_page_id, None)
+
+    autosuggest_discarded = any(
+        page["page_type"] == "question"
+        and page["answer"]["type"] == "api_autosuggest"
+        and page["page_id"] in discarded_page_ids
+        for page in pages
+    )
+
+    if autosuggest_discarded:
+        session.pop(SUGGESTION_TIME_START_KEY, None)
+        session.pop(SUGGESTION_TIME_END_KEY, None)
+
     session[SURVEY_RESPONSES_KEY] = updated_responses
 
     return redirect(
@@ -1190,12 +1341,22 @@ def save_response(page_id: str) -> ResponseReturnValue:
 
     updated_responses = dict(responses)
     updated_responses.pop(page_id, None)
-    updated_responses[page_id] = {
+
+    saved_response: SingleValueSurveyResponse = {
         "question_name": page["question_name"],
         "response_name": response_name,
         "value": value,
     }
+
+    if answer["type"] == "api_autosuggest":
+        saved_response["suggestions"] = _get_submitted_suggestions(answer["name"])
+        saved_response["queries"] = _get_submitted_queries(answer["name"])
+
+    updated_responses[page_id] = saved_response
     session[SURVEY_RESPONSES_KEY] = updated_responses
+
+    if answer["type"] == "api_autosuggest":
+        session[SUGGESTION_TIME_END_KEY] = datetime.now(UTC).isoformat()
 
     _submit_result_if_configured(page)
 
