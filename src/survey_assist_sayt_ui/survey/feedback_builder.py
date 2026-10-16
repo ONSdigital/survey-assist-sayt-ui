@@ -37,9 +37,7 @@ def build_feedback_result(
 
         answer = page["answer"]
         response_options = (
-            [option["label"] for option in answer["options"]]
-            if answer["type"] == "radio"
-            else []
+            [option["label"] for option in answer["options"]] if answer["type"] == "radio" else []
         )
         questions.append(
             FeedbackQuestion(
