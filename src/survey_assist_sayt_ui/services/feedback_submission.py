@@ -60,15 +60,11 @@ class HttpSurveyFeedbackSubmissionClient:  # pylint: disable=too-few-public-meth
                 "Survey Assist feedback submission failed error_type=%s",
                 type(error).__name__,
             )
-            raise FeedbackSubmissionError(
-                "Survey Assist feedback submission failed"
-            ) from error
+            raise FeedbackSubmissionError("Survey Assist feedback submission failed") from error
 
         if acknowledgement.feedback_id:
             logger.info("Survey Assist feedback accepted feedback_id_present=true")
         else:
-            logger.warning(
-                "Survey Assist feedback response did not include a feedback_id"
-            )
+            logger.warning("Survey Assist feedback response did not include a feedback_id")
 
         return acknowledgement
