@@ -550,7 +550,7 @@ make e2e-tests-visual
 To use a [specific browser](https://playwright.dev/python/docs/browsers#configure-browsers) you can instead use the `PLAYWRIGHT_BROWSER_CHANNEL` parameter to override i.e
 
 ```bash
-make e2e-tests-visual PLAYWRIGHT_BROWSER_CHANNEL=msedge
+make e2e-tests-visual PLAYWRIGHT_BROWSER_CHANNEL=<preferred_browser>
 ```
 
 To inspect the browser during a visual test, add `page.pause()` at the point where you want the test to stop.
