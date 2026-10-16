@@ -18,10 +18,10 @@ from survey_assist_sayt_ui.models.result import (
     ResultResponse,
     SurveyAssistResult,
 )
+from survey_assist_sayt_ui.routes.survey import SURVEY_RESPONSES_KEY
 from survey_assist_sayt_ui.services.feedback_submission import (
     FeedbackSubmissionError,
 )
-from survey_assist_sayt_ui.routes.survey import SURVEY_RESPONSES_KEY
 from survey_assist_sayt_ui.survey.models import (
     ApiAutosuggestAnswer,
     GuidancePage,
@@ -1914,9 +1914,7 @@ def test_complete_omits_a_blank_optional_feedback_answer(
 
     feedback = feedback_client.submitted_feedback[0]
 
-    assert [question.response_name for question in feedback.questions] == [
-        "survey-ease"
-    ]
+    assert [question.response_name for question in feedback.questions] == ["survey-ease"]
 
 
 def test_complete_without_feedback_does_not_send_feedback(
