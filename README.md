@@ -13,7 +13,7 @@ For local development you need:
 * Access to a Survey Assist API deployment
 * Google Application Default Credentials (ADC) with permission to sign JWTs for the service account configured by `SA_EMAIL`
 
-Docker or Podman is only required if you want to build and run the application in a container locally.
+Docker or Podman with Compose is required to run the container E2E tests or the application in a container locally.
 
 Node.js and npm are only required when changing `remote-autosuggest.js` and rebuilding the JavaScript bundle.
 
@@ -482,6 +482,18 @@ Refreshing the completion page requires another sign-in.
 
 **Prerequisite:** Complete [Install dependencies](#1-install-dependencies) and [Fetch ONS Design System templates](#2-fetch-the-ons-design-system-templates) before running development checks.
 
+It is recommended to install pre-commit checks:
+
+```bash
+make pre-commit-install
+```
+
+You can still manually run the checks with:
+
+```bash
+make pre-commit-run
+```
+
 Run all tests:
 
 ```bash
@@ -499,6 +511,52 @@ To run the checks without applying Ruff fixes or formatting changes:
 ```bash
 make check-python-nofix
 ```
+
+### E2E testing with Playwright
+
+Before you run the E2E tests, [start the local UI](#install-and-run-locally).
+
+Set these values in `.env`. Use the credentials from the local setup:
+
+```text
+TEST_E2E_BASE_URL=http://localhost:5000
+TEST_E2E_USERNAME=user@example.com
+TEST_E2E_PASSWORD=your-test-account-password
+```
+
+Run the tests:
+
+```bash
+make e2e-tests
+```
+
+Running the above starts the Playwright server in a container, runs pytest in your local Poetry environment, then stops the server.
+
+If Docker is the preferred container engine you can override using:
+
+```bash
+make e2e-tests CONTAINER_ENGINE=docker
+```
+
+Use the command below to view E2E tests in a browser window on the machine. Useful for debugging.
+
+By default playwright uses chromium so you can use the following to install as required, then run the tests:
+
+```bash
+poetry run playwright install chromium
+make e2e-tests-visual
+```
+
+To use a [specific browser](https://playwright.dev/python/docs/browsers#configure-browsers) you can instead use the `PLAYWRIGHT_BROWSER_CHANNEL` parameter to override i.e
+
+```bash
+make e2e-tests-visual PLAYWRIGHT_BROWSER_CHANNEL=<preferred_browser>
+```
+
+To inspect the browser during a visual test, add `page.pause()` at the point where you want the test to stop.
+Resume the test in Playwright Inspector.
+
+The standard test and CI command excludes the browser tests.
 
 ## Extending the code
 

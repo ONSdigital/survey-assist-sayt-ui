@@ -5,6 +5,7 @@ SHELL := /bin/bash
 PY ?= python
 PKG ?= survey_assist_sayt_ui
 IMAGE_NAME ?= survey-assist-sayt-ui
+CONTAINER_ENGINE ?= podman
 CRED_FILE ?= $(HOME)/.config/gcloud/application_default_credentials.json
 VERSION ?= $(shell poetry version -s 2>/dev/null || echo 0.0.0+unknown)
 GIT_SHA ?= $(shell git rev-parse --short=7 HEAD 2>/dev/null || echo unknown)
@@ -30,8 +31,9 @@ define container-run
 		$(IMAGE_NAME)
 endef
 
-.PHONY: help all clean install templates run run-docs all-tests test lint format \
+.PHONY: help all clean install templates run run-docs all-tests \
 	check-python check-python-nofix \
+	e2e-tests e2e-tests-visual \
 	docker-build docker-run podman-build podman-run \
 	podman-compose-up podman-compose-redis-up podman-compose-down podman-compose-logs \
 	manage-users pre-commit-install pre-commit-run pre-push-run \
@@ -66,8 +68,18 @@ run:  ## Run the Flask application.
 run-docs: ## Run the mkdocs
 	poetry run mkdocs serve
 
-all-tests: ## Run all tests with coverage and fail if coverage is below threshold
-	poetry run pytest --ignore=cicd --cov --cov-report=term-missing
+## Run all unit tests with coverage and enforce the coverage threshold.
+## Excludes Playwright tests by default for now, as they require a configured environment and increase runtime.
+all-tests:
+	poetry run pytest --cov --cov-report=term-missing
+
+e2e-tests: ## Run browser tests with Poetry and a Playwright server container.
+	@trap '$(CONTAINER_ENGINE) compose -f docker-compose.e2e.yaml down' EXIT; \
+	$(CONTAINER_ENGINE) compose -f docker-compose.e2e.yaml up -d --wait && \
+	PLAYWRIGHT_WS_ENDPOINT=ws://127.0.0.1:3000/ poetry run pytest tests/e2e -v
+
+e2e-tests-visual: ## Run the e2e tests in a browser, with a visible window. Optionally specify the browser channel using PLAYWRIGHT_BROWSER_CHANNEL
+	poetry run pytest tests/e2e --headed --slowmo 1000 $(if $(PLAYWRIGHT_BROWSER_CHANNEL),--browser-channel $(PLAYWRIGHT_BROWSER_CHANNEL))
 
 check-python: ## Format and lint the python code (auto fix)
 	poetry run ruff check . --fix
