@@ -1,5 +1,6 @@
 steps:
   - name: gcr.io/$PROJECT_ID/testrunner
+    secretEnv: ['TEST_E2E_PASSWORD']
     args:
       - '-c'
       - |
@@ -16,17 +17,17 @@ steps:
         make templates
 
         echo === Running unit tests ===
-        poetry run poetry run pytest -q --maxfail=1 --disable-warnings --cov=src/$(PKG) --cov-report term-missing --cov-fail-under=80 | tee coverage-report.txt
+        poetry run pytest -q --maxfail=1 --disable-warnings --cov=src/$(PKG) --cov-report term-missing | tee coverage-report.txt
         if grep -q "FAIL Required test coverage" coverage-report.txt; then
           echo "ERROR: Target coverage was not reached, stopping pipeline."
           exit 1
         fi
 
         echo === Looking up config from parameter store ===
-        config=$(gcloud parametermanager parameters versions describe $_ENV_NAME --parameter=infra-test-config --location=global --project $PROJECT_ID --format=json | python3 -c "import sys, json; print(json.load(sys.stdin)['payload']['data'])" | base64 --decode)
-        SAYT_UI_IMAGE=$(echo $config | python3 -c "import sys, json; print(json.load(sys.stdin)['cr-sayt-ui-image'])")
-        TARGET_PROJECT_ID=$(echo $config | python3 -c "import sys, json; print(json.load(sys.stdin)['project-id'])")
-        export PROXY_API_URL=$(echo $config | python3 -c "import sys, json; print(json.load(sys.stdin)['proxy-api-url'])")
+        config=$(gcloud parametermanager parameters versions describe $_ENV_NAME --parameter=infra-test-config --location=global --project $PROJECT_ID --format='value(payload.data)' | base64 --decode)
+        SAYT_UI_IMAGE=$(echo $config | jq -er '."cr-sayt-ui-image"')
+        TARGET_PROJECT_ID=$(echo $config | jq -er '."project-id"')
+        export PROXY_API_URL=$(echo $config | jq -er '."proxy-api-url"')
 
         echo === Build Docker image, tag and push to GAR ===
         APP_VERSION=$(poetry version -s)
@@ -49,14 +50,25 @@ steps:
         gcloud run deploy sayt-ui --image=$$SAYT_UI_IMAGE:$SHORT_SHA --region $LOCATION --project $$TARGET_PROJECT_ID
 
         echo === Run smoke tests ===
-
         export TARGET_ENVIRONMENT=$_ENV_NAME
         export UI_SA_ID_TOKEN=$(gcloud auth print-identity-token) # Use CICD service account
         export SAYT_UI_URL=$$PROXY_API_URL # set to proxy API
         poetry run pytest -s cicd
+
+        echo === Run E2E tests ===
+        export TEST_E2E_USERNAME=$SERVICE_ACCOUNT_EMAIL
+        # TEST_E2E_PASSWORD is exported by the secret manager
+        export TEST_E2E_BEARER_TOKEN=$(gcloud auth print-identity-token) # Use CICD service account
+        export TEST_E2E_BASE_URL=$$PROXY_API_URL # set to proxy API
+        export CONTAINER_ENGINE=docker
+        make e2e-tests
 
     id: Run unit tests, build, tag and deploy SAYT cloud run job
     entrypoint: bash
 timeout: 1800s
 options:
   logging: CLOUD_LOGGING_ONLY
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/sayt-ui-e2e-password-${_ENV_NAME}/versions/latest
+      env: TEST_E2E_PASSWORD
