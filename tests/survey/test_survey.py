@@ -1884,12 +1884,12 @@ def test_complete_sends_feedback_held_in_the_session(
     assert feedback.questions[1].response_options == []
 
 
-def test_complete_omits_a_blank_optional_feedback_answer(
+def test_complete_includes_a_blank_optional_feedback_answer(
     client: FlaskClient,
     app: Flask,
     survey_feedback: SurveyFeedback,
 ) -> None:
-    """Test a blank optional answer is not included in the feedback request."""
+    """Test a blank optional answer is sent as an empty string."""
     _authenticate(client)
     _set_result_session(client)
 
@@ -1914,7 +1914,11 @@ def test_complete_omits_a_blank_optional_feedback_answer(
 
     feedback = feedback_client.submitted_feedback[0]
 
-    assert [question.response_name for question in feedback.questions] == ["survey-ease"]
+    assert [(question.response_name, question.response) for question in feedback.questions] == [
+        ("survey-ease", "difficult"),
+        ("other-feedback", ""),
+    ]
+    assert feedback.questions[1].response_options == []
 
 
 def test_complete_without_feedback_does_not_send_feedback(
