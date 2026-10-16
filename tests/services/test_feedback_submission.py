@@ -58,14 +58,10 @@ def test_submit_posts_feedback_and_parses_acknowledgement() -> None:
             request=request,
         )
 
-    acknowledgement = _create_client(httpx.MockTransport(handler)).submit(
-        _build_feedback()
-    )
+    acknowledgement = _create_client(httpx.MockTransport(handler)).submit(_build_feedback())
 
     assert captured_request is not None
-    assert str(captured_request.url) == (
-        "https://gateway.example/v1/survey-assist/feedback"
-    )
+    assert str(captured_request.url) == ("https://gateway.example/v1/survey-assist/feedback")
     body = json.loads(captured_request.content)
     assert body["person_id"] == "11-01"
     assert body["questions"][0]["response_options"] == ["Easy", "Difficult"]
