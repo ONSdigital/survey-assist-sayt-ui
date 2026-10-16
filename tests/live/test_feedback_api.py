@@ -39,18 +39,19 @@ def test_completion_page_stores_feedback_on_the_api() -> None:
     person_id = f"live-{uuid4().hex[:8]}"
     survey_id = re.sub(r"\s+", "_", survey_definition["survey_title"].strip().lower())
 
+    ease_answer = dict(
+        zip(
+            ("question_name", "response_name", "value"),
+            ("survey_ease_question", "survey-ease", "easy"),
+            strict=True,
+        )
+    )
     client = app.test_client()
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
         flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
         flask_session[SESSION_RESULT_USER_KEY] = person_id
-        flask_session[SURVEY_FEEDBACK_RESPONSES_KEY] = {
-            "fq1": {
-                "question_name": "survey_ease_question",
-                "response_name": "survey-ease",
-                "value": "easy",
-            }
-        }
+        flask_session[SURVEY_FEEDBACK_RESPONSES_KEY] = {"fq1": ease_answer}
 
     response = client.get("/survey/complete")
 
