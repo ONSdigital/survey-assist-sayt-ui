@@ -18,8 +18,10 @@ def build_feedback_result(
 ) -> FeedbackResult:
     """Build a feedback payload from answers held in the session.
 
-    Questions follow the survey definition order. A blank answer is omitted.
-    Radio questions send their option labels. Other questions send an empty list.
+    Questions follow the survey definition order. When any question was
+    answered, an optional question with no answer is included as an empty
+    string. Radio questions send their option labels. Other questions send
+    an empty list.
     """
     survey_id = re.sub(
         r"\s+",
@@ -31,21 +33,30 @@ def build_feedback_result(
 
     for page in feedback_pages:
         saved = feedback_responses.get(page["page_id"])
-
-        if saved is None or not saved["value"]:
-            continue
-
         answer = page["answer"]
+
+        if saved is not None and saved["value"]:
+            response = saved["value"]
+            response_name = saved["response_name"]
+        elif answer["required"]:
+            continue
+        else:
+            response = ""
+            response_name = answer["name"]
+
         response_options = (
             [option["label"] for option in answer["options"]] if answer["type"] == "radio" else []
         )
         questions.append(
             FeedbackQuestion(
-                response=saved["value"],
-                response_name=saved["response_name"],
+                response=response,
+                response_name=response_name,
                 response_options=response_options,
             )
         )
+
+    if not any(question.response for question in questions):
+        questions = []
 
     return FeedbackResult(
         survey_id=survey_id,
