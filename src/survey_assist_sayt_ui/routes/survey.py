@@ -25,9 +25,16 @@ from survey_assist_sayt_ui.auth.decorators import (
     SESSION_RESULT_USER_KEY,
     login_required,
 )
+from survey_assist_sayt_ui.services.feedback_submission import (
+    FeedbackSubmissionError,
+    SurveyFeedbackSubmissionClient,
+)
 from survey_assist_sayt_ui.services.result_submission import (
     ResultSubmissionError,
     SurveyResultSubmissionClient,
+)
+from survey_assist_sayt_ui.survey.feedback_builder import (
+    build_feedback_result,
 )
 from survey_assist_sayt_ui.survey.models import (
     FeedbackPage,
@@ -1402,6 +1409,10 @@ def complete() -> ResponseReturnValue:
         survey_responses,
         feedback_responses,
     )
+    _submit_feedback_if_present(
+        survey_definition,
+        cast(FeedbackResponses, feedback_responses),
+    )
 
     response = render_template(
         "survey_complete.html",
@@ -1412,3 +1423,44 @@ def complete() -> ResponseReturnValue:
     # Remove the session data on final page of exercise
     session.clear()
     return response
+
+
+def _submit_feedback_if_present(
+    survey_definition: SurveyDefinition,
+    feedback_responses: FeedbackResponses,
+) -> None:
+    """Send session feedback once. A failed save stays off the completion page."""
+    if not feedback_responses:
+        return
+
+    result_user = session.get(SESSION_RESULT_USER_KEY)
+
+    if not isinstance(result_user, str) or not result_user:
+        logger.error("Survey feedback user is missing")
+        return
+
+    feedback = build_feedback_result(
+        survey_definition,
+        feedback_responses,
+        case_id=result_user.split("-", maxsplit=1)[0],
+        person_id=result_user,
+    )
+
+    if not feedback.questions:
+        return
+
+    client = cast(
+        SurveyFeedbackSubmissionClient,
+        current_app.extensions["feedback_submission_client"],
+    )
+
+    try:
+        acknowledgement = client.submit(feedback)
+    except FeedbackSubmissionError:
+        logger.exception("Survey feedback submission failed")
+        return
+
+    logger.info(
+        "Survey feedback submitted feedback_id=%s",
+        acknowledgement.feedback_id,
+    )
