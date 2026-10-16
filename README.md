@@ -482,6 +482,18 @@ Refreshing the completion page requires another sign-in.
 
 **Prerequisite:** Complete [Install dependencies](#1-install-dependencies) and [Fetch ONS Design System templates](#2-fetch-the-ons-design-system-templates) before running development checks.
 
+It is recommended to install pre-commit checks:
+
+```bash
+make pre-commit-install
+```
+
+You can still manually run the checks with:
+
+```bash
+make pre-commit-run
+```
+
 Run all tests:
 
 ```bash

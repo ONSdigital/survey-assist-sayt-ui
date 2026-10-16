@@ -70,7 +70,7 @@ run-docs: ## Run the mkdocs
 
 ## Run all unit tests with coverage and enforce the coverage threshold.
 ## Excludes Playwright tests by default for now, as they require a configured environment and increase runtime.
-all-tests: 
+all-tests:
 	poetry run pytest --cov --cov-report=term-missing
 
 e2e-tests: ## Run browser tests with Poetry and a Playwright server container.
