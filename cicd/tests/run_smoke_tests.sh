@@ -2,10 +2,10 @@
 
 # Wrapper script to run the smoke tests locally
 #
-# Expected Env variables: 
+# Expected Env variables:
 # CICD_PROJECT_ID - The project id for the CICD project
 # SAYT_UI_URL - The URL of the Survey Assist UI to run the tests against
-# SA_ID_TOKEN - A valid Google Identity Token generated from your credentials (assuming you're running locally) 
+# SA_ID_TOKEN - A valid Google Identity Token generated from your credentials (assuming you're running locally)
 #
 #
 # Expected parameter: [sandbox|dev]
@@ -40,8 +40,8 @@ fi
 # export SA_ID_TOKEN=`gcloud auth print-identity-token`
 if [[ -z "${UI_SA_ID_TOKEN}" ]]; then
     echo Environment variable SA_ID_TOKEN was not set, getting a new identity token from local credentials, if authenticated.
-    UI_SA_ID_TOKEN=$(gcloud auth print-identity-token)   
-    export UI_SA_ID_TOKEN 
+    UI_SA_ID_TOKEN=$(gcloud auth print-identity-token)
+    export UI_SA_ID_TOKEN
 else
     echo Using currently set SA_ID_TOKEN. If this becomes stale, run export UI_SA_ID_TOKEN=\`gcloud auth print-identity-token\`
 fi

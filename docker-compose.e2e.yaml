@@ -1,0 +1,17 @@
+name: survey-assist-sayt-ui-e2e
+
+services:
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.63.0-noble
+    init: true
+    ipc: host
+    user: pwuser
+    working_dir: /home/pwuser
+    ports:
+      - "127.0.0.1:3000:3000"
+    command: npx -y playwright@1.63.0 run-server --port 3000 --host 0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:3000/"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
