@@ -14,9 +14,11 @@ load_dotenv()
 
 
 @pytest.fixture(scope="session")
-def connect_options() -> dict[str, str]:
+def connect_options() -> dict[str, str] | None:
     """Connect the browser fixture to the Playwright server."""
-    ws_endpoint = os.environ.get("PLAYWRIGHT_WS_ENDPOINT", "ws://127.0.0.1:3000/")
+    ws_endpoint = os.environ.get("PLAYWRIGHT_WS_ENDPOINT")
+    if not ws_endpoint:
+        return None
     return {"endpoint": ws_endpoint, "expose_network": "<loopback>"}
 
 
@@ -38,6 +40,15 @@ def configured_credentials() -> tuple[str, str]:
     if not username or not password:
         raise pytest.UsageError("Set TEST_E2E_USERNAME and TEST_E2E_PASSWORD.")
     return username, password
+
+
+@pytest.fixture(scope="session", name="browser_type_launch_args")
+def configured_browser_type_launch_args(browser_type_launch_args: dict) -> dict:
+    """Disable QUIC to standardise traffic flow across different environments."""
+    return {
+        **browser_type_launch_args,
+        "args": [*browser_type_launch_args.get("args", []), "--disable-quic"],
+    }
 
 
 @pytest.fixture

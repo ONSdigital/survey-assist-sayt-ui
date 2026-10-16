@@ -13,7 +13,7 @@ For local development you need:
 * Access to a Survey Assist API deployment
 * Google Application Default Credentials (ADC) with permission to sign JWTs for the service account configured by `SA_EMAIL`
 
-Docker or Podman with Compose is required to run the E2E tests or the application in a container locally.
+Docker or Podman with Compose is required to run the container E2E tests or the application in a container locally.
 
 Node.js and npm are only required when changing `remote-autosuggest.js` and rebuilding the JavaScript bundle.
 
@@ -538,7 +538,25 @@ If Docker is the preferred container engine you can override using:
 make e2e-tests CONTAINER_ENGINE=docker
 ```
 
-The browser tests run only with `make e2e-tests`. The standard test and CI command exclude them.
+Use the command below to view E2E tests in a browser window on the machine. Useful for debugging.
+
+By default playwright uses chromium so you can use the following to install as required, then run the tests:
+
+```bash
+poetry run playwright install chromium
+make e2e-tests-visual
+```
+
+To use a [specific browser](https://playwright.dev/python/docs/browsers#configure-browsers) you can instead use the `PLAYWRIGHT_BROWSER_CHANNEL` parameter to override i.e
+
+```bash
+make e2e-tests-visual PLAYWRIGHT_BROWSER_CHANNEL=<preferred_browser>
+```
+
+To inspect the browser during a visual test, add `page.pause()` at the point where you want the test to stop.
+Resume the test in Playwright Inspector.
+
+The standard test and CI command excludes the browser tests.
 
 ## Extending the code
 
