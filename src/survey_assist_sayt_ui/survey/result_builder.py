@@ -86,6 +86,39 @@ def get_not_listed_description(
     return ""
 
 
+def get_selected_suggestion(
+    survey_definition: SurveyDefinition,
+    responses: SurveyResponses,
+) -> str:
+    """Return the selected SAYT description, if one was chosen."""
+
+    for page in survey_definition["survey_pages"]["pages"]:
+        if page["page_type"] != "question":
+            continue
+
+        answer = page["answer"]
+
+        if answer["type"] != "api_autosuggest":
+            continue
+
+        saved = responses.get(page["page_id"])
+
+        if saved is None or "value" not in saved:
+            continue
+
+        single_response = cast(SingleValueSurveyResponse, saved)
+
+        # Not Listed uses the generated self-description field name.
+        expected_field_name = f"{page['page_id']}-self-describe"
+
+        if single_response["response_name"] == expected_field_name:
+            return ""
+
+        return single_response["value"]
+
+    return ""
+
+
 def get_last_suggestions(
     survey_definition: SurveyDefinition,
     responses: SurveyResponses,
@@ -142,6 +175,11 @@ def build_suggestion_survey_result(  # pylint: disable=too-many-arguments
         time_end=time_end,
     )
 
+    selected_description = get_selected_suggestion(
+        survey_definition,
+        responses,
+    )
+
     interaction = SuggestionInteraction(
         time_start=suggestion_time_start,
         time_end=suggestion_time_end,
@@ -152,9 +190,9 @@ def build_suggestion_survey_result(  # pylint: disable=too-many-arguments
         queries_sent=0,
         queries=[],
         response=SuggestionResponse(
-            listed=False,
-            code="",
-            description="",
+            listed=bool(selected_description),
+            code="99999" if selected_description else "",
+            description=selected_description,
             suggestions=get_last_suggestions(
                 survey_definition,
                 responses,
