@@ -476,3 +476,91 @@ def test_navigating_before_sayt_discards_old_interaction(
 
     assert interaction.queries_sent == 1
     assert [query.value for query in interaction.queries] == ["software"]
+
+
+def test_reanswering_sayt_uses_latest_saved_suggestions(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Verify re-answering SAYT replaces its previous interaction data."""
+    result_client = configure_journey(
+        app,
+        client,
+        api_autosuggest_page,
+        submit_page_id="q2",
+    )
+
+    render_question(client, "q0")
+    save_question(client, "q0", {"age-range": "25-34"})
+
+    # First SAYT answer and search history.
+    answer_sayt(
+        client,
+        selected="Electrical installation",
+        suggestions=[
+            "Electrical installation",
+            "Electrical wholesaler",
+        ],
+        queries=QUERY_HISTORY,
+    )
+
+    # Revisit SAYT and submit different search results.
+    latest_start, latest_end = answer_sayt(
+        client,
+        selected="Software development",
+        suggestions=[
+            "Software development",
+            "Computer programming",
+            "IT consultancy",
+        ],
+        queries=[
+            {
+                "value": "software",
+                "time_start": "2026-10-16T09:10:00+00:00",
+                "time_end": "2026-10-16T09:10:01+00:00",
+            },
+        ],
+    )
+
+    # Submit the result on a later question.
+    render_question(client, "q1")
+    save_question(
+        client,
+        "q1",
+        {"job-title": "Software developer"},
+    )
+
+    render_question(client, "q2")
+    save_question(
+        client,
+        "q2",
+        {"job-description": "Develop software"},
+    )
+
+    interaction = get_interaction(result_client)
+
+    assert interaction.time_start == latest_start
+    assert interaction.time_end == latest_end
+
+    assert interaction.response.listed is True
+    assert interaction.response.code == "99999"
+    assert interaction.response.description == "Software development"
+    assert interaction.response.not_listed_description == ""
+
+    assert [item.description for item in interaction.response.suggestions] == [
+        "Software development",
+        "Computer programming",
+        "IT consultancy",
+    ]
+
+    assert interaction.queries_sent == 1
+    assert [query.value for query in interaction.queries] == [
+        "software",
+    ]
+
+    # Confirm the previous SAYT selection is no longer recorded.
+    assert (
+        "business-activity",
+        "Software development",
+    ) in [(item.field, item.value) for item in interaction.input]
