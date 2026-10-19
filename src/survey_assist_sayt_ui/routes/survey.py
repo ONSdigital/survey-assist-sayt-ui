@@ -611,6 +611,21 @@ def _save_multi_text_response(
     )
 
 
+def _get_submitted_sayt_history(
+    page: QuestionPage,
+) -> tuple[list[str], list[SuggestionQueryRecord]]:
+    """Return submitted SAYT history for redisplaying an invalid form."""
+    if page["answer"]["type"] != "api_autosuggest":
+        return [], []
+
+    answer_name = page["answer"]["name"]
+
+    return (
+        _get_submitted_suggestions(answer_name),
+        _get_submitted_queries(answer_name),
+    )
+
+
 def _get_submitted_response(
     page: QuestionPage,
 ) -> tuple[str, bool, str]:
@@ -1029,7 +1044,7 @@ def guidance(
 
 @survey_blueprint.get("/questions/<page_id>")
 @login_required
-def question(page_id: str) -> ResponseReturnValue:
+def question(page_id: str) -> ResponseReturnValue:  # pylint: disable=too-many-locals
     """Render a configured survey question.
 
     Args:
@@ -1086,6 +1101,20 @@ def question(page_id: str) -> ResponseReturnValue:
 
     selected_suggestion = ""
 
+    saved_suggestions: list[str] = []
+    saved_queries: list[SuggestionQueryRecord] = []
+
+    if page["answer"]["type"] == "api_autosuggest":
+        saved_response = responses.get(page_id)
+
+        if saved_response is not None and "value" in saved_response:
+            single_response = cast(
+                SingleValueSurveyResponse,
+                saved_response,
+            )
+            saved_suggestions = single_response.get("suggestions", [])
+            saved_queries = single_response.get("queries", [])
+
     render_time = datetime.now(UTC).isoformat()
 
     session[QUESTION_RENDER_TIME_KEY] = render_time
@@ -1112,6 +1141,8 @@ def question(page_id: str) -> ResponseReturnValue:
             page,
             responses,
         ),
+        saved_suggestions=saved_suggestions,
+        saved_queries=saved_queries,
         field_errors={},
         not_listed_selected=not_listed_selected,
         self_describe_value=self_describe_value,
@@ -1241,6 +1272,8 @@ def save_response(page_id: str) -> ResponseReturnValue:
         self_describe_required_error,
     ) = _get_self_describe_config(page)
 
+    submitted_suggestions, submitted_queries = _get_submitted_sayt_history(page)
+
     if answer["type"] == "api_autosuggest" and not not_listed_selected:
         selection_field_name = _get_autosuggest_selection_field_name(
             answer["name"],
@@ -1278,6 +1311,8 @@ def save_response(page_id: str) -> ResponseReturnValue:
                     ),
                     previous_url=previous_url,
                     error_message=selection_error,
+                    saved_suggestions=submitted_suggestions,
+                    saved_queries=submitted_queries,
                 ),
                 HTTPStatus.BAD_REQUEST,
             )
@@ -1305,6 +1340,8 @@ def save_response(page_id: str) -> ResponseReturnValue:
                 ),
                 previous_url=previous_url,
                 error_message=None,
+                saved_suggestions=submitted_suggestions,
+                saved_queries=submitted_queries,
             ),
             HTTPStatus.BAD_REQUEST,
         )
@@ -1329,6 +1366,8 @@ def save_response(page_id: str) -> ResponseReturnValue:
                 form_action=url_for("survey.save_response", page_id=page_id),
                 previous_url=previous_url,
                 error_message="Enter an answer",
+                saved_suggestions=submitted_suggestions,
+                saved_queries=submitted_queries,
             ),
             HTTPStatus.BAD_REQUEST,
         )

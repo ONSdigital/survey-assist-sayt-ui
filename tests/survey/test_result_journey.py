@@ -564,3 +564,95 @@ def test_reanswering_sayt_uses_latest_saved_suggestions(
         "business-activity",
         "Software development",
     ) in [(item.field, item.value) for item in interaction.input]
+
+
+def test_revisiting_sayt_without_changes_preserves_history(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Preserve saved SAYT searches when the answer is submitted unchanged."""
+    result_client = configure_journey(
+        app,
+        client,
+        api_autosuggest_page,
+        submit_page_id="q2",
+    )
+
+    render_question(client, "q0")
+    save_question(client, "q0", {"age-range": "25-34"})
+
+    # Answer SAYT with an initial selection and search history.
+    answer_sayt(client)
+
+    # Move forward to the next question.
+    render_question(client, "q1")
+    save_question(
+        client,
+        "q1",
+        {"job-title": "Electrician"},
+    )
+
+    # Revisit the saved SAYT question without discarding its response.
+    response = client.get(SAYT_URL)
+
+    assert response.status_code == HTTPStatus.OK
+
+    # Verify the saved selection and interaction history still exist.
+    with client.session_transaction() as flask_session:
+        saved = flask_session[SURVEY_RESPONSES_KEY][SAYT_PAGE_ID]
+
+        assert saved["value"] == "Electrical installation"
+        assert saved["suggestions"] == DISPLAYED_SUGGESTIONS
+        assert saved["queries"] == QUERY_HISTORY
+
+    # Verify the rendered page contains the restored hidden fields.
+    response_text = response.get_data(as_text=True)
+
+    assert "Electrical installation" in response_text
+    assert "business-activity-suggestions" in response_text
+    assert "business-activity-queries" in response_text
+
+    # Simulate submitting the restored fields without a new search.
+    save_question(
+        client,
+        SAYT_PAGE_ID,
+        {
+            "business-activity": "Electrical installation",
+            "business-activity-selected": "Electrical installation",
+            "business-activity-suggestions": json.dumps(DISPLAYED_SUGGESTIONS),
+            "business-activity-queries": json.dumps(QUERY_HISTORY),
+        },
+    )
+
+    # Continue to the result submission checkpoint.
+    render_question(client, "q1")
+    save_question(
+        client,
+        "q1",
+        {"job-title": "Electrician"},
+    )
+
+    render_question(client, "q2")
+    save_question(
+        client,
+        "q2",
+        {"job-description": "Install electrical wiring"},
+    )
+
+    interaction = get_interaction(result_client)
+
+    # Confirm the selected answer is retained.
+    assert interaction.response.listed is True
+    assert interaction.response.code == "99999"
+    assert interaction.response.description == "Electrical installation"
+    assert interaction.response.not_listed_description == ""
+
+    # Confirm the saved suggestions are preserved in their original order.
+    assert [item.description for item in interaction.response.suggestions] == DISPLAYED_SUGGESTIONS
+
+    # Confirm the original query history is preserved.
+    assert interaction.queries_sent == len(QUERY_HISTORY)
+    assert [query.value for query in interaction.queries] == [
+        query["value"] for query in QUERY_HISTORY
+    ]

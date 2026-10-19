@@ -9,6 +9,36 @@ function initialiseRemoteAutosuggest(container) {
   const initialSelectionValue =
     container.dataset.autosuggestSelectionValue || ''
 
+  const form = container.closest('form')
+
+  const suggestionsFieldName = selectionFieldName?.replace(
+    /-selected$/,
+    '-suggestions',
+  )
+
+  const queriesFieldName = selectionFieldName?.replace(
+    /-selected$/,
+    '-queries',
+  )
+
+  function parseSavedJson(fieldName) {
+    const field = form?.elements.namedItem(fieldName)
+
+    if (!(field instanceof HTMLInputElement)) {
+      return []
+    }
+
+    try {
+      const value = JSON.parse(field.value || '[]')
+      return Array.isArray(value) ? value : []
+    } catch {
+      return []
+    }
+  }
+
+  const savedSuggestions = parseSavedJson(suggestionsFieldName)
+  const savedQueries = parseSavedJson(queriesFieldName)
+
   const debounceMs = 300
   let debounceTimer = null
   let abortController = null
@@ -24,7 +54,7 @@ function initialiseRemoteAutosuggest(container) {
   let selectionInput = null
   let suggestionsInput = null
   let queriesInput = null
-  const queryHistory = []
+  const queryHistory = [...savedQueries]
 
   function normaliseQueryForSearch(value) {
     return value
@@ -84,7 +114,7 @@ function initialiseRemoteAutosuggest(container) {
       form.appendChild(suggestionsInput)
     }
 
-    suggestionsInput.value = '[]'
+    suggestionsInput.value = JSON.stringify(savedSuggestions)
   }
 
   function initialiseQueriesInput() {
@@ -114,7 +144,7 @@ function initialiseRemoteAutosuggest(container) {
       form.appendChild(queriesInput)
     }
 
-    queriesInput.value = '[]'
+    queriesInput.value = JSON.stringify(queryHistory)
   }
 
   function recordQuery(query) {
@@ -129,6 +159,29 @@ function initialiseRemoteAutosuggest(container) {
     })
 
     queriesInput.value = JSON.stringify(queryHistory)
+  }
+
+  let savedHistoryCleared = false
+  let originalInputValue = ''
+
+  function clearSavedHistoryOnInput() {
+    if (
+      savedHistoryCleared ||
+      autosuggest.input.value === originalInputValue
+    ) {
+      return
+    }
+
+    savedHistoryCleared = true
+    queryHistory.length = 0
+
+    if (queriesInput) {
+      queriesInput.value = '[]'
+    }
+
+    if (suggestionsInput) {
+      suggestionsInput.value = '[]'
+    }
   }
 
   function clearSelectionIfInputChanged() {
@@ -247,6 +300,13 @@ function initialiseRemoteAutosuggest(container) {
   initialiseSelectionInput()
   initialiseSuggestionsInput()
   initialiseQueriesInput()
+
+  originalInputValue = autosuggest.input.value
+
+  autosuggest.input.addEventListener(
+    'input',
+    clearSavedHistoryOnInput,
+  )
 
   autosuggest.input.addEventListener(
     'input',
