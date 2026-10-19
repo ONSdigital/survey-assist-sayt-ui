@@ -7,7 +7,10 @@ services:
     env_file:
       - .env
     environment:
+      AUTH_MODE: local
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-key.json
+      SESSION_BACKEND: client
+      SESSION_COOKIE_SECURE: "false"
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
