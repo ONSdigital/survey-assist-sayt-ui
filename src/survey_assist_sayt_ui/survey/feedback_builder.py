@@ -1,5 +1,6 @@
 """Build API feedback payloads from the survey definition and session."""
 
+import logging
 import re
 
 from survey_assist_sayt_ui.models.feedback import FeedbackQuestion, FeedbackResult
@@ -7,6 +8,8 @@ from survey_assist_sayt_ui.survey.models import (
     FeedbackResponses,
     SurveyDefinition,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def build_feedback_result(
@@ -20,8 +23,9 @@ def build_feedback_result(
 
     Questions follow the survey definition order. When any question was
     answered, an optional question with no answer is included as an empty
-    string. Radio questions send their option labels. Other questions send
-    an empty list.
+    string. A required question with no saved answer is left out, and a
+    warning is written. Radio questions send their option labels. Other
+    questions send an empty list.
     """
     survey_id = re.sub(
         r"\s+",
@@ -39,6 +43,10 @@ def build_feedback_result(
             response = saved["value"]
             response_name = saved["response_name"]
         elif answer["required"]:
+            logger.warning(
+                "Required feedback question has no saved answer page_id=%s",
+                page["page_id"],
+            )
             continue
         else:
             response = ""
