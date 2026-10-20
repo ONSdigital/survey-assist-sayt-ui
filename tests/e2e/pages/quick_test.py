@@ -16,9 +16,9 @@ class QuickTestPage:
 
     def select_first_suggestion(self, search_term: str) -> str:
         """Select the first suggestion for the search term."""
-        self.activity.fill(search_term, timeout=3000)
+        self.activity.fill(search_term)
         suggestion = self.suggestions.get_by_role("option").first
-        expect(suggestion).to_be_visible(timeout=3000)
+        expect(suggestion).to_be_visible()
         selected_activity = suggestion.inner_text()
         suggestion.click()
         expect(self.activity).to_have_value(selected_activity)
