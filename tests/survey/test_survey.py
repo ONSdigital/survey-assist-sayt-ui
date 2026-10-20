@@ -3,10 +3,12 @@
 # pylint: disable=too-many-lines, duplicate-code
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
+import logging
 from typing import cast
 
 from flask import Flask
 from flask.testing import FlaskClient
+import pytest
 
 from survey_assist_sayt_ui.auth.decorators import (
     SESSION_LOGIN_TIME_KEY,
@@ -1919,6 +1921,44 @@ def test_complete_includes_a_blank_optional_feedback_answer(
         ("other-feedback", ""),
     ]
     assert feedback.questions[1].response_options == []
+
+
+def test_complete_warns_when_a_required_feedback_answer_is_missing(
+    client: FlaskClient,
+    app: Flask,
+    survey_feedback: SurveyFeedback,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test a missing required feedback answer is left out and logged."""
+    _authenticate(client)
+    _set_result_session(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_feedback"] = survey_feedback
+    feedback_client = StubSurveyFeedbackSubmissionClient()
+    app.extensions["feedback_submission_client"] = feedback_client
+
+    with client.session_transaction() as flask_session:
+        flask_session[SURVEY_FEEDBACK_RESPONSES_KEY] = {
+            "fq2": {
+                "question_name": "other_feedback_question",
+                "response_name": "other-feedback",
+                "value": "Some feedback here",
+            }
+        }
+
+    with caplog.at_level(logging.WARNING):
+        client.get("/survey/complete")
+
+    feedback = feedback_client.submitted_feedback[0]
+
+    assert [(question.response_name, question.response) for question in feedback.questions] == [
+        ("other-feedback", "Some feedback here"),
+    ]
+    assert "Required feedback question has no saved answer page_id=fq1" in caplog.text
 
 
 def test_complete_without_feedback_does_not_send_feedback(
