@@ -83,6 +83,21 @@ def test_submit_does_not_retry_after_timeout() -> None:
     assert request_count == 1
 
 
+def test_submit_does_not_retry_after_gateway_timeout() -> None:
+    """Test submit raises once when the feedback call returns a gateway timeout."""
+    request_count = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal request_count
+        request_count += 1
+        return httpx.Response(HTTPStatus.GATEWAY_TIMEOUT, request=request)
+
+    with pytest.raises(FeedbackSubmissionError):
+        _create_client(httpx.MockTransport(handler)).submit(_build_feedback())
+
+    assert request_count == 1
+
+
 def test_submit_raises_error_for_invalid_acknowledgement() -> None:
     """Test submit raises when the acknowledgement is not valid feedback JSON."""
 
