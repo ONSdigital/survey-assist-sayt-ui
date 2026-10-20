@@ -1923,6 +1923,82 @@ def test_complete_includes_a_blank_optional_feedback_answer(
     assert feedback.questions[1].response_options == []
 
 
+def test_feedback_pages_send_one_payload_and_clear_the_session(
+    client: FlaskClient,
+    app: Flask,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test a walk through the feedback pages sends one payload and clears the session."""
+    _authenticate(client)
+    _set_result_session(client)
+
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_feedback"] = survey_feedback
+    feedback_client = StubSurveyFeedbackSubmissionClient()
+    app.extensions["feedback_submission_client"] = feedback_client
+
+    response = client.get("/survey/feedback/fq1")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "how easy or difficult did you find this survey?" in response_text
+
+    response = client.post(
+        "/survey/feedback/fq1",
+        data={"survey-ease": "easy"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/survey/feedback/fq2")
+
+    with client.session_transaction() as flask_session:
+        assert flask_session[SURVEY_FEEDBACK_RESPONSES_KEY]["fq1"]["value"] == "easy"
+
+    response = client.get("/survey/feedback/fq2")
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "any other feedback about this survey?" in response_text
+
+    response = client.post(
+        "/survey/feedback/fq2",
+        data={"other-feedback": ""},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.headers["Location"].endswith("/survey/complete")
+
+    with client.session_transaction() as flask_session:
+        feedback_responses = flask_session[SURVEY_FEEDBACK_RESPONSES_KEY]
+
+    assert "fq1" in feedback_responses
+    assert "fq2" not in feedback_responses
+
+    response = client.get(response.headers["Location"])
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Thank you for taking part." in response_text
+    assert len(feedback_client.submitted_feedback) == 1
+
+    feedback = feedback_client.submitted_feedback[0]
+
+    assert [(question.response_name, question.response) for question in feedback.questions] == [
+        ("survey-ease", "easy"),
+        ("other-feedback", ""),
+    ]
+    assert feedback.questions[0].response_options == ["Easy", "Difficult"]
+    assert feedback.questions[1].response_options == []
+
+    with client.session_transaction() as flask_session:
+        assert SURVEY_FEEDBACK_RESPONSES_KEY not in flask_session
+        assert SESSION_USER_KEY not in flask_session
+        assert SESSION_RESULT_USER_KEY not in flask_session
+
+
 def test_complete_warns_when_a_required_feedback_answer_is_missing(
     client: FlaskClient,
     app: Flask,
