@@ -1883,7 +1883,7 @@ def test_complete_sends_feedback_held_in_the_session(
     assert feedback.questions[0].response_name == "survey-ease"
     assert feedback.questions[0].response_options == ["Easy", "Difficult"]
     assert feedback.questions[1].response == "Some feedback here"
-    assert feedback.questions[1].response_options == []
+    assert feedback.questions[1].response_options is None
 
 
 def test_complete_includes_a_blank_optional_feedback_answer(
@@ -1920,7 +1920,7 @@ def test_complete_includes_a_blank_optional_feedback_answer(
         ("survey-ease", "difficult"),
         ("other-feedback", ""),
     ]
-    assert feedback.questions[1].response_options == []
+    assert feedback.questions[1].response_options is None
 
 
 def test_feedback_pages_send_one_payload_and_clear_the_session(
@@ -1991,7 +1991,7 @@ def test_feedback_pages_send_one_payload_and_clear_the_session(
         ("other-feedback", ""),
     ]
     assert feedback.questions[0].response_options == ["Easy", "Difficult"]
-    assert feedback.questions[1].response_options == []
+    assert feedback.questions[1].response_options is None
 
     with client.session_transaction() as flask_session:
         assert SURVEY_FEEDBACK_RESPONSES_KEY not in flask_session
