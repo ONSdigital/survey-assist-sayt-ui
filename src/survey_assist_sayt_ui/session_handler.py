@@ -201,7 +201,7 @@ def session_unavailable_response(app: Flask) -> Response:
     Returns:
         HTTP 500 response containing the respondent-facing error page.
     """
-    response = app.make_response((render_template("session_unavailable.html"), 500))
+    response = app.make_response((render_template("500.html"), 500))
     response.headers["Cache-Control"] = "no-store"
     return response
 

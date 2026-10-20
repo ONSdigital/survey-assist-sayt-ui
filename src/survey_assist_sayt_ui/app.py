@@ -9,10 +9,11 @@ import logging
 from pathlib import Path
 from urllib.parse import urlparse
 
-from flask import Flask, redirect, request, session, url_for
+from flask import Flask, redirect, render_template, request, session, url_for
 from flask.typing import ResponseReturnValue
 from jinja2 import ChainableUndefined, ChoiceLoader, FileSystemLoader
 from survey_assist_utils.api_token.jwt_utils import check_and_refresh_token
+from werkzeug.exceptions import InternalServerError
 
 from survey_assist_sayt_ui.auth.decorators import (
     SESSION_LOGIN_TIME_KEY,
@@ -183,6 +184,13 @@ def create_app(  # pylint: disable=too-many-locals, too-many-statements
     app.register_blueprint(main_blueprint)
     app.register_blueprint(meta_blueprint)
     app.register_blueprint(survey_blueprint)
+
+    @app.errorhandler(InternalServerError)
+    def internal_server_error(_error: InternalServerError) -> ResponseReturnValue:
+        """Show the respondent-facing page for internal server errors."""
+        response = app.make_response((render_template("500.html"), 500))
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
     @app.before_request
     def expire_authenticated_session() -> ResponseReturnValue | None:
