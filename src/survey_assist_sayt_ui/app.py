@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from urllib.parse import urlparse
 
-from flask import Flask, redirect, render_template, request, session, url_for
+from flask import Flask, redirect, request, session, url_for
 from flask.typing import ResponseReturnValue
 from jinja2 import ChainableUndefined, ChoiceLoader, FileSystemLoader
 from survey_assist_utils.api_token.jwt_utils import check_and_refresh_token
@@ -40,6 +40,7 @@ from survey_assist_sayt_ui.survey.models import SurveyDefinition
 from .auth.routes import auth_blueprint
 from .auth.service import AuthService, build_auth_store
 from .config import Settings, load_settings
+from .error_responses import internal_server_error_response
 from .routes.main import main_blueprint
 from .routes.meta import meta_blueprint
 from .routes.survey import survey_blueprint
@@ -188,9 +189,7 @@ def create_app(  # pylint: disable=too-many-locals, too-many-statements
     @app.errorhandler(InternalServerError)
     def internal_server_error(_error: InternalServerError) -> ResponseReturnValue:
         """Show the respondent-facing page for internal server errors."""
-        response = app.make_response((render_template("500.html"), 500))
-        response.headers["Cache-Control"] = "no-store"
-        return response
+        return internal_server_error_response(app)
 
     @app.before_request
     def expire_authenticated_session() -> ResponseReturnValue | None:
