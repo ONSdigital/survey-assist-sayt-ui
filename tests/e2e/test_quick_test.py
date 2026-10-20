@@ -32,20 +32,20 @@ def test_suggestions_change_as_search_term_changes(authenticated_page: Page, bas
     quick_test.expect_loaded()
     options = quick_test.suggestions.get_by_role("option")
 
-    ## Type "farm" into the activity input and check initial suggestions
+    # Type "farm" into the activity input and check initial suggestions
     quick_test.activity.press_sequentially("farm")
     expect(quick_test.activity).to_have_value("farm")
     expect(options.nth(1)).to_be_visible()
     initial_suggestions = options.all_inner_texts()
 
-    ## Further refine the search term to "farming sheep" and check suggestions have updated
+    # Further refine the search term to "farming sheep" and check suggestions have updated
     quick_test.activity.press_sequentially("ing sheep")
     expect(quick_test.activity).to_have_value("farming sheep")
     expect(options.nth(1)).to_be_visible()
     expect(options).not_to_have_text(initial_suggestions)
     refined_suggestions = options.all_inner_texts()
 
-    ## Delete characters until only "farming" remains, check suggestions have changed
+    # Delete characters until only "farming" remains, check suggestions have changed
     for _ in range(6):
         quick_test.activity.press("Backspace")
     expect(quick_test.activity).to_have_value("farming")
