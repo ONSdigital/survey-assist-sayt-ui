@@ -25,7 +25,7 @@ def build_feedback_result(
     answered, an optional question with no answer is included as an empty
     string. A required question with no saved answer is left out, and a
     warning is written. Radio questions send their option labels. Other
-    questions send an empty list.
+    questions send no options.
     """
     survey_id = re.sub(
         r"\s+",
@@ -53,7 +53,7 @@ def build_feedback_result(
             response_name = answer["name"]
 
         response_options = (
-            [option["label"] for option in answer["options"]] if answer["type"] == "radio" else []
+            [option["label"] for option in answer["options"]] if answer["type"] == "radio" else None
         )
         questions.append(
             FeedbackQuestion(
