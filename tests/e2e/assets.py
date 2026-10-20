@@ -4,7 +4,7 @@ import warnings
 
 from playwright.sync_api import Page, Request, Response
 
-ASSET_TYPES = frozenset({"stylesheet", "script", "image"})
+ASSET_TYPES = frozenset({"stylesheet", "script", "image", "font"})
 
 
 class AssetLoadWarning(UserWarning):
@@ -12,12 +12,11 @@ class AssetLoadWarning(UserWarning):
 
 
 class AssetMonitor:
-    """Collect failed CSS, JavaScript, and image requests for one page."""
+    """Collect failed CSS, JavaScript, image, and font requests for one page."""
 
     def __init__(self, page: Page) -> None:
         self.page = page
-        self.failures: list[str] = []
-        self.failed_assets: set[tuple[str, str]] = set()
+        self.failures: dict[tuple[str, str], str] = {}
 
     def on_response(self, response: Response) -> None:
         """Capture HTTP errors for monitored assets."""
@@ -30,14 +29,14 @@ class AssetMonitor:
 
     def on_request_failed(self, request: Request) -> None:
         """Capture network errors for monitored assets with no response."""
-        if request.resource_type in ASSET_TYPES:
+        if request.resource_type in ASSET_TYPES and request.failure != "net::ERR_ABORTED":
             self._record_failure(request, f"failed: {request.failure}")
 
     def warn_if_failed(self) -> None:
         """Emit failures after the test to preserve its result."""
         if self.failures:
             warnings.warn(
-                "Asset load failures:\n" + "\n".join(self.failures),
+                "Asset load failures:\n" + "\n".join(self.failures.values()),
                 AssetLoadWarning,
                 stacklevel=2,
             )
@@ -45,7 +44,4 @@ class AssetMonitor:
     def _record_failure(self, request: Request, reason: str) -> None:
         """Record each failed asset once."""
         asset = (request.resource_type, request.url)
-        if asset in self.failed_assets:
-            return
-        self.failed_assets.add(asset)
-        self.failures.append(f"{self.page.url}: {asset[0]} {asset[1]} {reason}")
+        self.failures.setdefault(asset, f"{self.page.url}: {asset[0]} {asset[1]} {reason}")

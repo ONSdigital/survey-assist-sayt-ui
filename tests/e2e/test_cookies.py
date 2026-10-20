@@ -45,6 +45,6 @@ def test_cookie_choice_persists_after_reload(
 
     banner.get_by_role("button", name="Hide").click()
     expect(banner).to_be_hidden()
-    page.reload()
+    page.reload(wait_until="networkidle")
     expect(banner).to_be_hidden()
     assert_cookie_choice(page, additional_cookies)
