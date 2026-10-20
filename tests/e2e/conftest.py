@@ -22,6 +22,7 @@ PAGE_TIMEOUT_MS = 10_000
 def configure_playwright_timeouts(page: Page) -> None:
     """Set the default page timeouts for each browser test."""
     page.set_default_timeout(PAGE_TIMEOUT_MS)
+    page.set_default_navigation_timeout(PAGE_TIMEOUT_MS)
 
 
 @pytest.fixture(autouse=True)
