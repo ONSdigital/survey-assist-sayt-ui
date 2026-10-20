@@ -8,7 +8,7 @@ class FeedbackQuestion(BaseModel):
 
     response: str
     response_name: str
-    response_options: list[str]
+    response_options: list[str] | None
 
 
 class FeedbackResult(BaseModel):
