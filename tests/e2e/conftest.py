@@ -1,16 +1,34 @@
 """Configuration for browser tests against a deployed UI."""
 
+from collections.abc import Iterator
 import os
 from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
-from playwright.sync_api import Page
+from playwright.sync_api import BrowserContext, Page
 import pytest
 
+from .assets import AssetMonitor
 from .pages.home import HomePage
 from .pages.login import LoginPage
 
 load_dotenv()
+
+
+@pytest.fixture(autouse=True)
+def configured_context_timeout(context: BrowserContext) -> None:
+    """Set the default timeout for each browser test."""
+    context.set_default_timeout(10_000)
+
+
+@pytest.fixture(autouse=True)
+def warn_page_asset_failures(page: Page) -> Iterator[None]:
+    """Report asset failures for each browser test."""
+    monitor = AssetMonitor(page)
+    page.on("response", monitor.on_response)
+    page.on("requestfailed", monitor.on_request_failed)
+    yield
+    monitor.warn_if_failed()
 
 
 @pytest.fixture(scope="session")
