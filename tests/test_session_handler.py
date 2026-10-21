@@ -1123,6 +1123,7 @@ def test_failed_redis_read_shows_500_and_retains_session_cookie(
             response = client.get("/survey/questions/q0")
 
     assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+    assert response.headers["Cache-Control"] == "no-store"
     assert "The service is temporarily unavailable" in response.get_data(as_text=True)
     assert "Set-Cookie" not in response.headers
     assert client.get_cookie(cookie_name) == original_cookie
