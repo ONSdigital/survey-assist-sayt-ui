@@ -145,7 +145,6 @@ http://127.0.0.1:8000
 
 ### Run with Podman Compose
 
-Set `REDIS_PASSWORD` in `.env`; the Redis container and UI use the same password.
 The API URL must be reachable from inside the UI container.
 
 Start the UI with client-side sessions:
@@ -156,7 +155,6 @@ make podman-compose-up
 
 Open `http://127.0.0.1:8000`
 
-The Redis container starts, but the UI does not depend on it in client mode.
 To exercise server-side sessions with Redis, see [Running with Redis server-side sessions](#running-with-redis-server-side-sessions).
 
 Stop and remove the local stack when finished:
@@ -210,12 +208,14 @@ See [Testing Redis sessions](#testing-redis-sessions) to verify the session back
 
 To exercise server-side sessions with Podman Compose:
 
+Set `REDIS_PASSWORD` in `.env`; the Redis container and UI use the same password.
+
 ```bash
 make podman-compose-redis-up
 ```
 
 Within the Compose network, the Redis host is `redis`, not `localhost`.
-Compose sets `REDIS_USE_TLS=false` for local Redis.
+The Redis Compose file sets `SESSION_BACKEND=redis`, `REDIS_HOST=redis`, `REDIS_PORT=6379`, and `REDIS_USE_TLS=false` for the UI.
 
 The UI waits for Redis to become healthy before starting. View logs:
 
