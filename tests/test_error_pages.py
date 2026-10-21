@@ -29,7 +29,7 @@ def test_internal_server_error_shows_branded_page(
     assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
     assert response.headers["Cache-Control"] == "no-store"
     assert "Office for National Statistics" in page
-    assert "The service is temporarily unavailable" in page
+    assert "Sorry, there is a problem with the service" in page
     assert exception_message not in page
 
 
