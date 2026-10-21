@@ -23,13 +23,15 @@ RUN apt-get update \
 RUN curl -sSL https://install.python-poetry.org | python3 -
 
 COPY pyproject.toml poetry.lock ./
-COPY src ./src
+RUN poetry install --without dev --no-root
+RUN .venv/bin/pip install --no-cache-dir gunicorn==23.0.0
+
 COPY scripts ./scripts
 COPY .design-system-version ./
-
-RUN poetry install --without dev --no-root
 RUN ./scripts/fetch_ons_templates.sh
-RUN .venv/bin/pip install --no-cache-dir gunicorn==23.0.0
+
+COPY src ./src
+
 
 FROM python:3.12-slim-bookworm AS runtime
 
