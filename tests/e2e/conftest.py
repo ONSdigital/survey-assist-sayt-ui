@@ -5,7 +5,7 @@ import os
 from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
-from playwright.sync_api import Page, expect
+from playwright.sync_api import BrowserContext, Page
 import pytest
 
 from .assets import AssetMonitor
@@ -14,14 +14,11 @@ from .pages.login import LoginPage
 
 load_dotenv()
 
-expect.set_options(timeout=5_000)
-PAGE_TIMEOUT_MS = 10_000
-
 
 @pytest.fixture(autouse=True)
-def configure_playwright_timeouts(page: Page) -> None:
-    """Set the default page timeouts for each browser test."""
-    page.set_default_timeout(PAGE_TIMEOUT_MS)
+def configured_context_timeout(context: BrowserContext) -> None:
+    """Set the default timeout for each browser test."""
+    context.set_default_timeout(10_000)
 
 
 @pytest.fixture(autouse=True)

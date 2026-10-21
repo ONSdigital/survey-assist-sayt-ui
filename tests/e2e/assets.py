@@ -43,5 +43,7 @@ class AssetMonitor:
 
     def _record_failure(self, request: Request, reason: str) -> None:
         """Record each failed asset once."""
-        asset = (request.resource_type, request.url)
-        self.failures.setdefault(asset, f"{self.page.url}: {asset[0]} {asset[1]} {reason}")
+        self.failures.setdefault(
+            (request.resource_type, request.url),
+            f"{self.page.url}: {request.resource_type} {request.url} {reason}",
+        )
