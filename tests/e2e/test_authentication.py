@@ -4,6 +4,7 @@ from playwright.sync_api import Page
 
 from .pages.home import HomePage
 from .pages.login import LoginPage
+from .pages.quick_test import QuickTestPage
 
 
 def test_signed_in_session_survives_reload(
@@ -24,5 +25,5 @@ def test_logout_blocks_protected_pages(authenticated_page: Page) -> None:
     login = LoginPage(authenticated_page)
     login.expect_open()
 
-    authenticated_page.goto("/api-autosuggest")
+    authenticated_page.goto(QuickTestPage.PATH)
     login.expect_open()

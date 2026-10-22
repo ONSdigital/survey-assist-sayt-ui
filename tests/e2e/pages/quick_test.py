@@ -6,6 +6,8 @@ from playwright.sync_api import Page, expect
 class QuickTestPage:
     """Provide interactions with the SAYT Quick Test page."""
 
+    PATH = "/api-autosuggest"
+
     def __init__(self, page: Page) -> None:
         self.page = page
         self.activity = page.get_by_role("combobox")
@@ -27,11 +29,25 @@ class QuickTestPage:
         expect(suggestion).to_be_visible()
         suggestion.click()
 
+    def type_text(self, text: str, expected_value: str) -> None:
+        """Type the given text into the input."""
+        self.activity.press_sequentially(text)
+        expect(self.activity).to_have_value(expected_value)
+
+    def delete_activity_characters(self, count: int) -> None:
+        """Delete a number of characters from the activity input."""
+        for _ in range(count):
+            self.activity.press("Backspace")
+
     def select_not_listed(self, description: str) -> None:
         """Select Not listed and enter a description."""
         self.not_listed.check()
         expect(self.activity).to_be_disabled()
         self.description.fill(description)
+
+    def get_suggestion_options(self):
+        """Get a suggestion option by its name."""
+        return self.suggestions.get_by_role("option")
 
     def save(self) -> None:
         """Save the response."""

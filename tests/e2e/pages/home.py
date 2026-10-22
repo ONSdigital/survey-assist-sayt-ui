@@ -1,12 +1,14 @@
 """Authenticated home page interactions."""
 
-import re
-
 from playwright.sync_api import Page, expect
+
+from .quick_test import QuickTestPage
 
 
 class HomePage:
     """Provide interactions with the authenticated home page."""
+
+    PATH = "/"
 
     def __init__(self, page: Page) -> None:
         self.page = page
@@ -15,7 +17,7 @@ class HomePage:
 
     def expect_signed_in(self, username: str) -> None:
         """Verify the home page shows the signed-in user."""
-        expect(self.page).to_have_url("/")
+        expect(self.page).to_have_url(self.PATH)
         expect(
             self.page.get_by_text(f"You are signed in as {username.strip().lower()}.", exact=True)
         ).to_be_visible()
@@ -23,7 +25,7 @@ class HomePage:
     def open_quick_test(self) -> None:
         """Open the SAYT Quick Test page."""
         self.quick_test_button.click()
-        expect(self.page).to_have_url(re.compile(r"/api-autosuggest$"))
+        expect(self.page).to_have_url(QuickTestPage.PATH)
 
     def sign_out(self) -> None:
         """Sign out from the home page."""
