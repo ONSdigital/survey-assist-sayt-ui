@@ -14,10 +14,14 @@ class QuickTestPage:
         self.description = page.get_by_label("Describe the main activity of your organisation")
         self.save_button = page.get_by_role("button", name="Save and continue")
 
-    def select_first_suggestion(self, search_term: str) -> str:
-        """Select the first suggestion for the search term."""
+    def expect_loaded(self) -> None:
+        """Verify that the autosuggest input is ready."""
+        expect(self.activity).to_be_visible()
+
+    def select_expected_suggestion(self, search_term: str, expected_industry: str) -> str:
+        """Select the suggestion that matches the expected industry for the search term."""
         self.activity.fill(search_term)
-        suggestion = self.suggestions.get_by_role("option").first
+        suggestion = self.suggestions.get_by_role("option", name=expected_industry, exact=True)
         expect(suggestion).to_be_visible()
         selected_activity = suggestion.inner_text()
         suggestion.click()
