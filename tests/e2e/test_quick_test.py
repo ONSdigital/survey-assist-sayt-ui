@@ -15,19 +15,20 @@ from .pages.quick_test import QuickTestPage
     ],
 )
 def test_select_expected_activity_and_save(
-    authenticated_page: Page, base_url: str, search_term: str, expected_industry: str
+    authenticated_page: Page, search_term: str, expected_industry: str
 ) -> None:
     """Search for, select, and save the expected suggestion from SAYT results."""
-    HomePage(authenticated_page, base_url).open_quick_test()
+    HomePage(authenticated_page).open_quick_test()
     quick_test = QuickTestPage(authenticated_page)
     quick_test.expect_loaded()
-    selected_activity = quick_test.select_expected_suggestion(search_term, expected_industry)
-    quick_test.save(selected_activity)
+    quick_test.search_and_select_expected_suggestion(search_term, expected_industry)
+    quick_test.save()
+    quick_test.expect_saved(expected_industry)
 
 
-def test_suggestions_change_as_search_term_changes(authenticated_page: Page, base_url: str) -> None:
+def test_suggestions_change_as_search_term_changes(authenticated_page: Page) -> None:
     """Verify that live suggestions change as the user types and deletes text."""
-    HomePage(authenticated_page, base_url).open_quick_test()
+    HomePage(authenticated_page).open_quick_test()
     quick_test = QuickTestPage(authenticated_page)
     quick_test.expect_loaded()
     options = quick_test.suggestions.get_by_role("option")
@@ -53,11 +54,12 @@ def test_suggestions_change_as_search_term_changes(authenticated_page: Page, bas
     expect(options).not_to_have_text(refined_suggestions)
 
 
-def test_select_activity_not_listed_and_save(authenticated_page: Page, base_url: str) -> None:
+def test_select_activity_not_listed_and_save(authenticated_page: Page) -> None:
     """Save a self-described description when no suggestion is selected."""
-    HomePage(authenticated_page, base_url).open_quick_test()
+    HomePage(authenticated_page).open_quick_test()
     quick_test = QuickTestPage(authenticated_page)
     quick_test.expect_loaded()
     description = "Independent game design"
     quick_test.select_not_listed(description)
-    quick_test.save(description)
+    quick_test.save()
+    quick_test.expect_saved(description)

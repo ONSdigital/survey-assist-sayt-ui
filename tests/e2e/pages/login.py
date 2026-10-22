@@ -8,16 +8,15 @@ from playwright.sync_api import Page, expect
 class LoginPage:
     """Provide interactions with the sign-in page."""
 
-    def __init__(self, page: Page, base_url: str) -> None:
+    def __init__(self, page: Page) -> None:
         self.page = page
-        self.base_url = base_url
         self.email = page.get_by_label("Email address")
         self.password = page.get_by_label("Password", exact=True)
         self.login_button = page.get_by_role("button", name="Login")
 
     def open(self) -> None:
         """Request the home page and verify its redirect to sign-in."""
-        self.page.goto(f"{self.base_url}/")
+        self.page.goto("/")
         self.expect_open()
 
     def expect_open(self) -> None:

@@ -8,15 +8,14 @@ from playwright.sync_api import Page, expect
 class HomePage:
     """Provide interactions with the authenticated home page."""
 
-    def __init__(self, page: Page, base_url: str) -> None:
+    def __init__(self, page: Page) -> None:
         self.page = page
-        self.base_url = base_url
         self.quick_test_button = page.get_by_role("button", name="SAYT Quick Test")
         self.sign_out_button = page.get_by_role("button", name="Sign out")
 
     def expect_signed_in(self, username: str) -> None:
         """Verify the home page shows the signed-in user."""
-        expect(self.page).to_have_url(f"{self.base_url}/")
+        expect(self.page).to_have_url("/")
         expect(
             self.page.get_by_text(f"You are signed in as {username.strip().lower()}.", exact=True)
         ).to_be_visible()

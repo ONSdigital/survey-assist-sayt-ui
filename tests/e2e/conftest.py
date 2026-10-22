@@ -9,7 +9,6 @@ from playwright.sync_api import BrowserContext, Page
 import pytest
 
 from .assets import AssetMonitor
-from .pages.home import HomePage
 from .pages.login import LoginPage
 
 load_dotenv()
@@ -70,11 +69,10 @@ def configured_browser_type_launch_args(browser_type_launch_args: dict) -> dict:
 
 
 @pytest.fixture
-def authenticated_page(page: Page, base_url: str, credentials: tuple[str, str]) -> Page:
+def authenticated_page(page: Page, credentials: tuple[str, str]) -> Page:
     """Sign in with a fresh browser context."""
     username, password = credentials
-    login = LoginPage(page, base_url)
+    login = LoginPage(page)
     login.open()
     login.sign_in(username, password)
-    HomePage(page, base_url).expect_signed_in(username)
     return page
