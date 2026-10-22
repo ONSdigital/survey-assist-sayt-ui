@@ -13,6 +13,7 @@ from flask import Flask, redirect, request, session, url_for
 from flask.typing import ResponseReturnValue
 from jinja2 import ChainableUndefined, ChoiceLoader, FileSystemLoader
 from survey_assist_utils.api_token.jwt_utils import check_and_refresh_token
+from werkzeug.exceptions import InternalServerError
 
 from survey_assist_sayt_ui.auth.decorators import (
     SESSION_LOGIN_TIME_KEY,
@@ -20,6 +21,9 @@ from survey_assist_sayt_ui.auth.decorators import (
 )
 from survey_assist_sayt_ui.auth.session_lifetime import login_deadline
 from survey_assist_sayt_ui.services.business_activity import HttpBusinessActivitySearchClient
+from survey_assist_sayt_ui.services.feedback_submission import (
+    HttpSurveyFeedbackSubmissionClient,
+)
 from survey_assist_sayt_ui.services.result_submission import (
     HttpSurveyResultSubmissionClient,
 )
@@ -39,6 +43,7 @@ from survey_assist_sayt_ui.survey.models import SurveyDefinition
 from .auth.routes import auth_blueprint
 from .auth.service import AuthService, build_auth_store
 from .config import Settings, load_settings
+from .error_responses import internal_server_error_response
 from .routes.main import main_blueprint
 from .routes.meta import meta_blueprint
 from .routes.survey import survey_blueprint
@@ -174,15 +179,24 @@ def create_app(  # pylint: disable=too-many-locals, too-many-statements
     result_submission_client = HttpSurveyResultSubmissionClient(
         api_client=survey_assist_api_client,
     )
+    feedback_submission_client = HttpSurveyFeedbackSubmissionClient(
+        api_client=survey_assist_api_client,
+    )
 
     app.extensions["survey_assist_api_client"] = survey_assist_api_client
     app.extensions["business_activity_search_client"] = business_activity_client
     app.extensions["result_submission_client"] = result_submission_client
+    app.extensions["feedback_submission_client"] = feedback_submission_client
 
     app.register_blueprint(auth_blueprint)
     app.register_blueprint(main_blueprint)
     app.register_blueprint(meta_blueprint)
     app.register_blueprint(survey_blueprint)
+
+    @app.errorhandler(InternalServerError)
+    def internal_server_error(_error: InternalServerError) -> ResponseReturnValue:
+        """Show the respondent-facing page for internal server errors."""
+        return internal_server_error_response(app)
 
     @app.before_request
     def expire_authenticated_session() -> ResponseReturnValue | None:

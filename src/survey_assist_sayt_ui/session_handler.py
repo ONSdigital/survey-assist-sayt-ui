@@ -7,7 +7,7 @@ import logging
 from math import ceil
 from typing import Any, TypeVar
 
-from flask import Flask, Request, Response, current_app, render_template
+from flask import Flask, Request, Response, current_app
 from flask import request as flask_request
 from flask.sessions import SessionMixin
 from flask_session.base import ServerSideSession
@@ -26,6 +26,7 @@ from survey_assist_sayt_ui.auth.decorators import (
 )
 from survey_assist_sayt_ui.auth.session_lifetime import login_deadline
 from survey_assist_sayt_ui.config import Settings
+from survey_assist_sayt_ui.error_responses import internal_server_error_response
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ def reject_failed_redis_session_read() -> Response | None:
         An HTTP 500 response after a failed session read, otherwise None.
     """
     if flask_request.environ.get(READ_FAILURE_KEY):
-        return session_unavailable_response(current_app)
+        return internal_server_error_response(current_app)
     return None
 
 
@@ -192,20 +193,6 @@ def _redis_pool(
     )
 
 
-def session_unavailable_response(app: Flask) -> Response:
-    """Create an error response without trying to save the Flask session.
-
-    Args:
-        app: Current Flask application.
-
-    Returns:
-        HTTP 500 response containing the respondent-facing error page.
-    """
-    response = app.make_response((render_template("session_unavailable.html"), 500))
-    response.headers["Cache-Control"] = "no-store"
-    return response
-
-
 class SessionAwareFlask(Flask):
     """Convert response-time Redis session failures into an unsaved HTTP 500."""
 
@@ -226,7 +213,7 @@ class SessionAwareFlask(Flask):
                 flask_request.environ.get(SAVE_OPERATION_KEY, "response_processing"),
                 type(exc).__name__,
             )
-            return session_unavailable_response(self)
+            return internal_server_error_response(self)
 
 
 class AbsoluteExpiryRedisSessionInterface(RedisSessionInterface):

@@ -13,3 +13,5 @@ __pycache__
 .coverage
 htmlcov
 .DS_Store
+src/survey_assist_sayt_ui/templates/components/
+src/survey_assist_sayt_ui/templates/layout/
