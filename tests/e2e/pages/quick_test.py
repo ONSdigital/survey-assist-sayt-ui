@@ -12,12 +12,14 @@ class QuickTestPage:
         self.page = page
         self.activity = page.get_by_role("combobox")
         self.suggestions = page.get_by_role("listbox", name="Suggested industries")
+        self.suggestion_options = self.suggestions.get_by_role("option")
         self.not_listed = page.get_by_label("Not listed")
         self.description = page.get_by_label("Describe the main activity of your organisation")
         self.save_button = page.get_by_role("button", name="Save and continue")
 
     def expect_loaded(self) -> None:
         """Verify that the autosuggest input is ready."""
+        expect(self.page).to_have_url(self.PATH)
         expect(self.activity).to_be_visible()
 
     def search_and_select_expected_suggestion(
@@ -29,10 +31,9 @@ class QuickTestPage:
         expect(suggestion).to_be_visible()
         suggestion.click()
 
-    def type_text(self, text: str, expected_value: str) -> None:
-        """Type the given text into the input."""
+    def type_text(self, text: str) -> None:
+        """Type the given text into the input one key at a time."""
         self.activity.press_sequentially(text)
-        expect(self.activity).to_have_value(expected_value)
 
     def delete_activity_characters(self, count: int) -> None:
         """Delete a number of characters from the activity input."""
@@ -44,10 +45,6 @@ class QuickTestPage:
         self.not_listed.check()
         expect(self.activity).to_be_disabled()
         self.description.fill(description)
-
-    def get_suggestion_options(self):
-        """Get a suggestion option by its name."""
-        return self.suggestions.get_by_role("option")
 
     def save(self) -> None:
         """Save the response."""

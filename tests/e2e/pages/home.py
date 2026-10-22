@@ -2,8 +2,6 @@
 
 from playwright.sync_api import Page, expect
 
-from .quick_test import QuickTestPage
-
 
 class HomePage:
     """Provide interactions with the authenticated home page."""
@@ -25,7 +23,6 @@ class HomePage:
     def open_quick_test(self) -> None:
         """Open the SAYT Quick Test page."""
         self.quick_test_button.click()
-        expect(self.page).to_have_url(QuickTestPage.PATH)
 
     def sign_out(self) -> None:
         """Sign out from the home page."""

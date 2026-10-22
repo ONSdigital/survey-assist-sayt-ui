@@ -2,6 +2,7 @@
 
 from collections.abc import Iterator
 import os
+from typing import Any
 from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
@@ -60,7 +61,9 @@ def configured_credentials() -> tuple[str, str]:
 
 
 @pytest.fixture(scope="session", name="browser_type_launch_args")
-def configured_browser_type_launch_args(browser_type_launch_args: dict) -> dict:
+def configured_browser_type_launch_args(
+    browser_type_launch_args: dict[str, Any],
+) -> dict[str, Any]:
     """Disable QUIC to standardise traffic flow across different environments."""
     return {
         **browser_type_launch_args,

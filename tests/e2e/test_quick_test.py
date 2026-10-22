@@ -33,14 +33,16 @@ def test_select_expected_activity_and_save(
 
 
 def test_suggestions_change_as_search_term_changes(quick_test: QuickTestPage) -> None:
-    """Verify that live suggestions change as the user types and deletes text."""
-    options = quick_test.get_suggestion_options()
+    """Verify the live suggestions update as the user types and deletes text."""
+    options = quick_test.suggestion_options
 
-    quick_test.type_text("farm", "farm")
+    quick_test.type_text("farm")
+    expect(quick_test.activity).to_have_value("farm")
     expect(options.nth(1)).to_be_visible()
     initial_suggestions = options.all_inner_texts()
 
-    quick_test.type_text("ing sheep", "farming sheep")
+    quick_test.type_text("ing sheep")
+    expect(quick_test.activity).to_have_value("farming sheep")
     expect(options.nth(1)).to_be_visible()
     expect(options).not_to_have_text(initial_suggestions)
     refined_suggestions = options.all_inner_texts()
