@@ -1201,6 +1201,152 @@ def test_previous_question_discards_current_response(
     assert "q1" not in responses
 
 
+def test_text_question_shows_the_character_counter(
+    client: FlaskClient,
+) -> None:
+    """Test that a text question shows how many characters remain."""
+    _authenticate(client)
+
+    response = client.get("/survey/questions/q1")
+
+    assert response.status_code == HTTPStatus.OK
+    assert "characters remaining" in response.get_data(as_text=True)
+
+
+def test_text_answer_over_the_character_limit_is_rejected(
+    client: FlaskClient,
+) -> None:
+    """Test that a text answer over its limit is rejected."""
+    _authenticate(client)
+
+    response = client.post(
+        "/survey/questions/q1",
+        data={"job-title": "a" * 151},
+    )
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "Your answer must be 150 characters or fewer" in response_text
+
+    with client.session_transaction() as flask_session:
+        assert SURVEY_RESPONSES_KEY not in flask_session
+
+
+def test_text_answer_keeps_an_ampersand_and_a_number(
+    client: FlaskClient,
+) -> None:
+    """Test that an ampersand and a number-only answer are saved."""
+    _authenticate(client)
+
+    response = client.post(
+        "/survey/questions/q1",
+        data={"job-title": "cleaner&"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+
+    with client.session_transaction() as flask_session:
+        assert flask_session[SURVEY_RESPONSES_KEY]["q1"]["value"] == "cleaner&"
+
+    response = client.post(
+        "/survey/questions/q1",
+        data={"job-title": "123"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+
+    with client.session_transaction() as flask_session:
+        assert flask_session[SURVEY_RESPONSES_KEY]["q1"]["value"] == "123"
+
+
+def test_text_answer_removes_characters_outside_the_saved_set(
+    client: FlaskClient,
+) -> None:
+    """Test that characters outside the saved set are removed."""
+    _authenticate(client)
+
+    response = client.post(
+        "/survey/questions/q1",
+        data={"job-title": "Teacher #1"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+
+    with client.session_transaction() as flask_session:
+        assert flask_session[SURVEY_RESPONSES_KEY]["q1"]["value"] == "Teacher 1"
+
+
+def test_not_listed_description_over_the_character_limit_is_rejected(
+    app: Flask,
+    client: FlaskClient,
+    api_autosuggest_page: QuestionPage,
+) -> None:
+    """Test that a Not listed description over its limit is rejected."""
+    _authenticate(client)
+    _enable_autosuggest_self_describe(api_autosuggest_page)
+    answer = cast(ApiAutosuggestAnswer, api_autosuggest_page["answer"])
+    answer["self_describe"]["character_limit"] = 300
+    _insert_autosuggest_page(app, api_autosuggest_page)
+
+    response = client.post(
+        "/survey/questions/q-api-autosuggest",
+        data={
+            "business-activity": "",
+            "business-activity-not-listed": "not-listed",
+            "q-api-autosuggest-self-describe": "a" * 301,
+        },
+    )
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "Your answer must be 300 characters or fewer" in response_text
+
+
+def test_feedback_text_is_cleaned_and_keeps_an_answer_with_no_letters(
+    app: Flask,
+    client: FlaskClient,
+    survey_feedback: SurveyFeedback,
+) -> None:
+    """Test that feedback text is cleaned and an answer with no letters is saved."""
+    _authenticate(client)
+    survey_definition = cast(
+        SurveyDefinition,
+        app.extensions["survey_definition"],
+    )
+    survey_definition["survey_feedback"] = survey_feedback
+
+    response = client.post(
+        "/survey/feedback/fq2",
+        data={"other-feedback": "a" * 501},
+    )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "Your answer must be 500 characters or fewer" in response.get_data(as_text=True)
+
+    response = client.post(
+        "/survey/feedback/fq2",
+        data={"other-feedback": "hello#"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+
+    with client.session_transaction() as flask_session:
+        saved = flask_session[SURVEY_FEEDBACK_RESPONSES_KEY]["fq2"]["value"]
+
+    assert saved == "hello"
+    assert saved != "NO LEGIBLE ANSWER"
+
+    response = client.post(
+        "/survey/feedback/fq2",
+        data={"other-feedback": "123"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+
+    with client.session_transaction() as flask_session:
+        assert flask_session[SURVEY_FEEDBACK_RESPONSES_KEY]["fq2"]["value"] == "123"
+
+
 def test_previous_link_remains_after_survey_validation_error(
     client: FlaskClient,
 ) -> None:
