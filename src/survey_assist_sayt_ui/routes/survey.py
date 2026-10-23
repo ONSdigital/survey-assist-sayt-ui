@@ -61,6 +61,7 @@ from survey_assist_sayt_ui.survey.session import (
     SURVEY_RESPONSE_START_TIME_KEY,
     SURVEY_RESPONSES_KEY,
 )
+from survey_assist_sayt_ui.survey.text_input import clean_saved_answer
 
 NOT_LISTED_FIELD_SUFFIX = "-not-listed"
 SELF_DESCRIBE_FIELD_SUFFIX = "-self-describe"
@@ -1032,6 +1033,89 @@ def previous_question(page_id: str) -> ResponseReturnValue:
     )
 
 
+def _prepare_free_text_answer(
+    page: QuestionPage,
+    value: str,
+    *,
+    question_text: str,
+    not_listed_selected: bool,
+    previous_url: str | None,
+) -> tuple[str, ResponseReturnValue | None]:
+    """Reject an over-long free-text answer, then clean one that can be saved."""
+    answer = page["answer"]
+    page_id = page["page_id"]
+
+    # Validate the configured character limit for text responses.
+    if answer["type"] == "text":
+        character_limit = answer.get("character_limit")
+
+        if character_limit is not None and len(value) > character_limit:
+            logger.warning(
+                "Response exceeds character limit page_id=%s limit=%d",
+                page_id,
+                character_limit,
+            )
+
+            return value, (
+                render_template(
+                    _get_question_template(page),
+                    page=page,
+                    question_text=question_text,
+                    saved_value=value,
+                    selected_suggestion="",
+                    not_listed_selected=not_listed_selected,
+                    self_describe_value="",
+                    self_describe_label=_get_self_describe_config(page)[0],
+                    self_describe_error_message=None,
+                    form_action=url_for(
+                        "survey.save_response",
+                        page_id=page_id,
+                    ),
+                    previous_url=previous_url,
+                    error_message=(f"Your answer must be {character_limit} characters or fewer"),
+                ),
+                HTTPStatus.BAD_REQUEST,
+            )
+
+    if not_listed_selected and answer["type"] == "api_autosuggest":
+        self_describe_limit = answer.get("self_describe", {}).get("character_limit")
+        self_describe_label, _ = _get_self_describe_config(page)
+
+        if isinstance(self_describe_limit, int) and len(value) > self_describe_limit:
+            logger.warning(
+                "Response exceeds character limit page_id=%s limit=%d",
+                page_id,
+                self_describe_limit,
+            )
+            return value, (
+                render_template(
+                    _get_question_template(page),
+                    page=page,
+                    question_text=question_text,
+                    saved_value="",
+                    selected_suggestion="",
+                    not_listed_selected=True,
+                    self_describe_value=value,
+                    self_describe_label=self_describe_label,
+                    self_describe_error_message=(
+                        f"Your answer must be {self_describe_limit} characters or fewer"
+                    ),
+                    form_action=url_for(
+                        "survey.save_response",
+                        page_id=page_id,
+                    ),
+                    previous_url=previous_url,
+                    error_message=None,
+                ),
+                HTTPStatus.BAD_REQUEST,
+            )
+
+    if answer["type"] == "text" or not_listed_selected:
+        value = clean_saved_answer(value)
+
+    return value, None
+
+
 @survey_blueprint.post("/questions/<page_id>")
 @login_required
 def save_response(page_id: str) -> ResponseReturnValue:
@@ -1096,6 +1180,16 @@ def save_response(page_id: str) -> ResponseReturnValue:
         self_describe_label,
         self_describe_required_error,
     ) = _get_self_describe_config(page)
+
+    value, limit_response = _prepare_free_text_answer(
+        page,
+        value,
+        question_text=question_text,
+        not_listed_selected=not_listed_selected,
+        previous_url=previous_url,
+    )
+    if limit_response is not None:
+        return limit_response
 
     if answer["type"] == "api_autosuggest" and not not_listed_selected:
         selection_field_name = _get_autosuggest_selection_field_name(
@@ -1329,6 +1423,33 @@ def save_feedback_response(
         answer["name"],
         "",
     ).strip()
+
+    if answer["type"] == "text":
+        character_limit = answer.get("character_limit")
+
+        if character_limit is not None and len(value) > character_limit:
+            logger.warning(
+                "Feedback response exceeds character limit page_id=%s limit=%d",
+                page_id,
+                character_limit,
+            )
+            return (
+                render_template(
+                    "survey_question.html",
+                    page=page,
+                    question_text=page["question"]["text"],
+                    saved_value=value,
+                    form_action=url_for(
+                        "survey.save_feedback_response",
+                        page_id=page_id,
+                    ),
+                    previous_url=previous_url,
+                    error_message=(f"Your answer must be {character_limit} characters or fewer"),
+                ),
+                HTTPStatus.BAD_REQUEST,
+            )
+
+        value = clean_saved_answer(value)
 
     if answer["required"] and not value:
         return (
