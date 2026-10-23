@@ -27,13 +27,12 @@ def assert_cookie_choice(page: Page, additional_cookies: bool) -> None:
 )
 def test_cookie_choice_persists_after_reload(
     page: Page,
-    base_url: str,
     button_name: str,
     confirmation: str,
     additional_cookies: bool,
 ) -> None:
     """Keep the selected consent after a page reload."""
-    page.goto(f"{base_url}/cookies")
+    page.goto("/cookies")
     banner = page.get_by_role("region", name="Cookies banner")
     expect(banner).to_be_visible()
     banner.get_by_role("button", name=button_name).click()
