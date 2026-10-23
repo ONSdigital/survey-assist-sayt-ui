@@ -4,6 +4,8 @@ import re
 
 from playwright.sync_api import Page, expect
 
+from .cognitive_survey import CognitiveSurveyPage
+
 
 class HomePage:
     """Provide interactions with the authenticated home page."""
@@ -30,6 +32,7 @@ class HomePage:
     def open_cognitive_test(self) -> None:
         """Open the cognitive survey from the home page."""
         self.cognitive_test_button.click()
+        expect(self.page).to_have_url(f"{CognitiveSurveyPage.PATH}/questions/q1")
 
     def sign_out(self) -> None:
         """Sign out from the home page."""

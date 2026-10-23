@@ -1,12 +1,12 @@
 """Browser interactions for the cognitive survey."""
 
-import re
-
 from playwright.sync_api import Page, expect
 
 
 class CognitiveSurveyPage:
     """Enter answers on survey and feedback pages."""
+
+    PATH = "/survey"
 
     def __init__(self, page: Page) -> None:
         self.page = page
@@ -30,7 +30,7 @@ class CognitiveSurveyPage:
 
     def expect_feedback_complete(self) -> None:
         """Verify the final splash screen after feedback."""
-        expect(self.page).to_have_url(re.compile(r"/survey/complete$"))
+        expect(self.page).to_have_url(f"{self.PATH}/complete$")
         expect(self.page.get_by_role("heading", name="Survey complete", exact=True)).to_be_visible()
 
         panel = self.page.locator("#survey-complete-panel")
@@ -111,6 +111,11 @@ class CognitiveSurveyPage:
             "Select an answer from the suggestions or select Not listed"
         )
         expect(self.page.get_by_role("combobox")).to_be_visible()
+
+    def expect_q1_answer_required(self) -> None:
+        """Verify the error for a missing paid job answer."""
+        expect(self.page.get_by_text("Enter an answer", exact=True)).to_be_visible()
+        expect(self.page.get_by_role("radio", name="Yes", exact=True)).to_be_visible()
 
     def answer_q5_business_name(self, name: str) -> None:
         """Enter the business name."""

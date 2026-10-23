@@ -31,7 +31,7 @@ def test_paid_employee_journey(authenticated_page: Page, base_url: str) -> None:
 
 
 def test_own_business_journey(authenticated_page: Page, base_url: str) -> None:
-    """Full journey for an own business SAYT selection with feedback."""
+    """Survey journey for an own business with an unlisted activity."""
     HomePage(authenticated_page, base_url).open_cognitive_test()
     survey = CognitiveSurveyPage(authenticated_page)
     survey.answer_q1_paid_job("No")
@@ -60,6 +60,7 @@ def test_paid_job_requires_an_answer(authenticated_page: Page, base_url: str) ->
     HomePage(authenticated_page, base_url).open_cognitive_test()
     survey = CognitiveSurveyPage(authenticated_page)
     survey.save_button.click()
+    survey.expect_q1_answer_required()
 
 
 def test_business_activity_requires_a_selection(authenticated_page: Page, base_url: str) -> None:
