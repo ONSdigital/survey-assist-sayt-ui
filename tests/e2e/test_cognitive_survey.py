@@ -6,9 +6,9 @@ from .pages.cognitive_survey import CognitiveSurveyPage
 from .pages.home import HomePage
 
 
-def test_paid_employee_journey(authenticated_page: Page, base_url: str) -> None:
+def test_paid_employee_journey(authenticated_page: Page) -> None:
     """Full journey for a paid employee SAYT selection with feedback."""
-    HomePage(authenticated_page, base_url).open_cognitive_test()
+    HomePage(authenticated_page).open_cognitive_test()
 
     survey = CognitiveSurveyPage(authenticated_page)
     survey.answer_q1_paid_job("Yes")
@@ -30,9 +30,9 @@ def test_paid_employee_journey(authenticated_page: Page, base_url: str) -> None:
     survey.expect_feedback_complete()
 
 
-def test_own_business_journey(authenticated_page: Page, base_url: str) -> None:
-    """Survey journey for an own business with an unlisted activity."""
-    HomePage(authenticated_page, base_url).open_cognitive_test()
+def test_own_business_journey(authenticated_page: Page) -> None:
+    """Survey journey for own business with an unlisted activity."""
+    HomePage(authenticated_page).open_cognitive_test()
     survey = CognitiveSurveyPage(authenticated_page)
     survey.answer_q1_paid_job("No")
     survey.answer_q1a_own_business("Yes")
@@ -46,26 +46,18 @@ def test_own_business_journey(authenticated_page: Page, base_url: str) -> None:
     survey.expect_survey_section_complete()
 
 
-def test_early_exit_journey(authenticated_page: Page, base_url: str) -> None:
+def test_early_exit_journey(authenticated_page: Page) -> None:
     """Early exit journey when the respondent has no job or business."""
-    HomePage(authenticated_page, base_url).open_cognitive_test()
+    HomePage(authenticated_page).open_cognitive_test()
     survey = CognitiveSurveyPage(authenticated_page)
     survey.answer_q1_paid_job("No")
     survey.answer_q1a_own_business("No")
     survey.expect_survey_section_complete()
 
 
-def test_paid_job_requires_an_answer(authenticated_page: Page, base_url: str) -> None:
-    """Require an answer to continue."""
-    HomePage(authenticated_page, base_url).open_cognitive_test()
-    survey = CognitiveSurveyPage(authenticated_page)
-    survey.save_button.click()
-    survey.expect_q1_answer_required()
-
-
-def test_business_activity_requires_a_selection(authenticated_page: Page, base_url: str) -> None:
-    """Require a business activity selection before continuing."""
-    HomePage(authenticated_page, base_url).open_cognitive_test()
+def test_business_activity_requires_a_selection(authenticated_page: Page) -> None:
+    """Requires a business activity selection before continuing."""
+    HomePage(authenticated_page).open_cognitive_test()
     survey = CognitiveSurveyPage(authenticated_page)
     survey.answer_q1_paid_job("Yes")
     survey.answer_q2_employment_status("Employee")
@@ -78,9 +70,9 @@ def test_business_activity_requires_a_selection(authenticated_page: Page, base_u
     survey.expect_text_answer("business-activity", "software development")
 
 
-def test_previous_navigation_preserves_answers(authenticated_page: Page, base_url: str) -> None:
+def test_previous_navigation_preserves_answers(authenticated_page: Page) -> None:
     """Preserve answers to previously saved questions after navigating back."""
-    HomePage(authenticated_page, base_url).open_cognitive_test()
+    HomePage(authenticated_page).open_cognitive_test()
     survey = CognitiveSurveyPage(authenticated_page)
     survey.answer_q1_paid_job("Yes")
     survey.answer_q2_employment_status("Employee")

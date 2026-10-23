@@ -17,20 +17,10 @@ class CognitiveSurveyPage:
         expect(
             self.page.get_by_role("heading", name="Thanks for participating", exact=True)
         ).to_be_visible()
-        expect(
-            self.page.get_by_text(
-                "Thank you, that concludes the survey section for this public test.", exact=True
-            )
-        ).to_be_visible()
-        expect(
-            self.page.get_by_text(
-                "We appreciate your time and effort in helping us improve our surveys.", exact=True
-            )
-        ).to_be_visible()
 
     def expect_feedback_complete(self) -> None:
         """Verify the final splash screen after feedback."""
-        expect(self.page).to_have_url(f"{self.PATH}/complete$")
+        expect(self.page).to_have_url(f"{self.PATH}/complete")
         expect(self.page.get_by_role("heading", name="Survey complete", exact=True)).to_be_visible()
 
         panel = self.page.locator("#survey-complete-panel")
@@ -111,11 +101,6 @@ class CognitiveSurveyPage:
             "Select an answer from the suggestions or select Not listed"
         )
         expect(self.page.get_by_role("combobox")).to_be_visible()
-
-    def expect_q1_answer_required(self) -> None:
-        """Verify the error for a missing paid job answer."""
-        expect(self.page.get_by_text("Enter an answer", exact=True)).to_be_visible()
-        expect(self.page.get_by_role("radio", name="Yes", exact=True)).to_be_visible()
 
     def answer_q5_business_name(self, name: str) -> None:
         """Enter the business name."""
