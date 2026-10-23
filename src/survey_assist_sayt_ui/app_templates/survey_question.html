@@ -159,8 +159,16 @@
                         "value": saved_value,
                         "attributes": text_attributes,
                         "charCheckLimit": {
-                            "limit": page.answer.character_limit
-                        }
+                            "limit": page.answer.character_limit,
+                            "charCountOverLimitSingular": "{x} character too many",
+                            "charCountOverLimitPlural": "{x} characters too many",
+                            "charCountSingular": "You have {x} character remaining",
+                            "charCountPlural": "You have {x} characters remaining"
+                        },
+                        "error": {
+                            "id": page.answer.name ~ "-error",
+                            "text": error_message
+                        } if error_message else none
                     })
                 }}
 
@@ -171,7 +179,18 @@
                         "name": page.answer.name,
                         "type": "text",
                         "value": saved_value,
-                        "attributes": text_attributes
+                        "attributes": text_attributes,
+                        "charCheckLimit": {
+                            "limit": page.answer.character_limit,
+                            "charCountOverLimitSingular": "{x} character too many",
+                            "charCountOverLimitPlural": "{x} characters too many",
+                            "charCountSingular": "You have {x} character remaining",
+                            "charCountPlural": "You have {x} characters remaining"
+                        },
+                        "error": {
+                            "id": page.answer.name ~ "-error",
+                            "text": error_message
+                        } if error_message else none
                     })
                 }}
             {% endif %}
