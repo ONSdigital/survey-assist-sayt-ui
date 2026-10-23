@@ -88,7 +88,7 @@ def get_not_listed_description(
     """Return the saved SAYT Not Listed self-description, if present."""
 
     for page_id, single_response in _suggestion_responses_iterator(survey_definition, responses):
-        expected_field_name = f"{page_id}"
+        expected_field_name = f"{page_id}-self-describe"
 
         if single_response["response_name"] == expected_field_name:
             return single_response["value"]
