@@ -4,23 +4,26 @@ from playwright.sync_api import Page
 
 from .pages.home import HomePage
 from .pages.login import LoginPage
+from .pages.quick_test import QuickTestPage
 
 
-def test_signed_in_session_survives_reload_and_logout_blocks_protected_pages(
-    page: Page, base_url: str, credentials: tuple[str, str]
+def test_signed_in_session_survives_reload(
+    authenticated_page: Page, credentials: tuple[str, str]
 ) -> None:
-    """Keep the session after navigation and deny access after sign-out."""
-    username, password = credentials
-    login = LoginPage(page, base_url)
-    home = HomePage(page, base_url)
-
-    login.open()
-    login.sign_in(username, password)
+    """Keep the session after reload."""
+    username, _ = credentials
+    home = HomePage(authenticated_page)
     home.expect_signed_in(username)
-    page.reload()
+    authenticated_page.reload()
     home.expect_signed_in(username)
 
+
+def test_logout_blocks_protected_pages(authenticated_page: Page) -> None:
+    """Verify protected pages are blocked after logout."""
+    home = HomePage(authenticated_page)
     home.sign_out()
+    login = LoginPage(authenticated_page)
     login.expect_open()
-    page.goto(f"{base_url}/api-autosuggest")
+
+    authenticated_page.goto(QuickTestPage.PATH)
     login.expect_open()
