@@ -126,6 +126,7 @@ class ApiAutosuggestSelfDescribe(TypedDict):
 
     label: NotRequired[str]
     required_error: NotRequired[str]
+    character_limit: NotRequired[int]
 
 
 class ApiAutosuggestAnswer(TypedDict):
@@ -135,6 +136,7 @@ class ApiAutosuggestAnswer(TypedDict):
     name: str
     required: bool
     placeholder: NotRequired[str]
+    character_limit: NotRequired[int]
     not_listed: NotRequired[bool]
     self_describe: NotRequired[ApiAutosuggestSelfDescribe]
 

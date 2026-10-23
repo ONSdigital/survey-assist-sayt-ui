@@ -102,6 +102,18 @@
     "attributes": input_attributes
 } %}
 
+{% if page.answer.character_limit %}
+    {% set _ = input_options.update({
+        "charCheckLimit": {
+            "limit": page.answer.character_limit,
+            "charCountOverLimitSingular": "{x} character too many",
+            "charCountOverLimitPlural": "{x} characters too many",
+            "charCountSingular": "You have {x} character remaining",
+            "charCountPlural": "You have {x} characters remaining"
+        }
+    }) %}
+{% endif %}
+
 {% if not_listed_enabled %}
     {% set _ = input_options.update({
         "legend": question_text,
@@ -285,24 +297,34 @@
         </div>
 
         {% if not_listed_enabled %}
-            {{
-                onsInput({
-                    "id": self_describe_id,
-                    "fieldId": self_describe_field_id,
-                    "fieldClasses": self_describe_field_classes,
-                    "name": self_describe_id,
-                    "type": "text",
-                    "width": "30",
-                    "autocomplete": "off",
-                    "value": self_describe_value | default(""),
-                    "attributes": self_describe_attributes,
-                    "label": {
-                        "id": self_describe_id ~ "-label",
-                        "text": self_describe_label
-                    },
-                    "error": self_describe_error
-                })
-            }}
+            {% set self_describe_options = {
+                "id": self_describe_id,
+                "fieldId": self_describe_field_id,
+                "fieldClasses": self_describe_field_classes,
+                "name": self_describe_id,
+                "type": "text",
+                "width": "30",
+                "autocomplete": "off",
+                "value": self_describe_value | default(""),
+                "attributes": self_describe_attributes,
+                "label": {
+                    "id": self_describe_id ~ "-label",
+                    "text": self_describe_label
+                },
+                "error": self_describe_error
+            } %}
+            {% if page.answer.self_describe.character_limit %}
+                {% set _ = self_describe_options.update({
+                    "charCheckLimit": {
+                        "limit": page.answer.self_describe.character_limit,
+                        "charCountOverLimitSingular": "{x} character too many",
+                        "charCountOverLimitPlural": "{x} characters too many",
+                        "charCountSingular": "You have {x} character remaining",
+                        "charCountPlural": "You have {x} characters remaining"
+                    }
+                }) %}
+            {% endif %}
+            {{ onsInput(self_describe_options) }}
         {% endif %}
 
         {{

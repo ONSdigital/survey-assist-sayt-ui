@@ -141,14 +141,14 @@ def test_index_shows_survey_section_when_intro_is_disabled(
 def test_business_activity_suggestions_rejects_query_over_maximum_length(
     client: FlaskClient,
 ) -> None:
-    """Test that autosuggest queries longer than 100 characters are rejected."""
+    """Test that autosuggest queries longer than 60 characters are rejected."""
     with client.session_transaction() as flask_session:
         flask_session[SESSION_USER_KEY] = "person@example.com"
         flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
 
     response = client.get(
         "/api/business-activity-suggestions",
-        query_string={"q": "a" * 101},
+        query_string={"q": "a" * 61},
     )
 
     assert response.status_code == HTTPStatus.BAD_REQUEST
@@ -182,6 +182,37 @@ def test_business_activity_suggestions_returns_search_results(
             "en": "Soft drinks production: 11070",
         },
     ]
+
+
+def test_business_activity_suggestions_removes_ampersand_before_search(
+    app: Flask,
+    client: FlaskClient,
+) -> None:
+    """Test that an ampersand is removed from the suggestion search."""
+    searched_queries: list[str] = []
+
+    class RecordingSearchClient:  # pylint: disable=too-few-public-methods
+        """Record the query sent to the suggestion search."""
+
+        def search(self, query: str, *, limit: int) -> list[BusinessActivitySuggestion]:
+            """Record one search query."""
+            assert limit == 20
+            searched_queries.append(query)
+            return []
+
+    app.extensions["business_activity_search_client"] = RecordingSearchClient()
+
+    with client.session_transaction() as flask_session:
+        flask_session[SESSION_USER_KEY] = "person@example.com"
+        flask_session[SESSION_LOGIN_TIME_KEY] = datetime.now(UTC).isoformat()
+
+    response = client.get(
+        "/api/business-activity-suggestions",
+        query_string={"q": "cleaner&"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert searched_queries == ["cleaner"]
 
 
 def test_api_autosuggest_renders_self_describe_input(

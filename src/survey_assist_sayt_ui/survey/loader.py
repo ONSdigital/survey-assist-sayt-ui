@@ -838,14 +838,10 @@ def _validate_text_answer(answer: dict[str, object]) -> None:
                 "answer.rows may only be used when answer.multiline is true"
             )
 
-    character_limit = answer.get("character_limit")
-
-    if character_limit is not None and (
-        not isinstance(character_limit, int)
-        or isinstance(character_limit, bool)
-        or character_limit < 1
-    ):
-        raise SurveyDefinitionInvalidError("answer.character_limit must be a positive integer")
+    _validate_character_limit(
+        answer.get("character_limit"),
+        "answer.character_limit",
+    )
 
 
 def _validate_api_autosuggest_answer(
@@ -860,6 +856,11 @@ def _validate_api_autosuggest_answer(
         SurveyDefinitionInvalidError: If optional autosuggest configuration
             is invalid.
     """
+    _validate_character_limit(
+        answer.get("character_limit"),
+        "answer.character_limit",
+    )
+
     placeholder = answer.get("placeholder")
 
     if placeholder is not None and not isinstance(
@@ -901,6 +902,28 @@ def _validate_api_autosuggest_answer(
             raise SurveyDefinitionInvalidError(
                 f"answer.self_describe.{field_name} must be a non-empty string"
             )
+
+    _validate_character_limit(
+        self_describe.get("character_limit"),
+        "answer.self_describe.character_limit",
+    )
+
+
+def _validate_character_limit(value: object, field_name: str) -> None:
+    """Validate an optional positive character limit.
+
+    Args:
+        value: Configured limit, when present.
+        field_name: Field name used in the validation message.
+
+    Raises:
+        SurveyDefinitionInvalidError: If the limit is not a positive integer.
+    """
+    if value is None:
+        return
+
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise SurveyDefinitionInvalidError(f"{field_name} must be a positive integer")
 
 
 def _validate_button_block(block: dict[str, object]) -> None:
