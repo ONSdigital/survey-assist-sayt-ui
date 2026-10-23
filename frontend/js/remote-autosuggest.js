@@ -63,30 +63,59 @@ function initialiseRemoteAutosuggest(container) {
       .replace(/\s+/g, ' ')
   }
 
-  function initialiseSelectionInput() {
-    if (!selectionFieldName) {
+  function initialiseInput(fieldName, value) {
+    if (!fieldName || !form) {
+      return null
+    }
+
+    let input = form.elements.namedItem(fieldName)
+
+    if (!(input instanceof HTMLInputElement)) {
+      input = document.createElement('input')
+      input.type = 'hidden'
+      input.name = fieldName
+      form.appendChild(input)
+    }
+
+    input.value = value
+    return input
+  }
+
+  function recordQuery(query) {
+    if (!queriesInput || !query) {
       return
     }
 
-    const form = container.closest('form')
+    queryHistory.unshift({
+      value: query.value,
+      time_start: query.time_start,
+      time_end: query.time_end,
+    })
 
-    if (!form) {
+    queriesInput.value = JSON.stringify(queryHistory)
+  }
+
+  let savedHistoryCleared = false
+  let originalInputValue = ''
+
+  function clearSavedHistoryOnInput() {
+    if (
+      savedHistoryCleared ||
+      autosuggest.input.value === originalInputValue
+    ) {
       return
     }
 
-    const existingField =
-      form.elements.namedItem(selectionFieldName)
+    savedHistoryCleared = true
+    queryHistory.length = 0
 
-    if (existingField instanceof HTMLInputElement) {
-      selectionInput = existingField
-    } else {
-      selectionInput = document.createElement('input')
-      selectionInput.type = 'hidden'
-      selectionInput.name = selectionFieldName
-      form.appendChild(selectionInput)
+    if (queriesInput) {
+      queriesInput.value = '[]'
     }
 
-    selectionInput.value = initialSelectionValue
+    if (suggestionsInput) {
+      suggestionsInput.value = '[]'
+    }
   }
 
   function initialiseSuggestionsInput() {
@@ -297,9 +326,18 @@ function initialiseRemoteAutosuggest(container) {
     suggestionsInput.value = JSON.stringify(descriptions)
   }
 
-  initialiseSelectionInput()
-  initialiseSuggestionsInput()
-  initialiseQueriesInput()
+  selectionInput = initialiseInput(
+    selectionFieldName,
+    initialSelectionValue,
+  )
+  suggestionsInput = initialiseInput(
+    suggestionsFieldName,
+    JSON.stringify(savedSuggestions),
+  )
+  queriesInput = initialiseInput(
+    queriesFieldName,
+    JSON.stringify(queryHistory),
+  )
 
   originalInputValue = autosuggest.input.value
 

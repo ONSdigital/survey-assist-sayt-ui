@@ -1,5 +1,6 @@
 """Build API result payloads from survey metadata."""
 
+from collections.abc import Iterator
 from datetime import datetime
 import re
 from typing import cast
@@ -57,11 +58,11 @@ def build_suggestion_inputs(
     return inputs
 
 
-def get_not_listed_description(
+def _suggestion_responses_iterator(
     survey_definition: SurveyDefinition,
     responses: SurveyResponses,
-) -> str:
-    """Return the saved SAYT Not Listed self-description, if present."""
+) -> Iterator[tuple[str, SingleValueSurveyResponse]]:
+    """Yield page IDs and saved SAYT responses in survey order."""
 
     for page in survey_definition["survey_pages"]["pages"]:
         if page["page_type"] != "question":
@@ -77,9 +78,17 @@ def get_not_listed_description(
         if saved is None or "value" not in saved:
             continue
 
-        single_response = cast(SingleValueSurveyResponse, saved)
+        yield page["page_id"], cast(SingleValueSurveyResponse, saved)
 
-        expected_field_name = f"{page['page_id']}-self-describe"
+
+def get_not_listed_description(
+    survey_definition: SurveyDefinition,
+    responses: SurveyResponses,
+) -> str:
+    """Return the saved SAYT Not Listed self-description, if present."""
+
+    for page_id, single_response in _suggestion_responses_iterator(survey_definition, responses):
+        expected_field_name = f"{page_id}-self-describe"
 
         if single_response["response_name"] == expected_field_name:
             return single_response["value"]
@@ -93,24 +102,9 @@ def get_selected_suggestion(
 ) -> str:
     """Return the selected SAYT description, if one was chosen."""
 
-    for page in survey_definition["survey_pages"]["pages"]:
-        if page["page_type"] != "question":
-            continue
-
-        answer = page["answer"]
-
-        if answer["type"] != "api_autosuggest":
-            continue
-
-        saved = responses.get(page["page_id"])
-
-        if saved is None or "value" not in saved:
-            continue
-
-        single_response = cast(SingleValueSurveyResponse, saved)
-
+    for page_id, single_response in _suggestion_responses_iterator(survey_definition, responses):
         # Not Listed uses the generated self-description field name.
-        expected_field_name = f"{page['page_id']}-self-describe"
+        expected_field_name = f"{page_id}-self-describe"
 
         if single_response["response_name"] == expected_field_name:
             return ""
@@ -126,20 +120,7 @@ def get_last_suggestions(
 ) -> list[SuggestionListItem]:
     """Return the last displayed suggestions from the answered SAYT question."""
 
-    for page in survey_definition["survey_pages"]["pages"]:
-        if page["page_type"] != "question":
-            continue
-
-        if page["answer"]["type"] != "api_autosuggest":
-            continue
-
-        saved = responses.get(page["page_id"])
-
-        if saved is None or "value" not in saved:
-            continue
-
-        single_response = cast(SingleValueSurveyResponse, saved)
-
+    for _, single_response in _suggestion_responses_iterator(survey_definition, responses):
         return [
             SuggestionListItem(
                 code="99999",  # Placeholder until code is added to api
@@ -157,20 +138,7 @@ def get_suggestion_queries(
 ) -> list[SuggestionQuery]:
     """Return successful SAYT queries, newest first."""
 
-    for page in survey_definition["survey_pages"]["pages"]:
-        if page["page_type"] != "question":
-            continue
-
-        if page["answer"]["type"] != "api_autosuggest":
-            continue
-
-        saved = responses.get(page["page_id"])
-
-        if saved is None or "value" not in saved:
-            continue
-
-        single_response = cast(SingleValueSurveyResponse, saved)
-
+    for _, single_response in _suggestion_responses_iterator(survey_definition, responses):
         return [
             SuggestionQuery(
                 value=query["value"],

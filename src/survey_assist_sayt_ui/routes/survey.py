@@ -921,7 +921,58 @@ def _record_survey_response_start(
     )
 
 
-def _submit_result_if_configured(  # pylint: disable=too-many-return-statements
+def _get_suggestion_times(
+    page: QuestionPage,
+    default_time_end: datetime,
+) -> tuple[datetime, datetime] | None:
+    """Get suggestion start and end times.
+
+    Args:
+        page: The question page.
+        default_time_end: The current time.
+
+    Returns:
+        Tuple of (suggestion_time_start, suggestion_time_end), or None if times
+        cannot be determined.
+    """
+    if SUGGESTION_TIME_START_KEY in session and SUGGESTION_TIME_END_KEY in session:
+        try:
+            suggestion_time_start = _get_session_datetime(SUGGESTION_TIME_START_KEY)
+            suggestion_time_end = _get_session_datetime(SUGGESTION_TIME_END_KEY)
+        except RuntimeError:
+            logger.exception(
+                "Invalid suggestion timestamps page_id=%s",
+                page["page_id"],
+            )
+            return None
+
+        return suggestion_time_start, suggestion_time_end
+
+    if session.get(QUESTION_RENDER_PAGE_ID_KEY) != page["page_id"]:
+        logger.error(
+            "Question render timestamp unavailable page_id=%s",
+            page["page_id"],
+        )
+        return None
+
+    try:
+        suggestion_time_start = _get_session_datetime(QUESTION_RENDER_TIME_KEY)
+    except RuntimeError:
+        logger.exception(
+            "Invalid question render timestamp page_id=%s",
+            page["page_id"],
+        )
+        return None
+
+    logger.info(
+        "Using question timestamps for pre-SAYT result page_id=%s",
+        page["page_id"],
+    )
+
+    return suggestion_time_start, default_time_end
+
+
+def _submit_result_if_configured(
     page: QuestionPage,
 ) -> None:
     """Submit the current survey result when configured for the page."""
@@ -955,39 +1006,11 @@ def _submit_result_if_configured(  # pylint: disable=too-many-return-statements
 
     time_end = datetime.now(UTC)
 
-    if SUGGESTION_TIME_START_KEY in session and SUGGESTION_TIME_END_KEY in session:
-        try:
-            suggestion_time_start = _get_session_datetime(SUGGESTION_TIME_START_KEY)
-            suggestion_time_end = _get_session_datetime(SUGGESTION_TIME_END_KEY)
-        except RuntimeError:
-            logger.exception(
-                "Invalid suggestion timestamps page_id=%s",
-                page["page_id"],
-            )
-            return
-    else:
-        if session.get(QUESTION_RENDER_PAGE_ID_KEY) != page["page_id"]:
-            logger.error(
-                "Question render timestamp unavailable page_id=%s",
-                page["page_id"],
-            )
-            return
+    suggestion_times = _get_suggestion_times(page, time_end)
+    if suggestion_times is None:
+        return
 
-        try:
-            suggestion_time_start = _get_session_datetime(QUESTION_RENDER_TIME_KEY)
-        except RuntimeError:
-            logger.exception(
-                "Invalid question render timestamp page_id=%s",
-                page["page_id"],
-            )
-            return
-
-        suggestion_time_end = time_end
-
-        logger.info(
-            "Using question timestamps for pre-SAYT result page_id=%s",
-            page["page_id"],
-        )
+    suggestion_time_start, suggestion_time_end = suggestion_times
 
     result = build_suggestion_survey_result(
         _get_survey_definition(),
@@ -1395,8 +1418,8 @@ def save_response(page_id: str) -> ResponseReturnValue:
     }
 
     if answer["type"] == "api_autosuggest":
-        saved_response["suggestions"] = _get_submitted_suggestions(answer["name"])
-        saved_response["queries"] = _get_submitted_queries(answer["name"])
+        saved_response["suggestions"] = submitted_suggestions
+        saved_response["queries"] = submitted_queries
 
     updated_responses[page_id] = saved_response
     session[SURVEY_RESPONSES_KEY] = updated_responses
