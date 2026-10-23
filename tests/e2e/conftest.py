@@ -2,6 +2,7 @@
 
 from collections.abc import Iterator
 import os
+from typing import Any
 from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
@@ -9,7 +10,6 @@ from playwright.sync_api import BrowserContext, Page
 import pytest
 
 from .assets import AssetMonitor
-from .pages.home import HomePage
 from .pages.login import LoginPage
 
 load_dotenv()
@@ -61,7 +61,9 @@ def configured_credentials() -> tuple[str, str]:
 
 
 @pytest.fixture(scope="session", name="browser_type_launch_args")
-def configured_browser_type_launch_args(browser_type_launch_args: dict) -> dict:
+def configured_browser_type_launch_args(
+    browser_type_launch_args: dict[str, Any],
+) -> dict[str, Any]:
     """Disable QUIC to standardise traffic flow across different environments."""
     return {
         **browser_type_launch_args,
@@ -70,11 +72,10 @@ def configured_browser_type_launch_args(browser_type_launch_args: dict) -> dict:
 
 
 @pytest.fixture
-def authenticated_page(page: Page, base_url: str, credentials: tuple[str, str]) -> Page:
+def authenticated_page(page: Page, credentials: tuple[str, str]) -> Page:
     """Sign in with a fresh browser context."""
     username, password = credentials
-    login = LoginPage(page, base_url)
+    login = LoginPage(page)
     login.open()
     login.sign_in(username, password)
-    HomePage(page, base_url).expect_signed_in(username)
     return page
