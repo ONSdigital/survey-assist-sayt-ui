@@ -3,8 +3,17 @@
 from flask import Flask, Response, render_template
 
 
-def internal_server_error_response(app: Flask) -> Response:
-    """Build the response for an internal server error."""
-    response = app.make_response((render_template("500.html"), 500))
+def _error_response(app: Flask, status: int) -> Response:
+    response = app.make_response((render_template(f"{status}.html"), status))
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+def not_found_response(app: Flask) -> Response:
+    """Build the response for a page not found error."""
+    return _error_response(app, 404)
+
+
+def internal_server_error_response(app: Flask) -> Response:
+    """Build the response for an internal server error."""
+    return _error_response(app, 500)

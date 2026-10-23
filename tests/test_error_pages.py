@@ -33,10 +33,13 @@ def test_internal_server_error_shows_branded_page(
     assert exception_message not in page
 
 
-def test_not_found_is_not_handled_as_internal_server_error(client: FlaskClient) -> None:
-    """Ensure internal server error does not show for page not found errors."""
+def test_not_found_shows_branded_page(client: FlaskClient) -> None:
+    """Show the branded 404 page for missing routes"""
+
     response = client.get("/does-not-exist")
     page = response.get_data(as_text=True)
 
     assert response.status_code == HTTPStatus.NOT_FOUND
-    assert "The service is temporarily unavailable" not in page
+    assert response.headers["Cache-Control"] == "no-store"
+    assert "Office for National Statistics" in page
+    assert "Page not found" in page

@@ -118,6 +118,101 @@ function initialiseRemoteAutosuggest(container) {
     }
   }
 
+  function initialiseSuggestionsInput() {
+    if (!selectionFieldName) {
+      return
+    }
+
+    const form = container.closest('form')
+
+    if (!form) {
+      return
+    }
+
+    const fieldName = selectionFieldName.replace(
+      /-selected$/,
+      '-suggestions',
+    )
+
+    suggestionsInput = form.elements.namedItem(fieldName)
+
+    if (!(suggestionsInput instanceof HTMLInputElement)) {
+      suggestionsInput = document.createElement('input')
+      suggestionsInput.type = 'hidden'
+      suggestionsInput.name = fieldName
+      form.appendChild(suggestionsInput)
+    }
+
+    suggestionsInput.value = JSON.stringify(savedSuggestions)
+  }
+
+  function initialiseQueriesInput() {
+    if (!selectionFieldName) {
+      return
+    }
+
+    const form = container.closest('form')
+
+    if (!form) {
+      return
+    }
+
+    const fieldName = selectionFieldName.replace(
+      /-selected$/,
+      '-queries',
+    )
+
+    const existingField = form.elements.namedItem(fieldName)
+
+    if (existingField instanceof HTMLInputElement) {
+      queriesInput = existingField
+    } else {
+      queriesInput = document.createElement('input')
+      queriesInput.type = 'hidden'
+      queriesInput.name = fieldName
+      form.appendChild(queriesInput)
+    }
+
+    queriesInput.value = JSON.stringify(queryHistory)
+  }
+
+  function recordQuery(query) {
+    if (!queriesInput || !query) {
+      return
+    }
+
+    queryHistory.unshift({
+      value: query.value,
+      time_start: query.time_start,
+      time_end: query.time_end,
+    })
+
+    queriesInput.value = JSON.stringify(queryHistory)
+  }
+
+  let savedHistoryCleared = false
+  let originalInputValue = ''
+
+  function clearSavedHistoryOnInput() {
+    if (
+      savedHistoryCleared ||
+      autosuggest.input.value === originalInputValue
+    ) {
+      return
+    }
+
+    savedHistoryCleared = true
+    queryHistory.length = 0
+
+    if (queriesInput) {
+      queriesInput.value = '[]'
+    }
+
+    if (suggestionsInput) {
+      suggestionsInput.value = '[]'
+    }
+  }
+
   function clearSelectionIfInputChanged() {
     if (
       selectionInput &&

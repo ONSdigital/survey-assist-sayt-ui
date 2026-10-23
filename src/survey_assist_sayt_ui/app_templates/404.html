@@ -1,0 +1,11 @@
+{% extends "core.html" %}
+
+{% set page_title = "Page not found" %}
+{% set main_col_class = "ons-col-8@m" %}
+
+{% block main %}
+    <h1>{{ page_title }}</h1>
+    <p>If you entered a web address, check it is correct.</p>
+    <p>If you pasted the web address, check you copied the whole address.</p>
+    <p>If the web address is correct, or you selected a link or button, <a href="mailto:{{ service_email }}?subject={{ page_title ~ ' - ' ~ service_name | urlencode }}">contact us</a>.</p>
+{% endblock %}
