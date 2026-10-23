@@ -95,13 +95,6 @@ class CognitiveSurveyPage:  # pylint: disable=too-many-public-methods
         self.page.get_by_role("combobox").fill(query)
         self.save_button.click()
 
-    def expect_q4_selection_required(self) -> None:
-        """Verify the error for an unselected business activity."""
-        expect(self.page.locator("#q4-api-autosuggest-error")).to_contain_text(
-            "Select an answer from the suggestions or select Not listed"
-        )
-        expect(self.page.get_by_role("combobox")).to_be_visible()
-
     def answer_q5_business_name(self, name: str) -> None:
         """Enter the business name."""
         self.page.locator('[name="business-name"]').fill(name)

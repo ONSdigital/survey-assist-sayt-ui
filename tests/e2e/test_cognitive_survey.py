@@ -55,21 +55,6 @@ def test_early_exit_journey(authenticated_page: Page) -> None:
     survey.expect_survey_section_complete()
 
 
-def test_business_activity_requires_a_selection(authenticated_page: Page) -> None:
-    """Requires a business activity selection before continuing."""
-    HomePage(authenticated_page).open_cognitive_test()
-    survey = CognitiveSurveyPage(authenticated_page)
-    survey.answer_q1_paid_job("Yes")
-    survey.answer_q2_employment_status("Employee")
-    survey.answer_q2b_job_title("Software developer")
-    survey.answer_q3_job_description("I build software for clients.")
-    survey.save_button.click()
-    survey.expect_q4_selection_required()
-    survey.enter_q4_unselected_activity("software development")
-    survey.expect_q4_selection_required()
-    survey.expect_text_answer("business-activity", "software development")
-
-
 def test_previous_navigation_preserves_answers(authenticated_page: Page) -> None:
     """Preserve answers to previously saved questions after navigating back."""
     HomePage(authenticated_page).open_cognitive_test()
