@@ -63,88 +63,22 @@ function initialiseRemoteAutosuggest(container) {
       .replace(/\s+/g, ' ')
   }
 
-  function initialiseSelectionInput() {
-    if (!selectionFieldName) {
-      return
+  function initialiseInput(fieldName, value) {
+    if (!fieldName || !form) {
+      return null
     }
 
-    const form = container.closest('form')
+    let input = form.elements.namedItem(fieldName)
 
-    if (!form) {
-      return
+    if (!(input instanceof HTMLInputElement)) {
+      input = document.createElement('input')
+      input.type = 'hidden'
+      input.name = fieldName
+      form.appendChild(input)
     }
 
-    const existingField =
-      form.elements.namedItem(selectionFieldName)
-
-    if (existingField instanceof HTMLInputElement) {
-      selectionInput = existingField
-    } else {
-      selectionInput = document.createElement('input')
-      selectionInput.type = 'hidden'
-      selectionInput.name = selectionFieldName
-      form.appendChild(selectionInput)
-    }
-
-    selectionInput.value = initialSelectionValue
-  }
-
-  function initialiseSuggestionsInput() {
-    if (!selectionFieldName) {
-      return
-    }
-
-    const form = container.closest('form')
-
-    if (!form) {
-      return
-    }
-
-    const fieldName = selectionFieldName.replace(
-      /-selected$/,
-      '-suggestions',
-    )
-
-    suggestionsInput = form.elements.namedItem(fieldName)
-
-    if (!(suggestionsInput instanceof HTMLInputElement)) {
-      suggestionsInput = document.createElement('input')
-      suggestionsInput.type = 'hidden'
-      suggestionsInput.name = fieldName
-      form.appendChild(suggestionsInput)
-    }
-
-    suggestionsInput.value = JSON.stringify(savedSuggestions)
-  }
-
-  function initialiseQueriesInput() {
-    if (!selectionFieldName) {
-      return
-    }
-
-    const form = container.closest('form')
-
-    if (!form) {
-      return
-    }
-
-    const fieldName = selectionFieldName.replace(
-      /-selected$/,
-      '-queries',
-    )
-
-    const existingField = form.elements.namedItem(fieldName)
-
-    if (existingField instanceof HTMLInputElement) {
-      queriesInput = existingField
-    } else {
-      queriesInput = document.createElement('input')
-      queriesInput.type = 'hidden'
-      queriesInput.name = fieldName
-      form.appendChild(queriesInput)
-    }
-
-    queriesInput.value = JSON.stringify(queryHistory)
+    input.value = value
+    return input
   }
 
   function recordQuery(query) {
@@ -297,9 +231,18 @@ function initialiseRemoteAutosuggest(container) {
     suggestionsInput.value = JSON.stringify(descriptions)
   }
 
-  initialiseSelectionInput()
-  initialiseSuggestionsInput()
-  initialiseQueriesInput()
+  selectionInput = initialiseInput(
+    selectionFieldName,
+    initialSelectionValue,
+  )
+  suggestionsInput = initialiseInput(
+    suggestionsFieldName,
+    JSON.stringify(savedSuggestions),
+  )
+  queriesInput = initialiseInput(
+    queriesFieldName,
+    JSON.stringify(queryHistory),
+  )
 
   originalInputValue = autosuggest.input.value
 

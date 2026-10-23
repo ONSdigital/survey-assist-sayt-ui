@@ -1395,8 +1395,8 @@ def save_response(page_id: str) -> ResponseReturnValue:
     }
 
     if answer["type"] == "api_autosuggest":
-        saved_response["suggestions"] = _get_submitted_suggestions(answer["name"])
-        saved_response["queries"] = _get_submitted_queries(answer["name"])
+        saved_response["suggestions"] = submitted_suggestions
+        saved_response["queries"] = submitted_queries
 
     updated_responses[page_id] = saved_response
     session[SURVEY_RESPONSES_KEY] = updated_responses
