@@ -27,9 +27,10 @@ from survey_assist_sayt_ui.services.business_activity import (
 )
 from survey_assist_sayt_ui.survey.models import SurveyDefinition
 from survey_assist_sayt_ui.survey.session import clear_survey_session_data
+from survey_assist_sayt_ui.survey.text_input import suggestion_search_text
 
 MIN_AUTOSUGGEST_CHARACTERS = 3
-MAX_AUTOSUGGEST_QUERY_LENGTH = 100
+MAX_AUTOSUGGEST_QUERY_LENGTH = 60
 MAX_AUTOSUGGEST_RESULTS = 20
 NOT_LISTED_VALUE = "not-listed"
 API_AUTOSUGGEST_SELF_DESCRIBE_REQUIRED_ERROR = (
@@ -209,6 +210,10 @@ def business_activity_suggestions() -> ResponseReturnValue:
 
     if len(query) > MAX_AUTOSUGGEST_QUERY_LENGTH:
         return {"error": "Search query is too long"}, 400
+
+    query = suggestion_search_text(query)
+    if len(query) < MIN_AUTOSUGGEST_CHARACTERS:
+        return jsonify([])
 
     client = cast(
         BusinessActivitySearchClient,
