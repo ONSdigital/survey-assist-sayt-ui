@@ -571,3 +571,20 @@ Previous navigation is supported when respondents use the Previous link provided
 Navigating directly to an earlier question by changing or pasting a URL, or using the browser Back button to revisit previously answered questions, is not supported. Doing so may cause the application to infer the previous answered question incorrectly.
 
 The application does not currently maintain an explicit navigation-history list; Previous navigation is designed around the supported application journey.
+
+SAYT requires JavaScript to retrieve suggestions and capture respondent
+interactions.
+
+Successful suggestion searches acknowledged by the browser are recorded
+with their query text and server-side API request timestamps. Debounced,
+cancelled and failed requests are not included in the result query history.
+
+The last suggestion list processed for display is captured in its original
+order when the SAYT answer is saved. Interaction data is submitted by the
+browser and validated by the server, but cannot be independently verified
+as an exact record of what the respondent saw.
+
+SIC codes are not currently extracted from suggestions. The result uses
+`99999` as a placeholder code for selected and displayed suggestions.
+
+These limitations are accepted for the small, curated trial.

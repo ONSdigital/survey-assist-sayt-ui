@@ -9,6 +9,36 @@ function initialiseRemoteAutosuggest(container) {
   const initialSelectionValue =
     container.dataset.autosuggestSelectionValue || ''
 
+  const form = container.closest('form')
+
+  const suggestionsFieldName = selectionFieldName?.replace(
+    /-selected$/,
+    '-suggestions',
+  )
+
+  const queriesFieldName = selectionFieldName?.replace(
+    /-selected$/,
+    '-queries',
+  )
+
+  function parseSavedJson(fieldName) {
+    const field = form?.elements.namedItem(fieldName)
+
+    if (!(field instanceof HTMLInputElement)) {
+      return []
+    }
+
+    try {
+      const value = JSON.parse(field.value || '[]')
+      return Array.isArray(value) ? value : []
+    } catch {
+      return []
+    }
+  }
+
+  const savedSuggestions = parseSavedJson(suggestionsFieldName)
+  const savedQueries = parseSavedJson(queriesFieldName)
+
   const debounceMs = 300
   let debounceTimer = null
   let abortController = null
@@ -22,6 +52,9 @@ function initialiseRemoteAutosuggest(container) {
   }
   let autosuggest
   let selectionInput = null
+  let suggestionsInput = null
+  let queriesInput = null
+  const queryHistory = [...savedQueries]
 
   function normaliseQueryForSearch(value) {
     return value
@@ -54,6 +87,101 @@ function initialiseRemoteAutosuggest(container) {
     }
 
     selectionInput.value = initialSelectionValue
+  }
+
+  function initialiseSuggestionsInput() {
+    if (!selectionFieldName) {
+      return
+    }
+
+    const form = container.closest('form')
+
+    if (!form) {
+      return
+    }
+
+    const fieldName = selectionFieldName.replace(
+      /-selected$/,
+      '-suggestions',
+    )
+
+    suggestionsInput = form.elements.namedItem(fieldName)
+
+    if (!(suggestionsInput instanceof HTMLInputElement)) {
+      suggestionsInput = document.createElement('input')
+      suggestionsInput.type = 'hidden'
+      suggestionsInput.name = fieldName
+      form.appendChild(suggestionsInput)
+    }
+
+    suggestionsInput.value = JSON.stringify(savedSuggestions)
+  }
+
+  function initialiseQueriesInput() {
+    if (!selectionFieldName) {
+      return
+    }
+
+    const form = container.closest('form')
+
+    if (!form) {
+      return
+    }
+
+    const fieldName = selectionFieldName.replace(
+      /-selected$/,
+      '-queries',
+    )
+
+    const existingField = form.elements.namedItem(fieldName)
+
+    if (existingField instanceof HTMLInputElement) {
+      queriesInput = existingField
+    } else {
+      queriesInput = document.createElement('input')
+      queriesInput.type = 'hidden'
+      queriesInput.name = fieldName
+      form.appendChild(queriesInput)
+    }
+
+    queriesInput.value = JSON.stringify(queryHistory)
+  }
+
+  function recordQuery(query) {
+    if (!queriesInput || !query) {
+      return
+    }
+
+    queryHistory.unshift({
+      value: query.value,
+      time_start: query.time_start,
+      time_end: query.time_end,
+    })
+
+    queriesInput.value = JSON.stringify(queryHistory)
+  }
+
+  let savedHistoryCleared = false
+  let originalInputValue = ''
+
+  function clearSavedHistoryOnInput() {
+    if (
+      savedHistoryCleared ||
+      autosuggest.input.value === originalInputValue
+    ) {
+      return
+    }
+
+    savedHistoryCleared = true
+    queryHistory.length = 0
+
+    if (queriesInput) {
+      queriesInput.value = '[]'
+    }
+
+    if (suggestionsInput) {
+      suggestionsInput.value = '[]'
+    }
   }
 
   function clearSelectionIfInputChanged() {
@@ -114,6 +242,17 @@ function initialiseRemoteAutosuggest(container) {
       ? payload
       : payload.results || []
 
+    if (requestId !== latestRequestId) {
+      throw new DOMException(
+        'Stale autosuggest response',
+        'AbortError',
+      )
+    }
+
+    if (!Array.isArray(payload) && payload.query) {
+      recordQuery(payload.query)
+    }
+
     lastResultEnvelope = {
       status: response.status,
       results: results.slice(0, 20),
@@ -139,7 +278,35 @@ function initialiseRemoteAutosuggest(container) {
     },
   })
 
+  const originalHandleResults =
+  autosuggest.handleResults.bind(autosuggest)
+
+  autosuggest.handleResults = (envelope) => {
+    originalHandleResults(envelope)
+
+    if (!suggestionsInput) {
+      return
+    }
+
+    const descriptions = autosuggest.results.map((result) => {
+      const item = result.item ?? result
+
+      return item[autosuggest.lang] ?? item.formattedAddress
+    })
+
+    suggestionsInput.value = JSON.stringify(descriptions)
+  }
+
   initialiseSelectionInput()
+  initialiseSuggestionsInput()
+  initialiseQueriesInput()
+
+  originalInputValue = autosuggest.input.value
+
+  autosuggest.input.addEventListener(
+    'input',
+    clearSavedHistoryOnInput,
+  )
 
   autosuggest.input.addEventListener(
     'input',

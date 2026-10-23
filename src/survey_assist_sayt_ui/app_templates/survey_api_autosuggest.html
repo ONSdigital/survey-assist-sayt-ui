@@ -269,6 +269,18 @@
     >
         {{ onsAutosuggest(autosuggest_options) }}
 
+        <input
+            type="hidden"
+            name="{{ page.answer.name }}-suggestions"
+            value="{{ saved_suggestions | default([]) | tojson | forceescape }}"
+        >
+
+        <input
+            type="hidden"
+            name="{{ page.answer.name }}-queries"
+            value="{{ saved_queries | default([]) | tojson | forceescape }}"
+        >
+
         <div
             id="{{ loading_id }}"
             class="business-activity-loading ons-u-fs-s ons-u-mt-xs"

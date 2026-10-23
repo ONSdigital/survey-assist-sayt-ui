@@ -18,6 +18,7 @@ from survey_assist_sayt_ui.auth.decorators import (
 from survey_assist_sayt_ui.models.feedback import FeedbackResponse, FeedbackResult
 from survey_assist_sayt_ui.models.result import (
     ResultResponse,
+    SuggestionInteraction,
     SurveyAssistResult,
 )
 from survey_assist_sayt_ui.routes.survey import SURVEY_RESPONSES_KEY
@@ -32,6 +33,10 @@ from survey_assist_sayt_ui.survey.models import (
     SurveyFeedback,
 )
 from survey_assist_sayt_ui.survey.session import (
+    QUESTION_RENDER_PAGE_ID_KEY,
+    QUESTION_RENDER_TIME_KEY,
+    SUGGESTION_TIME_END_KEY,
+    SUGGESTION_TIME_START_KEY,
     SURVEY_FEEDBACK_RESPONSES_KEY,
     SURVEY_RESPONSE_START_TIME_KEY,
 )
@@ -369,6 +374,8 @@ def test_api_autosuggest_response_is_saved_and_progresses(
         "question_name": "business_activity_question",
         "response_name": "business-activity",
         "value": ("Retail sale of clothing in specialised stores"),
+        "suggestions": [],
+        "queries": [],
     }
 
 
@@ -443,6 +450,8 @@ def test_api_autosuggest_saves_self_described_response(
         "question_name": "business_activity_question",
         "response_name": ("q-api-autosuggest-self-describe"),
         "value": "Repair and restoration of bicycles",
+        "suggestions": [],
+        "queries": [],
     }
 
 
@@ -1614,7 +1623,7 @@ def test_submit_result_question_sends_result_before_continuing(
     client: FlaskClient,
     app: Flask,
 ) -> None:
-    """Test a configured question submits a survey result."""
+    """Test result submission before SAYT uses the current question timestamps."""
     _authenticate(client)
     _set_result_session(client)
 
@@ -1640,11 +1649,26 @@ def test_submit_result_question_sends_result_before_continuing(
                 "value": "Primary school teacher",
             }
         }
+
         expected_login_time = datetime.fromisoformat(flask_session[SESSION_LOGIN_TIME_KEY])
         expected_response_start = datetime.fromisoformat(
             flask_session[SURVEY_RESPONSE_START_TIME_KEY]
         )
 
+        # No SAYT timestamps: exercise the pre-SAYT fallback.
+        flask_session.pop(SUGGESTION_TIME_START_KEY, None)
+        flask_session.pop(SUGGESTION_TIME_END_KEY, None)
+
+    # Render q2 to capture its start timestamp.
+    render_response = client.get("/survey/questions/q2")
+    assert render_response.status_code == HTTPStatus.OK
+
+    with client.session_transaction() as flask_session:
+        assert flask_session[QUESTION_RENDER_PAGE_ID_KEY] == "q2"
+
+        expected_question_start = datetime.fromisoformat(flask_session[QUESTION_RENDER_TIME_KEY])
+
+    # Submit q2, which is configured to send the result.
     response = client.post(
         "/survey/questions/q2",
         data={"job-description": ("I plan lessons and teach primary school pupils.")},
@@ -1655,17 +1679,56 @@ def test_submit_result_question_sends_result_before_continuing(
 
     result = result_client.submitted_results[0]
 
+    # Verify result metadata.
     assert result.survey_id == "test_survey"
     assert result.wave_id == "test-wave"
     assert result.user == "11-01"
     assert result.case_id == "11"
 
     assert result.time_start == expected_login_time
+    assert result.time_end >= result.time_start
 
-    assert result.responses[0].person_id == "11-01"
-    assert result.responses[0].time_start == expected_response_start
+    # Verify respondent metadata.
+    assert len(result.responses) == 1
 
-    assert result.responses[0].time_end == result.time_end
+    respondent = result.responses[0]
+
+    assert respondent.person_id == "11-01"
+    assert respondent.time_start == expected_response_start
+    assert respondent.time_end == result.time_end
+
+    # Verify suggestion interaction.
+    assert len(respondent.survey_assist_interactions) == 1
+
+    interaction = respondent.survey_assist_interactions[0]
+
+    assert isinstance(interaction, SuggestionInteraction)
+    assert interaction.type == "suggestion"
+    assert interaction.flavour == "sic"
+
+    # Before SAYT, use the current question timestamps.
+    assert interaction.time_start == expected_question_start
+    assert interaction.time_end == result.time_end
+    assert interaction.time_end >= interaction.time_start
+
+    # Verify answers captured up to result submission.
+    assert [(item.field, item.value) for item in interaction.input] == [
+        ("job-title", "Primary school teacher"),
+        (
+            "job-description",
+            "I plan lessons and teach primary school pupils.",
+        ),
+    ]
+
+    # Verify placeholder suggestion values.
+    assert interaction.queries_sent == 0
+    assert interaction.queries == []
+
+    assert interaction.response.listed is False
+    assert interaction.response.code == ""
+    assert interaction.response.description == ""
+    assert interaction.response.suggestions == []
+    assert interaction.response.not_listed_description == ""
 
 
 def test_question_without_submit_result_does_not_send_result(
