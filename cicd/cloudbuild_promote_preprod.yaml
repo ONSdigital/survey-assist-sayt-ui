@@ -1,17 +1,18 @@
 steps:
   - name: gcr.io/$PROJECT_ID/testrunner
+    secretEnv: ['TEST_E2E_PASSWORD']
     args:
       - '-c'
       - |
         set -e
         echo === Looking up config from parameter store ===
-        dev_config=$(gcloud parametermanager parameters versions describe dev --parameter=infra-test-config --location=global --project $PROJECT_ID --format=json | python3 -c "import sys, json; print(json.load(sys.stdin)['payload']['data'])" | base64 --decode)
-        SAYT_UI_IMAGE_DEV=$(echo $dev_config | python3 -c "import sys, json; print(json.load(sys.stdin)['cr-sayt-ui-image'])")
+        dev_config=$(gcloud parametermanager parameters versions describe dev --parameter=infra-test-config --location=global --project $PROJECT_ID --format='value(payload.data)' | base64 --decode)
+        SAYT_UI_IMAGE_DEV=$(echo $dev_config | jq -er '."cr-sayt-ui-image"')
 
-        preprod_config=$(gcloud parametermanager parameters versions describe preprod --parameter=infra-test-config --location=global --project $PROJECT_ID --format=json | python3 -c "import sys, json; print(json.load(sys.stdin)['payload']['data'])" | base64 --decode)
-        SAYT_UI_IMAGE_RELEASES=$(echo $preprod_config | python3 -c "import sys, json; print(json.load(sys.stdin)['cr-sayt-ui-image'])")
-        TARGET_PROJECT_ID=$(echo $preprod_config | python3 -c "import sys, json; print(json.load(sys.stdin)['project-id'])")
-        export PROXY_API_URL=$(echo $preprod_config | python3 -c "import sys, json; print(json.load(sys.stdin)['proxy-api-url'])")
+        preprod_config=$(gcloud parametermanager parameters versions describe preprod --parameter=infra-test-config --location=global --project $PROJECT_ID --format='value(payload.data)' | base64 --decode)
+        SAYT_UI_IMAGE_RELEASES=$(echo $preprod_config | jq -er '."cr-sayt-ui-image"')
+        TARGET_PROJECT_ID=$(echo $preprod_config | jq -er '."project-id"')
+        export PROXY_API_URL=$(echo $preprod_config | jq -er '."proxy-api-url"')
 
         echo === Pulling image dev image with tag $SHORT_SHA ===
         docker pull $$SAYT_UI_IMAGE_DEV:$SHORT_SHA
@@ -26,14 +27,25 @@ steps:
         gcloud run deploy sayt-ui --image=$$SAYT_UI_IMAGE_RELEASES:$TAG_NAME --region $LOCATION --project $$TARGET_PROJECT_ID
 
         echo === Run smoke tests ===
-
         export TARGET_ENVIRONMENT=$_ENV_NAME
         export UI_SA_ID_TOKEN=$(gcloud auth print-identity-token) # Use CICD service account
         export SAYT_UI_URL=$$PROXY_API_URL # set to proxy API
         poetry run pytest -s cicd
+
+        echo === Run E2E tests ===
+        export TEST_E2E_USERNAME=$SERVICE_ACCOUNT_EMAIL
+        # TEST_E2E_PASSWORD is exported by the secret manager
+        export TEST_E2E_BEARER_TOKEN=$(gcloud auth print-identity-token) # Use CICD service account
+        export TEST_E2E_BASE_URL=$$PROXY_API_URL # set to proxy API
+        export CONTAINER_ENGINE=docker
+        make e2e-tests
 
     id: Tag and push release image
     entrypoint: bash
 timeout: 2000s
 options:
   logging: CLOUD_LOGGING_ONLY
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/sayt-ui-e2e-password-${_ENV_NAME}/versions/latest
+      env: TEST_E2E_PASSWORD
