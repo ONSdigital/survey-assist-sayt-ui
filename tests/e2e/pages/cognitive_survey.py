@@ -3,7 +3,7 @@
 from playwright.sync_api import Page, expect
 
 
-class CognitiveSurveyPage:
+class CognitiveSurveyPage:  # pylint: disable=too-many-public-methods
     """Enter answers on survey and feedback pages."""
 
     PATH = "/survey"
